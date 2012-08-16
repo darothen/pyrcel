@@ -1,2 +1,6 @@
 syntax: glob
 .DS_Store
+\.project
+\.pydevproject
+\.settings
+*.pdf
