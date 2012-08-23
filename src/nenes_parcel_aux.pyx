@@ -41,6 +41,29 @@ cdef double Seq(double T, double r, double r_dry, double ns) nogil:
     C = exp(A - B) - 1.0
     return C
 
+### GUESSING FUNCTION
+@cython.boundscheck(False)
+cpdef guesses(double T0, double S0,
+            np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] nss):
+    cdef unsigned int nr = r_drys.shape[0]
+    cdef np.ndarray[double, ndim=1] guesses = np.empty(dtype='d', shape=(nr))
+    
+    cdef np.ndarray[double, ndim=1] r_range, ss 
+    cdef double ri, rdi, ns
+    cdef unsigned int i, j, idx_min
+    for i in xrange(nr):
+        rdi = r_drys[i]
+        r_range = np.arange(rdi+1e-9, 1e-4, 1e-9)
+        ns = nss[i]
+        ss = np.empty(dtype='d', shape=(len(r_range)))
+        for j in prange(r_range.shape[0], nogil=True):
+            ss[j] = Seq(T0, r_range[j], rdi, ns)
+        idx_min = np.argmin(np.abs(ss - S0))
+        guesses[i] = r_range[idx_min]
+        
+    return guesses
+        
+
 ## DERIVATIVE
 def der(double t, np.ndarray[double, ndim=1] y, 
         int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
