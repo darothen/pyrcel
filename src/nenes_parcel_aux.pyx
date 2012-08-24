@@ -53,13 +53,16 @@ cpdef guesses(double T0, double S0,
     cdef unsigned int i, j, idx_min
     for i in xrange(nr):
         rdi = r_drys[i]
-        r_range = np.arange(rdi+1e-9, 1e-4, 1e-9)
-        ns = nss[i]
-        ss = np.empty(dtype='d', shape=(len(r_range)))
-        for j in prange(r_range.shape[0], nogil=True):
-            ss[j] = Seq(T0, r_range[j], rdi, ns)
-        idx_min = np.argmin(np.abs(ss - S0))
-        guesses[i] = r_range[idx_min]
+        if rdi > 1.5e-8:
+            r_range = np.arange(rdi+1e-9, 1e-4, 1e-9)
+            ns = nss[i]
+            ss = np.empty(dtype='d', shape=(len(r_range)))
+            for j in prange(r_range.shape[0], nogil=True):
+                ss[j] = Seq(T0, r_range[j], rdi, ns)
+            idx_min = np.argmin(np.abs(ss - S0))
+            guesses[i] = r_range[idx_min]
+        else:
+            guesses[i] = rdi+1e-10
         
     return guesses
         
@@ -90,7 +93,7 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double rho_air = P/(Rd*Tv)
     
     # 1) dP_dt 
-    cdef double dP_dt = (-g*P*V)/(Rd*T)
+    cdef double dP_dt = (-g*P*V)/(Rd*Tv)
     
     # 2) dr_dt
     cdef double G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
@@ -98,7 +101,7 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double G = 1./(G_a + G_b)
     
     cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr)) 
-    cdef Py_ssize_t i
+    cdef unsigned int i
     cdef double r, r_dry, ns    
 
     for i in prange(nr, nogil=True):
@@ -128,13 +131,21 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     # 6) dS_dt
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
     cdef double S_a, S_b, S_c, dS_dt
-    S_a = P*dwv_dt/(0.622*pv_sat)
-    S_b = 1.+S
-    S_c = 0.622*L*dT_dt/(R*T**2) + g*V/(R*T)
-    dS_dt = S_a - S_b*S_c
+    #S_a = P*dwv_dt/(0.622*pv_sat)
+    #S_b = 1.+S
+    #S_c = 0.622*L*dT_dt/(R*T**2) + g*V/(R*T)
+    #dS_dt = S_a - S_b*S_c
+    S_a = (S+1.0)
+    S_b = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
+    S_c = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
+    dS_dt = (1./wv_sat)*(dwv_dt - S_a*(S_b-S_c))
     
-    cdef list x
-    x = [dP_dt, dT_dt, dwv_dt, dwc_dt, dS_dt]
-    x.extend(drs_dt)
+    cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
+    x[0] = dP_dt
+    x[1] = dT_dt
+    x[2] = dwv_dt
+    x[3] = dwc_dt
+    x[4] = dS_dt
+    x[5:] = drs_dt[:]
     
-    return np.array(x)
+    return x

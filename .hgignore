@@ -4,3 +4,10 @@ syntax: glob
 \.pydevproject
 \.settings
 *.pdf
+*.pyc
+*.csv
+*.html
+*.so
+*.c
+*.h
+build/*
