@@ -9,7 +9,7 @@ from lognorm import Lognorm
 from pylab import *
 ion()
 from scipy.optimize import fsolve, broyden1, broyden2
-from scipy.integrate import ode
+from scipy.integrate import ode, odeint
 
 import nenes_parcel_aux as npa
 from micro import *
@@ -128,7 +128,9 @@ class ParcelModel(object):
         raw_input("Continue run?")
         
         ## Setup integrator
-        if integrator == "vode":
+        '''
+        # VODE
+        ##if integrator == "vode":
             r = ode(npa.der).set_integrator("vode", method="bdf", nsteps=max_steps, order=5)
         else:
             r = ode(npa.der).set_integrator("dop853", nsteps=max_steps)
@@ -144,6 +146,12 @@ class ParcelModel(object):
             out.append(r.y)
             if not r.successful: print "failure"; exit()
         x = np.array(out)
+        '''
+        x, info = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
+                         full_output=1, printmessg=1, ixpr=1,
+                         mxhnil=0)
+        print info
+        
     
         heights = t*self.V
         print len(heights), x.shape
@@ -153,14 +161,14 @@ class ParcelModel(object):
         
         df1 = pandas.DataFrame( {'P':x[:,0], 'T':x[:,1], 'wv':x[:,2],
                                 'wc':x[:,3], 'S':x[:,4]} , index=heights[offset:])
-        df1.to_csv("output_parcel.csv", index_label="height")
+        #df1.to_csv("output_parcel.csv", index_label="height")
         
         labels = ["r%03d" % i for i in xrange(nr)]
         radii_dict = dict()
         for i, label in enumerate(labels):
             radii_dict[label] = x[:,5+i]
         df2 = pandas.DataFrame( radii_dict, index=heights[offset:])
-        df2.to_csv("output_aerosol.csv", index_label="height")
+        #df2.to_csv("output_aerosol.csv", index_label="height")
         
         return df1, df2
 
@@ -174,15 +182,15 @@ if __name__ == "__main__":
     
     ## Aerosol properties
     ## RS SHOULD BE MONOTONICALLY INCREASING!!!!!!
-    mu, sigma, N, bins = 0.1, 2.0, 100., 200
+    mu, sigma, N, bins = 0.01, 2.0, 100., 200
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    rs = np.logspace(-2., 0., num=bins+1)[:]
+    rs = np.logspace(-3.0, -.8, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
-    ##r_drys = np.array([0.01e-6])
+    ##r_drys = np.array([0.1e-6])
     ##Nis = np.array([100.])
     figure(10)
     clf()
@@ -197,7 +205,7 @@ if __name__ == "__main__":
     ## Run model
     
     dt = np.max([V/100., 0.01])
-    dt = 0.005
+    dt = 0.1
     parcel, aerosols = pm.run(P0, T0, S0, z_top=50.0, 
                               dt=dt, max_steps=6000, integrator="vode")
     
@@ -221,7 +229,7 @@ if __name__ == "__main__":
         ns = (rho_p*np.pi*epsilon*(d_s**3.))/(6.*Ms) 
         B = (6.*ns*Mw)/(np.pi*rho_w)
         return np.sqrt(3.*B/A)
-    '''
+    
     Neq = []
     Nkn = []
     Nunact = []
@@ -257,4 +265,4 @@ if __name__ == "__main__":
     
     parcel['alpha'] = alphaz
     parcel['phi'] = phiz
-    '''
+    

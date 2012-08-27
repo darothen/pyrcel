@@ -68,8 +68,9 @@ cpdef guesses(double T0, double S0,
         
 
 ## DERIVATIVE
-def der(double t, np.ndarray[double, ndim=1] y, 
-        int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
+#def der(double t, np.ndarray[double, ndim=1] y, 
+def der(np.ndarray[double, ndim=1] y, double t, 
+       int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
         np.ndarray[double, ndim=1] Nis, double V):
     return _der(t, y, nr, nss, r_drys, Nis, V)
 
@@ -78,7 +79,7 @@ def der(double t, np.ndarray[double, ndim=1] y,
 cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y, 
                                      int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
                                      np.ndarray[double, ndim=1] Nis, double V):
-    #print t
+    #print t, y
     
     cdef double P = y[0]
     cdef double T = y[1]
