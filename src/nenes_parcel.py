@@ -197,9 +197,9 @@ if __name__ == "__main__":
     ## Run model
     
     dt = np.max([V/100., 0.01])
-    dt = 0.01
-    parcel, aerosols = pm.run(P0, T0, S0, z_top=1000.0, 
-                              dt=dt, max_steps=5000, integrator="vode")
+    dt = 0.005
+    parcel, aerosols = pm.run(P0, T0, S0, z_top=50.0, 
+                              dt=dt, max_steps=6000, integrator="vode")
     
     figure(1)
     p = parcel.S.plot(logx=False)
