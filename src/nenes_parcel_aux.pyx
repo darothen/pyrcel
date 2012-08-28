@@ -53,16 +53,16 @@ cpdef guesses(double T0, double S0,
     cdef unsigned int i, j, idx_min
     for i in xrange(nr):
         rdi = r_drys[i]
-        if rdi > 1.5e-8:
-            r_range = np.arange(rdi+1e-9, 1e-4, 1e-9)
-            ns = nss[i]
-            ss = np.empty(dtype='d', shape=(len(r_range)))
-            for j in prange(r_range.shape[0], nogil=True):
-                ss[j] = Seq(T0, r_range[j], rdi, ns)
-            idx_min = np.argmin(np.abs(ss - S0))
-            guesses[i] = r_range[idx_min]
-        else:
-            guesses[i] = rdi+1e-10
+        #if rdi > 1.5e-9:
+        r_range = np.arange(rdi+rdi/1000., rdi*10., rdi/1000.)
+        ns = nss[i]
+        ss = np.empty(dtype='d', shape=(len(r_range)))
+        for j in prange(r_range.shape[0], nogil=True):
+            ss[j] = Seq(T0, r_range[j], rdi, ns)
+        idx_min = np.argmin(np.abs(ss - S0))
+        guesses[i] = r_range[idx_min]
+        #else:
+        #    guesses[i] = rdi+1e-10
         
     return guesses
         

@@ -81,6 +81,7 @@ class ParcelModel(object):
                 print "Found bad r", r, r_dry
                 #r0s[i] = fsolve(f, r_dry+1e-9, args=(r_dry, ns), xtol=1e-10)[0]
             if np.abs(ss-S0)/S0 > 0.02: print "Found S discrepancy", ss, r_dry
+        self.aerosol['r0s'] = r0s
         #print r0s
         
         #while np.any(r0s < 0):
@@ -107,6 +108,7 @@ class ParcelModel(object):
         y0.extend(r0s)
         y0 = np.array(y0)
         out['y0'] = y0
+        self.y0 = y0
         
         return out
         
@@ -148,10 +150,13 @@ class ParcelModel(object):
         x = np.array(out)
         '''
         x, info = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
-                         full_output=1, printmessg=1, ixpr=1,
-                         mxhnil=0)
-        print info
-        
+                         full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
+                         mxhnil=0, atol=1e-15, rtol=1e-12)
+        s = info['message']
+        l = len(s)
+        print "#"*(l+2)
+        print "#"+s+"#"
+        print "#"*(l+2)
     
         heights = t*self.V
         print len(heights), x.shape
@@ -175,25 +180,26 @@ class ParcelModel(object):
 if __name__ == "__main__":
     
     ## Initial conditions
-    P0 = 100000. # Pressure, Pa
-    T0 = 298.15 # Temperature, K
+    P0 = 92500. # Pressure, Pa
+    T0 = 283.15 # Temperature, K
     S0 = -0.02 # Supersaturation. 1-RH from wv term
-    V = 0.1 # m/s
+    V = 1.0 # m/s
     
     ## Aerosol properties
     ## RS SHOULD BE MONOTONICALLY INCREASING!!!!!!
-    mu, sigma, N, bins = 0.01, 2.0, 100., 200
+    mu, sigma, N, bins = 0.1, 2.0, 100., 400
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    rs = np.logspace(-3.0, -.8, num=bins+1)[:]
+    rs = np.logspace(-2.5, 0.5, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
-    ##r_drys = np.array([0.1e-6])
-    ##Nis = np.array([100.])
-    figure(10)
+    #r_drys = np.array([0.01e-6, 0.03e-6, 0.040e-6, 0.3e-6, 1.0e-6, 3.0e-6, 10.e-6])
+    #Nis = np.array([100., 100., 100., 100.,  100., 100., 100.])
+    figure(2, figsize=(12,10))
     clf()
+    subplot(3,2,1)
     bar(rs[:-1], Nis, diff(rs))
     vlines(mids, 0, ylim()[1], color='red', linestyle='dotted')
     semilogx()
@@ -202,58 +208,86 @@ if __name__ == "__main__":
     aerosol = {"r_drys":r_drys, "Nis":Nis}    
     pm = ParcelModel(aerosol, V)
     
-    ## Run model
-    
+    ## Run model    
     dt = np.max([V/100., 0.01])
-    dt = 0.1
-    parcel, aerosols = pm.run(P0, T0, S0, z_top=50.0, 
-                              dt=dt, max_steps=6000, integrator="vode")
+    dt = 0.01
+    parcel, aerosols = pm.run(P0, T0, S0, z_top=100.0, 
+                              dt=dt, max_steps=500, integrator="vode")
+    xs = np.arange(501)
+    parcel, aerosols = parcel.ix[parcel.index % 1 == 0], aerosols.ix[aerosols.index % 1 == 0]    
     
-    figure(1)
+    #figure(1, figsize=(18,8))
+    subplot(3,2,4)
     p = parcel.S.plot(logx=False)
     max_idx = np.argmax(parcel.S)
     max_z = parcel.index[max_idx]
     vlines([max_z], ylim()[0], ylim()[1], color='k', linestyle='dashed')
-    #figure(2)
-    #p2 = aerosols.r000.plot(logx=False)    
+    xlabel("Height"); ylabel("Supersaturation")
     
-    #Smax = parcel.S.max()
-    def s_crit(d_s, T):
-        #A = (0.66/T)*1e-6
-        A = (4.*Mw*sigma_w(T))/(R*T*rho_w)        
-        B = (4.*(A**3.)*rho_w*Ms)/(27.*nu*rho_p*Mw*(d_s**3))
-        return np.exp(B**0.5) - 1.
+    subplot(3,2,2)
+    step = 1 if len(aerosols) < 20000 else 50
+    for r in aerosols[::step]:
+        (aerosols[r]*1e6).plot(logy=True)
+    vlines([max_z], ylim()[0], ylim()[1], color='k', linestyle='dashed')
+    xlabel("Height"); ylabel("Wet Radius, micron")
     
-    def d_crit(d_s, T):
-        A = (4.*Mw*sigma_w(T))/(R*T*rho_w)
+    subplot(3,2,3)
+    plot(parcel['T'], parcel['P']*1e-2)
+    ylim(ylim()[::-1])
+    hlines([parcel.P[max_idx]*1e-2], xlim()[0], xlim()[1], color='k', linestyle='dashed')
+    xlabel("Temperature"); ylabel("Pressure (hPa)")
+    
+        
+    def sd_crits(d_s, T):
+        A = (0.66/T)*1e-6
+        #A = (4.*Mw*sigma_w(T))/(R*T*rho_w)  
         ns = (rho_p*np.pi*epsilon*(d_s**3.))/(6.*Ms) 
         B = (6.*ns*Mw)/(np.pi*rho_w)
-        return np.sqrt(3.*B/A)
-    
+        s_crit = np.exp(np.sqrt(4.*(A**3)/(27.*B))) - 1.0
+        d_crit = np.sqrt(3.*B/A)
+        return s_crit, d_crit
+
     Neq = []
     Nkn = []
     Nunact = []
     S_max = S0
-    print "N analysis"
+    s_crits, d_crits = zip(*[sd_crits(2.*r, T0) for r in r_drys])
+    s_crits = np.array(s_crits)
+    d_drys = 2.*r_drys
+    nss = np.array([(rho_p*np.pi*epsilon*(d_dry**3.))/(6.*Ms) for d_dry in d_drys])
+    r_crits = [npa.guesses(T0, s_crit, np.array([r_dry]), np.array([ns]))[0] for
+               s_crit, r_dry, ns in zip(s_crits, r_drys, nss)]
+    for a, b, s in zip(r_drys, r_crits, s_crits):
+        print a, b, a > b, s
+    
+    raw_input("N analysis...")
     for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
-        print parcel.index[i]
+        print parcel.index[i],
+        #s_crits, d_crits = zip(*[sd_crits(2.*r, T) for r in r_drys])
+        #s_crits = np.array(s_crits)
+        #r_crits = [npa.guesses(T, s_crit, np.array([r_dry]), np.array([ns]))[0] for
+        #       s_crit, r_dry, ns in zip(s_crits, r_drys, nss)]
         if S > S_max: S_max = S
-        Neq_step = 0.
-        s_crits = [s_crit(2.*r, T) for r in r_drys]
-        for sc, Ni in zip(s_crits, Nis):
-            if S_max > sc: Neq_step += Ni
-        Neq.append(Neq_step)
-        
-        Nkn_step = 0.
-        r_crits = [d_crit(2.*r, T) for r in r_drys]
-        rs = np.array(aerosols.ix[i])
-        min_found = False
-        for j, (r, rc) in enumerate(zip(rs, r_crits)):
-            if r > rc: min_found = True
-            if min_found: Nkn_step += Nis[j]
-        Nkn.append(Nkn_step)
-        Nunact.append(Ntot - Nkn_step)    
+
+        big_s =  S_max >= s_crits
+        Neq.append(np.sum(Nis[big_s]))
+
+        rstep = np.array(aerosols.ix[i])
+        active_radii = (S > s_crits) & (rstep > r_crits)
+        #sar = np.min(active_radii) if len(active_radii) > 0 else 1e99
+        if len(active_radii) > 0:
+            Nkn.append(np.sum(Nis[active_radii]))
+        else:
+            Nkn.append(0.0)           
             
+        unactivated = Nis[rstep < r_crits]
+        if len(unactivated) > 0:
+            Nunact.append(np.sum(unactivated))
+        else:
+            Nunact.append(0.0)
+        
+        print Neq[i], Nkn[i], Nunact[i], S_max
+
     parcel['Neq'] = Neq
     parcel['Nkn'] = Nkn
     parcel['Nunact'] = Nunact
@@ -265,4 +299,14 @@ if __name__ == "__main__":
     
     parcel['alpha'] = alphaz
     parcel['phi'] = phiz
+    
+    ax = subplot(3,2,5)
+    parcel[['Neq', 'Nkn']].plot(ax=ax, grid=True)
+    xlabel("Height")
+    
+    subplot(3,2,6)
+    parcel.alpha.plot()
+    parcel.phi.plot()
+    xlabel("Height"); ylabel(r'$\alpha(z),\quad\phi(z)$')
+    
     
