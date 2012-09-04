@@ -20,11 +20,11 @@ ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air,
 ## Aerosol Constants
 # Ammonium Sulfate
 Ms = 0.13214 # Molecular weight, kg/mol
-rho_s = 2.16*1e-3*1e6
-rho_u = 2.17*1e-3*1e6
-epsilon = 0.1 # mass fraction of soluble material in the dry particle
+rho_s = 1.769*1e-3*1e6
+rho_u = 1.769*1e-3*1e6
+epsilon = 0.5 # mass fraction of soluble material in the dry particle
 rho_p = rho_u/(1.-epsilon*(1.-(rho_u/rho_s))) # total wet particle density
-nu = 2.0 # number of ions into which a solute dissolves
+nu = 3.0 # number of ions into which a solute dissolves
 
 
 

@@ -181,17 +181,17 @@ if __name__ == "__main__":
     
     ## Initial conditions
     P0 = 92500. # Pressure, Pa
-    T0 = 283.15 # Temperature, K
+    T0 = 273.15 # Temperature, K
     S0 = -0.02 # Supersaturation. 1-RH from wv term
     V = 1.0 # m/s
     
     ## Aerosol properties
     ## RS SHOULD BE MONOTONICALLY INCREASING!!!!!!
-    mu, sigma, N, bins = 0.1, 2.0, 100., 400
+    mu, sigma, N, bins = 0.01, 2.0, 1000., 100
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    rs = np.logspace(-2.5, 0.5, num=bins+1)[:]
+    rs = np.logspace(-3.5, -0.5, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
