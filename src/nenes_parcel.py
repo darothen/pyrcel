@@ -5,11 +5,11 @@ Cloud Parcel Model based on Nenes et al, 2001
 import sys
 import numpy as np
 import pandas
-from lognorm import Lognorm
+from lognorm import Lognorm, MultiModeLognorm
 from pylab import *
 ion()
-from scipy.optimize import fsolve, broyden1, broyden2
-from scipy.integrate import ode, odeint
+from scipy.optimize import fsolve
+from scipy.integrate import odeint
 
 import nenes_parcel_aux as npa
 from micro import *

@@ -44,6 +44,29 @@ def fit_distributions(N_total, M_total, sigma, rho=1.0):
     
     return number_distribution, mass_distribution
 
+class MultiModeLognorm:
+    """Multimode lognormal distribution class.
+    
+    Container for multiple Lognorm classes representing a full aerosol size
+    distribution.    
+    """
+    
+    def __init__(self, mus, sigmas, Ns):
+        self.mus = np.array(mus)
+        self.sigmas = np.array(sigmas)
+        self.Ns = np.array(Ns)
+        
+        self.lognorms = []
+        for mu, sigma, N in zip(self.mus, self.sigmas, self.Ns):
+            mode_dist = Lognorm(mu, sigma, N)
+            self.lognorms.append(mode_dist)
+            
+    def cdf(self, x):
+        return np.sum([d.cdf(x) for d in self.lognorms])
+
+    def pdf(self, x):
+        return np.sum([d.pdf(x) for d in self.lognorms])
+
 class Lognorm(object):
     """Lognormal distribution class.
     
@@ -102,9 +125,7 @@ class Lognorm(object):
         stats_dict = dict()
         stats_dict['mean'] = self.mu*np.exp(0.5*self.sigma**2)
         
-        
         return stats_dict
-        
 
     def __repr__(self):
         return "Lognorm| mu = %2.2e, sigma = %2.2e, Total = %2.2e |" % (self.mu, self.sigma, self.N)
