@@ -168,7 +168,6 @@ if __name__ == "__main__":
     xs = np.arange(501)
     parcel, aerosols = parcel.ix[parcel.index % 1 == 0], aerosols.ix[aerosols.index % 1 == 0]    
     
-    #figure(1, figsize=(18,8))
     subplot(3,2,4)
     p = parcel.S.plot(logx=False)
     max_idx = np.argmax(parcel.S)
