@@ -45,6 +45,12 @@ cdef double Seq(double T, double r, double r_dry, double ns) nogil:
 @cython.boundscheck(False)
 cpdef guesses(double T0, double S0,
             np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] nss):
+    '''
+    Given a parcel's temperature and supersaturation as well as a size distribution
+    of aerosols and their dissolved solute mass, computes seed guesses for determining
+    the equilibrium wet radii of the inactivated aerosols or, when possible, the exact
+    equilibrium solution
+    '''
     cdef unsigned int nr = r_drys.shape[0]
     cdef np.ndarray[double, ndim=1] guesses = np.empty(dtype='d', shape=(nr))
     
@@ -53,7 +59,6 @@ cpdef guesses(double T0, double S0,
     cdef unsigned int i, j, idx_min
     for i in xrange(nr):
         rdi = r_drys[i]
-        #if rdi > 1.5e-9:
         r_range = np.arange(rdi+rdi/1000., rdi*10., rdi/1000.)
         ns = nss[i]
         ss = np.empty(dtype='d', shape=(len(r_range)))
@@ -61,14 +66,10 @@ cpdef guesses(double T0, double S0,
             ss[j] = Seq(T0, r_range[j], rdi, ns)
         idx_min = np.argmin(np.abs(ss - S0))
         guesses[i] = r_range[idx_min]
-        #else:
-        #    guesses[i] = rdi+1e-10
         
     return guesses
         
-
 ## DERIVATIVE
-#def der(double t, np.ndarray[double, ndim=1] y, 
 def der(np.ndarray[double, ndim=1] y, double t, 
        int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
         np.ndarray[double, ndim=1] Nis, double V):
@@ -79,8 +80,7 @@ def der(np.ndarray[double, ndim=1] y, double t,
 cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y, 
                                      int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
                                      np.ndarray[double, ndim=1] Nis, double V):
-    #print t, y
-    
+                                     
     cdef double P = y[0]
     cdef double T = y[1]
     cdef double wv = y[2]
@@ -132,10 +132,6 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     # 6) dS_dt
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
     cdef double S_a, S_b, S_c, dS_dt
-    #S_a = P*dwv_dt/(0.622*pv_sat)
-    #S_b = 1.+S
-    #S_c = 0.622*L*dT_dt/(R*T**2) + g*V/(R*T)
-    #dS_dt = S_a - S_b*S_c
     S_a = (S+1.0)
     S_b = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
     S_c = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)

@@ -27,7 +27,6 @@ rho_p = rho_u/(1.-epsilon*(1.-(rho_u/rho_s))) # total wet particle density
 nu = 3.0 # number of ions into which a solute dissolves
 
 
-
 ## AUXILIARY FUNCTIONS
 def es(T):
     """Returns saturation vapor pressure (Pascal) at temperature T (Celsius)

@@ -10,40 +10,6 @@ __docformat__ = "restructuredtext"
 import numpy as np
 from scipy.special import erf
 
-def fit_distributions(N_total, M_total, sigma, rho=1.0):
-    """
-    DEPRECATED
-    
-    Fits number and mass distributions given the total mass and number concetration and
-    shape parameter.
-    
-    Need to ensure that N_total and M_total are both concentrations in the same unit volume!
-    To do this, assume that rho is provided in g/cm^3. there are 1e6 micograms/micrometer^3,
-    so in the computation given here, rho will be divided by 1e6 to get the proper units.
-    Need this in micrometers because we want to report the final answer for diameter in 
-    micrometers.
-    
-    :param N_total:
-        The total particle number concentration, in particles/cm^3
-    :param M_total:
-        The total particle mass concentration, in micrograms/cm^3
-    :param sigma:
-        An assumed shape parameter for the distributions being fit.
-    :param rho:
-        The density of an individual particle, in g/cm^3. Default supplied is 1.0 (liq. water)
-    
-    :returns:
-        A 2-tuple containing the number and mass distributions.
-    
-    """
-    count_median_diameter = ((6.0*M_total)/(np.pi*N_total*(rho/1e6)))**(1./3.)*np.exp((- 3./2.)*sigma**2.)
-    mass_median_diameter = count_median_diameter*np.exp(3.0*np.log(sigma)**2.)
-
-    number_distribution = Lognorm(count_median_diameter, sigma, N_total)
-    mass_distribution = Lognorm(mass_median_diameter, sigma, M_total)
-    
-    return number_distribution, mass_distribution
-
 class MultiModeLognorm:
     """Multimode lognormal distribution class.
     
