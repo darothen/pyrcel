@@ -138,7 +138,6 @@ if __name__ == "__main__":
     V = 0.5 # m/s
     
     ## Aerosol properties
-    ## RS SHOULD BE MONOTONICALLY INCREASING!!!!!!
     mu, sigma, N, bins = 0.14, 1.7, 1000., 20
     l = 0
     r = bins
