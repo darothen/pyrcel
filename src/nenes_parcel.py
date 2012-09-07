@@ -1,9 +1,8 @@
-'''
-Cloud Parcel Model based on Nenes et al, 2001
-'''
+"""Cloud Parcel Model based on Nenes et al, 2001; implemented by 
+Daniel Rothenberg (darothen@mit.edu) as part of research undertaken for the
+General examination in the Program in Atmospheres, Oceans, and Climate"""
 
-import sys
-import numpy as np
+__docformat__ = 'reStructuredText'
 import pandas
 from lognorm import Lognorm, MultiModeLognorm
 from pylab import *
@@ -12,18 +11,78 @@ from scipy.optimize import fsolve
 from scipy.integrate import odeint
 
 import nenes_parcel_aux as npa
-from micro import *
+from micro import Seq, es, rho_w
+
+    ## AEROSOL 1 - (NH4)2SO4
+    # Chemistry
+    ammonium_sulfate = { 'Ms': 0.13214, # Molecular weight, kg/mol
+                         'rho_s': 1.769*1e-3*1e6,
+                         'rho_u': 1.769*1e-3*1e6,
+                         'nu': 3.0, # number of ions into which a solute dissolve
+                         'epsilon': 0.5 # mass fraction of soluble material in the dry particle
+                       }
+    #ammonium_sulfate['rho_p'] = ammonium_sulfate['rho_u']/(1.-ammonium_sulfate['epsilon']*(1.-(ammonium_sulfate['rho_u']/ammonium_sulfate['rho_s']))) # total wet particle density
+    ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
+
+    # Size Distribution
+    mu, sigma, N, bins = 0.14, 1.7, 300., 50
+    l = 0
+    r = bins
+    aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
+    rs = np.logspace(-1.8, 0.0, num=bins+1)[:]
+    mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
+    Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
+    r_drys = mids*1e-6
+    
+    ammonium_sulfate['r_drys'] = r_drys
+    ammonium_sulfate['rs'] = rs
+    ammonium_sulfate['Nis'] = Nis*1e6
+    ammonium_sulfate['species'] = '(NH4)2SO4'
+    ammonium_sulfate['nr'] = len(r_drys)
+
+class AerosolSpecies(object):
+    """This class organizes metadata about an aerosol species"""
+    
+    def __init__(self, species, Ms, rho_s, rho_u, nu, epsilon, r_drys, Nis, rs, **kwargs):
+        self.species = species
+        self.Ms = Ms
+        
+        self.rho_s = rho_s
+        self.rho_u = rho_u
+        self.rho_p = rho_u/(1.-epsilon*(1.-(rho_u/rho_s)))
+        
+        self.nu = nu
+        self.epsilon = epsilon
+        
+        self.r_drys = r_drys
+        self.Nis = Nis
+        self.rs = rs
+        
+    pass
+
+class AerosolPopulation(object):
+    pass
 
 class ParcelModel(object):
+    """This class wraps logic for initializing and running the Nenes et al, 2001
+    cloud parcel model
+    
+    The model here is implemented in order to give an object-oriented approach to
+    running the model. Instead of hard-coding aerosol size distributions and parcel
+    initial conditions, the user can independently setup these parameters and pass
+    them to the model to calculate everything necessary for running the model.
+    
+    :ivar aerosols: 
+    :ivar V: Parcel updraft velocity (m/s)
+    :ivar T0: Parcel initial temperature (K)
+    :ivar S0: Parcel initial supersaturation, relative to 100% RH 
+    :ivar P0: Parcel initial pressure (Pa)        
+    """
     
     def __init__(self, aerosols, V, T0, S0, P0):
         """
         Initialize the model with information about updraft speed and the aerosol
-        distribution. To keep things as general as possible, the aerosol distribution
-        should be a dictionary with two keys - "r_drys" and "Nis", which are the 
-        aerosol dry radii (meters) and number concentartions (per m**3) given as
-        lists/arrays with the dry radii and concentrations divided into discrete
-        bins.
+        distribution. 
         """
         self.aerosols = aerosols
         self.V = V
@@ -71,7 +130,7 @@ class ParcelModel(object):
         
         # b) find equilibrium wet particle radius
         print "calculating seeds for equilibrium solver..."
-        r_guesses = npa.guesses(T0, S0, r_drys, nss)
+        r_guesses = npa.guesses(T0, S0, r_drys, nss) #@UndefinedVariable
         print " done"
                 
         f = lambda r, r_dry, ns: (Seq(T0, r, r_dry, ns) - S0)

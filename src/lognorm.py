@@ -1,11 +1,6 @@
-#!/usr/bin/env python 
-#
-# Daniel Rothenberg, 2012-8-17
+"""Class and utilities for manipulating lognormal distributions."""
 
-"""
-Class and utilities for manipulating lognormal distributions.
-"""
-__docformat__ = "restructuredtext"
+__docformat__ = "reStructuredText"
 
 import numpy as np
 from scipy.special import erf
