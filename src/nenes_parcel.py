@@ -5,63 +5,40 @@ General examination in the Program in Atmospheres, Oceans, and Climate"""
 __docformat__ = 'reStructuredText'
 import pandas
 from lognorm import Lognorm, MultiModeLognorm
+
 from pylab import *
 ion()
+
 from scipy.optimize import fsolve
 from scipy.integrate import odeint
 
 import nenes_parcel_aux as npa
-from micro import Seq, es, rho_w
-
-    ## AEROSOL 1 - (NH4)2SO4
-    # Chemistry
-    ammonium_sulfate = { 'Ms': 0.13214, # Molecular weight, kg/mol
-                         'rho_s': 1.769*1e-3*1e6,
-                         'rho_u': 1.769*1e-3*1e6,
-                         'nu': 3.0, # number of ions into which a solute dissolve
-                         'epsilon': 0.5 # mass fraction of soluble material in the dry particle
-                       }
-    #ammonium_sulfate['rho_p'] = ammonium_sulfate['rho_u']/(1.-ammonium_sulfate['epsilon']*(1.-(ammonium_sulfate['rho_u']/ammonium_sulfate['rho_s']))) # total wet particle density
-    ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
-
-    # Size Distribution
-    mu, sigma, N, bins = 0.14, 1.7, 300., 50
-    l = 0
-    r = bins
-    aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    rs = np.logspace(-1.8, 0.0, num=bins+1)[:]
-    mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
-    Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
-    r_drys = mids*1e-6
-    
-    ammonium_sulfate['r_drys'] = r_drys
-    ammonium_sulfate['rs'] = rs
-    ammonium_sulfate['Nis'] = Nis*1e6
-    ammonium_sulfate['species'] = '(NH4)2SO4'
-    ammonium_sulfate['nr'] = len(r_drys)
+from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit
 
 class AerosolSpecies(object):
     """This class organizes metadata about an aerosol species"""
     
-    def __init__(self, species, Ms, rho_s, rho_u, nu, epsilon, r_drys, Nis, rs, **kwargs):
-        self.species = species
-        self.Ms = Ms
+    def __init__(self, **values):
+        self.species = values['species'] # Species molecular formula
+        self.Ms = values['Ms'] # Molecular weight, kg/mol
+        self.epsilon = values['epsilon'] # mass fraction of soluble material
+        self.nu = values['nu'] # number of ions into which a solute dissolves
         
-        self.rho_s = rho_s
-        self.rho_u = rho_u
-        self.rho_p = rho_u/(1.-epsilon*(1.-(rho_u/rho_s)))
+        if not "rho_p" in values:
+            self.rho_s = values['rho_s']
+            self.rho_u = values['rho_u']
+            self.rho_p = self.rho_u/(1.-self.epsilon*(1.-(self.rho_u/self.rho_s)))
+        else:
+            self.rho_p = values['rho_p']
         
-        self.nu = nu
-        self.epsilon = epsilon
+        self.distribution = values['distribution']
+        self.r_drys = values['r_drys']
+        self.Nis = values['Nis']
+        self.nr = len(self.r_drys)
+        self.rs = values['rs']
         
-        self.r_drys = r_drys
-        self.Nis = Nis
-        self.rs = rs
-        
-    pass
-
-class AerosolPopulation(object):
-    pass
+    def __repr__(self):
+        return "%s - %r" % (self.species, self.distribution)
 
 class ParcelModel(object):
     """This class wraps logic for initializing and running the Nenes et al, 2001
@@ -79,7 +56,7 @@ class ParcelModel(object):
     :ivar P0: Parcel initial pressure (Pa)        
     """
     
-    def __init__(self, aerosols, V, T0, S0, P0):
+    def __init__(self, aerosols, V, T0, S0, P0, console=False):
         """
         Initialize the model with information about updraft speed and the aerosol
         distribution. 
@@ -89,6 +66,8 @@ class ParcelModel(object):
         self.T0 = T0
         self.S0 = S0
         self.P0 = P0
+        
+        self.console = console
         
     def _setup_run(self, P0, T0, S0, make_plot=False):
         """
@@ -103,11 +82,11 @@ class ParcelModel(object):
         nss_chunks, species = [], []
         r_drys, Nis = [], []
         for aerosol in self.aerosols:
-            rho_p, epsilon, Ms = aerosol['rho_p'], aerosol['epsilon'], aerosol['Ms']
-            r_drys.extend(aerosol['r_drys'])
-            Nis.extend(aerosol['Nis'])
-            d_drys = 2.*aerosol['r_drys']
-            species.extend([aerosol['species']]*len(d_drys))
+            rho_p, epsilon, Ms = aerosol.rho_p, aerosol.epsilon, aerosol.Ms
+            r_drys.extend(aerosol.r_drys)
+            Nis.extend(aerosol.Nis)
+            d_drys = 2.*aerosol.r_drys
+            species.extend([aerosol.species]*len(d_drys))
             nss_chunks.extend([(rho_p*np.pi*epsilon*(d_dry**3.))/(6.*Ms) for d_dry in d_drys])
         
         nss = np.array(nss_chunks)
@@ -118,28 +97,35 @@ class ParcelModel(object):
         out['r_drys'] = r_drys
         out['Nis'] = Nis
         
-        print "AEROSOL DISTRIBUTION"
-        print "%8s %6s" % ("r", "N")
-        for sp, r, N in zip(species, r_drys, Nis):
-            print "%10s %2.2e %4.1f" % (sp, r, N)
-        print "\n"+"-"*44
+        if self.console:
+            print "AEROSOL DISTRIBUTION"
+            print "%8s %6s" % ("r", "N")
+            for sp, r, N in zip(species, r_drys, Nis):
+                print "%10s %2.2e %4.1f" % (sp, r, N)
+            print "\n"+"-"*44
             
         ## 2) Setup parcel initial conditions
         # a) water vapor
         wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
         
         # b) find equilibrium wet particle radius
-        print "calculating seeds for equilibrium solver..."
-        r_guesses = npa.guesses(T0, S0, r_drys, nss) #@UndefinedVariable
-        print " done"
+        if self.console:
+            print "calculating seeds for equilibrium solver..."
+            r_guesses = npa.guesses(T0, S0, r_drys, nss) #@UndefinedVariable
+            print " done"
+        else:
+            r_guesses = npa.guesses(T0, S0, r_drys, nss) #@UndefinedVariable
                 
-        f = lambda r, r_dry, ns: (Seq(T0, r, r_dry, ns) - S0)
-        r0s = np.array([fsolve(f, guess, args=(r, ns), xtol=1e-10)[0] for guess, r, ns in zip(r_guesses, r_drys, nss)])
-        print "equilib r test: ", r0s[0], Seq(T0, r0s[0], r_drys[0], nss[0]) ,"\n"
-        for (r, r_dry, ns) in zip(r0s, r_drys, nss):
-            ss = Seq(T0, r, r_dry, ns)
-            if r < 0 or r > 1e-3: print "Found bad r", r, r_dry
-            if np.abs(ss-S0)/S0 > 0.02: print "Found S discrepancy", ss, r_dry
+        f = lambda r, r_dry: (Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms) - S0)
+        r0s = np.array([fsolve(f, guess, args=(rd, ), xtol=1e-10)[0] for guess, rd in zip(r_guesses, r_drys)])
+        if self.console: 
+            #print "equilib r test: ", r0s[0], Seq(T0, r0s[0], r_drys[0], nss[0]) ,"\n"
+            for (r, r_dry) in zip(r0s, r_drys,):
+                ss = Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms)
+                rc, sc = kohler_crit(T0, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms)
+                print r, r_dry, ss, rc, sc
+                if r < 0 or r > 1e-3: print "Found bad r", r, r_dry
+                if np.abs(ss-S0)/S0 > 0.02: print "Found S discrepancy", ss, r_dry
         out['r0s'] = r0s
 
         # c) compute equilibrium droplet water content
@@ -147,9 +133,10 @@ class ParcelModel(object):
         
         # d) concat into initial conditions arrays
         y0 = [P0, T0, wv0, wc0, S0]
-        print "PARCEL INITIAL CONDITIONS"
-        print "    {:>8} {:>8} {:>8} {:>8} {:>8}".format("P (hPa)", "T (K)", "wv", "wc", "S")
-        print "      %4.1f   %3.2f  %3.1e   %3.1e   %01.2f" % (P0/100., T0, wv0, wc0, S0)
+        if self.console:
+            print "PARCEL INITIAL CONDITIONS"
+            print "    {:>8} {:>8} {:>8} {:>8} {:>8}".format("P (hPa)", "T (K)", "wv", "wc", "S")
+            print "      %4.1f   %3.2f  %3.1e   %3.1e   %01.2f" % (P0/100., T0, wv0, wc0, S0)
         y0.extend(r0s)
         y0 = np.array(y0)
         out['y0'] = y0
@@ -168,16 +155,24 @@ class ParcelModel(object):
         
         ## Setup run time conditions        
         t0 = 0.
-        t_end = z_top/self.V
+        if self.V:
+            t_end = z_top/self.V
+        else:
+            t_end = dt*1000
         t = np.arange(t0, t_end+dt, dt)
-        print "\n"+"n_steps = %d" % (len(t))+"\n"
-        
-        raw_input("Continue run?")
+        if self.console:
+            print "\n"+"n_steps = %d" % (len(t))+"\n"
+            raw_input("Continue run?")
         
         ## Setup integrator
-        x, info = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
-                         full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
-                         mxhnil=0, atol=1e-15, rtol=1e-12)
+        if self.console:
+            x, info = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
+                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
+        else:
+            x = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
+                             mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
         #s = info['message']
         #l = len(s)
         #print "#"*(l+2)
@@ -185,7 +180,7 @@ class ParcelModel(object):
         #print "#"*(l+2)
     
         heights = t*self.V
-        print len(heights), x.shape
+        #print len(heights), x.shape
         offset = 0
         if len(heights) > x.shape[0]:
             offset = 1
@@ -196,8 +191,8 @@ class ParcelModel(object):
         aerosol_dfs = {}
         species_shift = 0 # increment by nr to select the next aerosol's radii
         for aerosol in self.aerosols:
-            nr = aerosol['nr']
-            species = aerosol['species']
+            nr = aerosol.nr
+            species = aerosol.species
             
             labels = ["r%03d" % i for i in xrange(nr)]
             radii_dict = dict()
@@ -213,33 +208,37 @@ class ParcelModel(object):
 if __name__ == "__main__":
     
     ## Initial conditions
-    P0 = 92500. # Pressure, Pa
-    T0 = 273.15 # Temperature, K
+    P0 = 100000. # Pressure, Pa
+    T0 = 294. # Temperature, K
     S0 = -0.05 # Supersaturation. 1-RH from wv term
-    V = 0.5 # m/s
+    V = 10.0 # m/s
     
     ## Aerosol properties
     ## AEROSOL 1 - (NH4)2SO4
     # Chemistry
     ammonium_sulfate = { 'Ms': 0.13214, # Molecular weight, kg/mol
                          'rho_s': 1.769*1e-3*1e6,
-                         'rho_u': 1.769*1e-3*1e6,
+                         'rho_u': 1.700*1e-3*1e6,
                          'nu': 3.0, # number of ions into which a solute dissolve
-                         'epsilon': 0.5 # mass fraction of soluble material in the dry particle
+                         'epsilon': 0.8 # mass fraction of soluble material in the dry particle
                        }
     #ammonium_sulfate['rho_p'] = ammonium_sulfate['rho_u']/(1.-ammonium_sulfate['epsilon']*(1.-(ammonium_sulfate['rho_u']/ammonium_sulfate['rho_s']))) # total wet particle density
-    ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
+    #ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
 
     # Size Distribution
-    mu, sigma, N, bins = 0.14, 1.7, 300., 50
+    mu, sigma, N, bins = 0.05, 2.0, 10000., 50
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    rs = np.logspace(-1.8, 0.0, num=bins+1)[:]
+    #rs = np.logspace(-2.5, 1.5, num=bins+1)[:]
+    lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
+    #lr, rr = np.log10(1e-3), np.log10(5.0)
+    rs = np.logspace(lr, rr, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
     
+    ammonium_sulfate['distribution'] = aerosol_dist
     ammonium_sulfate['r_drys'] = r_drys
     ammonium_sulfate['rs'] = rs
     ammonium_sulfate['Nis'] = Nis*1e6
@@ -258,15 +257,24 @@ if __name__ == "__main__":
     NaCl['rho_p'] = 2.16*1e-3*1e6
 
     # Size Distribution
-    mu, sigma, N, bins = 0.01, 1.1, 100., 50
+    '''
+    mu, sigma, N, bins = 0.1, 2., 10., 11
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    rs = np.logspace(-2.5, -1.6, num=bins+1)[:]
+    #rs = np.logspace(-2.5, -1.6, num=bins+1)[:]
+    lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
+    rs = np.logspace(lr, rr, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
+    '''
+    r_drys = np.array([10.5*1e-6, ])
+    rs = np.array([r_drys[0]*0.9, r_drys[0]*1.1])*1e6
+    Nis = np.array([10, ])
     
+    
+    NaCl['distribution'] = aerosol_dist
     NaCl['r_drys'] = r_drys
     NaCl['rs'] = rs
     NaCl['Nis'] = Nis*1e6
@@ -275,26 +283,33 @@ if __name__ == "__main__":
     
     ######
     
-    initial_aerosols = [ammonium_sulfate, NaCl]
-    #initial_aerosols = [ammonium_sulfate]
+    #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
+    #initial_aerosols = [AerosolSpecies(**NaCl)]
+    initial_aerosols = [AerosolSpecies(**ammonium_sulfate)]
+    print initial_aerosols
+    
+    for aerosol in initial_aerosols: print np.sum(aerosol.Nis) *1e-6
     
     figure(2, figsize=(12,10))
-    clf()
+    #clf()
     subplot(3,2,1)
     colors = 'bgrcmyk'
     for i, aerosol in enumerate(initial_aerosols):
-        rs, Nis = aerosol['rs'], aerosol['Nis']
-        bar(rs[:-1], Nis, diff(rs), color=colors[i], alpha=0.5)
+        rs, Nis = aerosol.rs, aerosol.Nis
+        bar(rs[:-1], Nis/np.diff(rs)*1e-6, diff(rs), color=colors[i], alpha=0.5)
+        #semilogy()
     #vlines(mids, 0, ylim()[1], color='red', linestyle='dotted')
     semilogx()
         
-    pm = ParcelModel(initial_aerosols, V, T0, S0, P0)
+        
+    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=True)
     
     ## Run model    
     dt = np.max([V/100., 0.01])
-    dt = 0.01
-    parcel, aerosols = pm.run(P0, T0, S0, z_top=100.0, 
+    dt = 0.05
+    parcel, aerosols = pm.run(P0, T0, S0, z_top=200.0, 
                               dt=dt, max_steps=500)
+    
     xs = np.arange(501)
     parcel = parcel.ix[parcel.index % 1 == 0]
     aero_subset = {}
@@ -303,6 +318,7 @@ if __name__ == "__main__":
         subset = aerosol.ix[aerosol.index % 1 == 0]
         aero_subset[key] = subset
     aerosols = pandas.Panel(aero_subset)
+    
     
     subplot(3,2,4)
     p = parcel.S.plot(logx=False)
@@ -341,67 +357,87 @@ if __name__ == "__main__":
     
         subplot(2, n_species, n+1 + n_species)
         initial_aerosol = initial_aerosols[n]
-        rs, Nis = initial_aerosol['rs'], initial_aerosol['Nis']
+        rs, Nis = initial_aerosol.rs, initial_aerosol.Nis
         bar(rs[:-1], Nis, diff(rs), color=colors[n], alpha=0.2)
         
-        rs, Nis = aerosol.ix[-1]*1e6, initial_aerosol['Nis']
+        rs, Nis = aerosol.ix[-1]*1e6, initial_aerosol.Nis
         plot(rs, Nis, color='k', alpha=0.5)
         semilogx(); #semilogy()
         
-        rs, Nis = aerosol.ix[0]*1e6, initial_aerosol['Nis']
+        rs, Nis = aerosol.ix[1]*1e6, initial_aerosol.Nis
         plot(rs, Nis, color='r', alpha=0.5)
         
+        #rs, Nis = pm.y0[-initial_aerosol.nr:]*1e6, initial_aerosol.Nis
+        #plot(rs, Nis, color='b', alpha=0.5)
+        
     
-'''        
-    def sd_crits(d_s, T):
-        A = (0.66/T)*1e-6
-        #A = (4.*Mw*sigma_w(T))/(R*T*rho_w)  
-        ns = (rho_p*np.pi*epsilon*(d_s**3.))/(6.*Ms) 
+    def sd_crits(d_s, T, aerosol):
+        #A = (0.66/T)*1e-6
+        A = (4.*Mw*sigma_w(T))/(R*T*rho_w)  
+        ns = (aerosol.rho_p*np.pi*aerosol.epsilon*(d_s**3.))/(6.*aerosol.Ms) 
         B = (6.*ns*Mw)/(np.pi*rho_w)
         s_crit = np.exp(np.sqrt(4.*(A**3)/(27.*B))) - 1.0
         d_crit = np.sqrt(3.*B/A)
         return s_crit, d_crit
 
+
     Neq = []
     Nkn = []
-    Nunact = []
+    Nunact = []    
     S_max = S0
-    s_crits, d_crits = zip(*[sd_crits(2.*r, T0) for r in r_drys])
+    aerosol = initial_aerosols[0]
+    '''
+    s_crits, d_crits = zip(*[sd_crits(2.*r, T0, aerosol) for r in aerosol.r_drys])
     s_crits = np.array(s_crits)
-    d_drys = 2.*r_drys
-    nss = np.array([(rho_p*np.pi*epsilon*(d_dry**3.))/(6.*Ms) for d_dry in d_drys])
-    r_crits = [npa.guesses(T0, s_crit, np.array([r_dry]), np.array([ns]))[0] for
-               s_crit, r_dry, ns in zip(s_crits, r_drys, nss)]
+    d_drys = 2.*aerosol.r_drys
+    nss = np.array([(aerosol.rho_p*np.pi*aerosol.epsilon*(d_dry**3.))/(6.*aerosol.Ms) for d_dry in d_drys])
+    #r_crits = [npa.guesses(T0, s_crit, np.array([r_dry]), np.array([ns]))[0] for
+    #           s_crit, r_dry, ns in zip(s_crits, aerosol.r_drys, nss)]
+    r_crits = np.array(d_crits)/2.
     for a, b, s in zip(r_drys, r_crits, s_crits):
         print a, b, a > b, s
-    
+    '''
+
     raw_input("N analysis...")
+    aerosols = aerosols[aerosol.species]
     for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
+        '''
         print parcel.index[i],
-        #s_crits, d_crits = zip(*[sd_crits(2.*r, T) for r in r_drys])
-        #s_crits = np.array(s_crits)
-        #r_crits = [npa.guesses(T, s_crit, np.array([r_dry]), np.array([ns]))[0] for
-        #       s_crit, r_dry, ns in zip(s_crits, r_drys, nss)]
+        s_crits, d_crits = zip(*[sd_crits(2.*r, T, aerosol) for r in aerosol.r_drys])
+        s_crits = np.array(s_crits)
+        r_crits = [npa.guesses(T, s_crit, np.array([r_dry]), np.array([ns]))[0] for
+               s_crit, r_dry, ns in zip(s_crits, aerosol.r_drys, nss)]
+        '''
+        r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms) for r_dry in aerosol.r_drys])
+        s_crits = np.array(s_crits)
+        r_crits = np.array(r_crits)
         if S > S_max: S_max = S
 
         big_s =  S_max >= s_crits
         Neq.append(np.sum(Nis[big_s]))
 
         rstep = np.array(aerosols.ix[i])
-        active_radii = (S > s_crits) & (rstep > r_crits)
+        #active_radii = (S > s_crits) & (rstep > r_crits)
+        active_radii = (rstep > r_crits)
         #sar = np.min(active_radii) if len(active_radii) > 0 else 1e99
         if len(active_radii) > 0:
             Nkn.append(np.sum(Nis[active_radii]))
+            Nunact.append(np.sum(Nis[(rstep < r_crits)]))
         else:
             Nkn.append(0.0)           
-            
+            Nunact.append(np.sum(Nis))
+        
+        '''    
         unactivated = Nis[rstep < r_crits]
+        #unactivated = Nis[(rstep < r_crits) & (S > s_crits)]
         if len(unactivated) > 0:
             Nunact.append(np.sum(unactivated))
         else:
             Nunact.append(0.0)
+        '''
         
-        print Neq[i], Nkn[i], Nunact[i], S_max
+        print parcel.index[i], Neq[i], Nkn[i], Nunact[i], S_max, S
+
 
     parcel['Neq'] = Neq
     parcel['Nkn'] = Nkn
@@ -415,6 +451,7 @@ if __name__ == "__main__":
     parcel['alpha'] = alphaz
     parcel['phi'] = phiz
     
+    figure(2)
     ax = subplot(3,2,5)
     parcel[['Neq', 'Nkn']].plot(ax=ax, grid=True)
     xlabel("Height")
@@ -422,6 +459,6 @@ if __name__ == "__main__":
     subplot(3,2,6)
     parcel.alpha.plot()
     parcel.phi.plot()
+    ylim(0, 1)
     xlabel("Height"); ylabel(r'$\alpha(z),\quad\phi(z)$')
-''' 
-    
+    print parcel.alpha.ix[-1]

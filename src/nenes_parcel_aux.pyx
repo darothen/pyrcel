@@ -12,19 +12,22 @@ cdef double Mw = 18.0153/1e3 # Molecular weight of water, kg/mol
 cdef double R = 8.314 # Universal gas constant, J/(mol K)
 cdef double rho_w = 1e3 # Density of water, kg/m**3
 cdef double nu = 2.0
-cdef Rd = 287.0 # Gas constant for dry air, J/(kg K)
+cdef double Rd = 287.0 # Gas constant for dry air, J/(kg K)
 cdef double g = 9.81 # Gravitational constant, m/s**2
-cdef double Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
+cdef double Dv = 3.e-5 # Diffusivity of water vapor in air, m^2/s
+cdef double Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
 cdef double L = 2.5e6 # Latent heat of condensation, J/kg
 cdef double Cp = 1004.0 # Specific heat of dry air at constant pressure, J/kg 
 cdef double PI = pi # Pi, constant
 
 ## AUXILIARY FUNCTIONS
 cdef inline double sigma_w(double T) nogil:
-    return 0.0761 - 1.55e-4*(T-273.15) # surface tension of water, J/m^2 given T in Kelvin
+    return 0.0761 - (1.55e-4)*(T-273.15) # surface tension of water, J/m^2 given T in Kelvin
 
 cdef inline double ka(double T): 
-    return 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
+    return Ka
+    #return 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
+
 
 @cython.cdivision(True)
 cdef inline double es(double T):
