@@ -4,18 +4,20 @@ cimport numpy as np
 import numpy as np
 
 from cython.parallel import prange
-from libc.math cimport exp
+from libc.math cimport exp, sqrt
 from math import pi
 
 ## Import constants from nenes_parcel
 cdef double Mw = 18.0153/1e3 # Molecular weight of water, kg/mol
+cdef double Ma = 28.9/1e3 # Molecular weight of dry air, kg/mol
 cdef double R = 8.314 # Universal gas constant, J/(mol K)
 cdef double rho_w = 1e3 # Density of water, kg/m**3
-cdef double nu = 2.0
 cdef double Rd = 287.0 # Gas constant for dry air, J/(kg K)
 cdef double g = 9.81 # Gravitational constant, m/s**2
 cdef double Dv = 3.e-5 # Diffusivity of water vapor in air, m^2/s
+cdef double ac = 1.0 # condensation constant
 cdef double Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
+cdef double at = 0.96 # thermal accomodation coefficient
 cdef double L = 2.5e6 # Latent heat of condensation, J/kg
 cdef double Cp = 1004.0 # Specific heat of dry air at constant pressure, J/kg 
 cdef double PI = pi # Pi, constant
@@ -24,10 +26,22 @@ cdef double PI = pi # Pi, constant
 cdef inline double sigma_w(double T) nogil:
     return 0.0761 - (1.55e-4)*(T-273.15) # surface tension of water, J/m^2 given T in Kelvin
 
-cdef inline double ka(double T): 
-    return Ka
-    #return 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
+@cython.cdivision(True)
+cdef inline double ka(double T, double rho, double r) nogil: 
+    """Thermal conductivity of air, modified for non-continuum effects"""
+    cdef double denom
+    denom = 1.0 + (Ka/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
+    return Ka/denom
 
+    #return Ka
+    ##return 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
+
+@cython.cdivision(True)
+cdef inline double dv(double T, double r) nogil:
+    """Diffusivity of water vapor in air, modified for non-continuum effects"""
+    cdef double denom
+    denom = 1.0 + (Dv/(ac*r))*sqrt((2*PI*Mw)/(R*T))
+    return Dv/denom
 
 @cython.cdivision(True)
 cdef inline double es(double T):
@@ -36,18 +50,27 @@ cdef inline double es(double T):
     return 611.2*exp(17.67*T/(T+243.5))
 
 @cython.cdivision(True)
-cdef double Seq(double T, double r, double r_dry, double ns) nogil:
+cdef double Seq(double T, double r, double r_dry,  
+                double epsilon, double rho_p, double Ms, double nu) nogil:
     '''Equilibrium supersaturation predicted by Kohler theory'''
-    cdef double A, B, C
+    cdef double A, B, C, ns
+    #ns = 4.*rho_p*epsilon*PI*(r**3)/(3.*Ms)
+    ns = epsilon*rho_p*(r_dry**3)/Ms
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    B = (3.*ns*Mw*nu)/(4.*PI*rho_w*(r**3 - r_dry**3))
+    #B = (3.*ns*Mw*nu)/(4.*PI*rho_w*(r**3 - r_dry**3))
+    B = (ns*Mw*nu)/(rho_w*(r**3 - r_dry**3))
     C = exp(A - B) - 1.0
     return C
 
+@cython.cdivision(True)
+cpdef double Seq_gil(double T, double r, double r_dry,  
+                    double epsilon, double rho_p, double Ms, double nu):
+    return Seq(T, r, r_dry, epsilon, rho_p, Ms, nu)
+
 ### GUESSING FUNCTION
 @cython.boundscheck(False)
-cpdef guesses(double T0, double S0,
-            np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] nss):
+cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
+              double epsilon, double rho_p, double Ms, double nu):
     '''
     Given a parcel's temperature and supersaturation as well as a size distribution
     of aerosols and their dissolved solute mass, computes seed guesses for determining
@@ -58,15 +81,14 @@ cpdef guesses(double T0, double S0,
     cdef np.ndarray[double, ndim=1] guesses = np.empty(dtype='d', shape=(nr))
     
     cdef np.ndarray[double, ndim=1] r_range, ss 
-    cdef double ri, rdi, ns
+    cdef double ri, rdi
     cdef unsigned int i, j, idx_min
     for i in xrange(nr):
         rdi = r_drys[i]
         r_range = np.arange(rdi+rdi/1000., rdi*10., rdi/1000.)
-        ns = nss[i]
         ss = np.empty(dtype='d', shape=(len(r_range)))
         for j in prange(r_range.shape[0], nogil=True):
-            ss[j] = Seq(T0, r_range[j], rdi, ns)
+            ss[j] = Seq(T0, r_range[j], rdi, epsilon, rho_p, Ms, nu)
         idx_min = np.argmin(np.abs(ss - S0))
         guesses[i] = r_range[idx_min]
         
@@ -74,15 +96,17 @@ cpdef guesses(double T0, double S0,
         
 ## DERIVATIVE
 def der(np.ndarray[double, ndim=1] y, double t, 
-       int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
-        np.ndarray[double, ndim=1] Nis, double V):
-    return _der(t, y, nr, nss, r_drys, Nis, V)
+       int nr, np.ndarray[double, ndim=1] r_drys,
+        np.ndarray[double, ndim=1] Nis, double V,
+        double epsilon, double rho_p, double Ms, double nu):
+    return _der(t, y, nr, r_drys, Nis, V, epsilon, rho_p, Ms, nu)
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
 cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y, 
-                                     int nr, np.ndarray[double, ndim=1] nss, np.ndarray[double, ndim=1] r_drys,
-                                     np.ndarray[double, ndim=1] Nis, double V):
+                                     int nr, np.ndarray[double, ndim=1] r_drys,
+                                     np.ndarray[double, ndim=1] Nis, double V,
+                                     double epsilon, double rho_p, double Ms, double nu):
                                      
     cdef double P = y[0]
     cdef double T = y[1]
@@ -100,23 +124,27 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double dP_dt = (-g*P*V)/(Rd*Tv)
     
     # 2) dr_dt
-    cdef double G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
-    cdef double G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T)*T)
-    cdef double G = 1./(G_a + G_b)
-    
+    cdef double G_a, G_b, G    
     cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr)) 
     cdef unsigned int i
-    cdef double r, r_dry, ns    
+    cdef double r, r_dry, delta_S
 
     for i in prange(nr, nogil=True):
         r = rs[i]
         r_dry = r_drys[i]
-        ns = nss[i]
-        drs_dt[i] = (G/r)*(S - Seq(T, r, r_dry, ns))
+        
+        G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T, rho_air, r)*T)
+        G = 1./(G_a + G_b)
+        
+        delta_S = S - Seq(T, r, r_dry, epsilon, rho_p, Ms, nu)
+        
+        drs_dt[i] = (G/r)*delta_S
         
     # 3) dwc_dt
     cdef double dwc_dt = 0.0
     cdef double Ni, dr_dt
+
     for i in range(nr):
         Ni = Nis[i]
         r = rs[i]
@@ -139,6 +167,7 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     S_b = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
     S_c = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
     dS_dt = (1./wv_sat)*(dwv_dt - S_a*(S_b-S_c))
+    #dS_dt = 0.
     
     cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
     x[0] = dP_dt

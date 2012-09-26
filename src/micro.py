@@ -35,20 +35,22 @@ def es(T):
     Formula 2.17 in Rogers&Yau"""
     return 611.2*np.exp(17.67*T/(T+243.5))
 
-def Seq(T, r, r_dry, epsilon, rho_p, Ms):
+def Seq(T, r, r_dry, epsilon, rho_p, Ms, nu):
     '''Equilibrium supersaturation predicted by Kohler theory'''
-    ns = f_nss(rho_p, epsilon, r_dry, Ms)
+    #ns = f_nss(rho_p, epsilon, r_dry, Ms)
+    ns = epsilon*rho_p*(r_dry**3)/Ms
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    B = (3.*ns*Mw*nu)/(4.*np.pi*rho_w*(r**3 - r_dry**3))
+    #B = (3.*ns*Mw*nu)/(4.*np.pi*rho_w*(r**3 - r_dry**3))
+    B = (ns*Mw*nu)/(rho_w*(r**3 - r_dry**3))
     return np.exp(A - B) - 1.0
 
 def f_nss(rho_p, epsilon, r, Ms):
     return rho_p*epsilon*np.pi*((2.*r)**3)/(6.*Ms)
 
-def kohler_crit(T, r_dry, epsilon, rho_p, Ms):
+def kohler_crit(T, r_dry, epsilon, rho_p, Ms, nu):
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w)
     B = (Mw*nu*rho_p*epsilon)/(Ms*rho_w)
     f = lambda r: (3.*(r**2)*B*(r_dry**3))/((r**3 - r_dry**3)**2) - A/(r**2)
     r_crit = fsolve(f, r_dry*1.01, xtol=1e-10)[0]
-    s_crit = Seq(T, r_crit, r_dry, epsilon, rho_p, Ms)
+    s_crit = Seq(T, r_crit, r_dry, epsilon, rho_p, Ms, nu)
     return r_crit, s_crit

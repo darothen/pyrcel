@@ -111,19 +111,19 @@ class ParcelModel(object):
         # b) find equilibrium wet particle radius
         if self.console:
             print "calculating seeds for equilibrium solver..."
-            r_guesses = npa.guesses(T0, S0, r_drys, nss) #@UndefinedVariable
+            r_guesses = npa.guesses(T0, S0, r_drys, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) #@UndefinedVariable
             print " done"
         else:
-            r_guesses = npa.guesses(T0, S0, r_drys, nss) #@UndefinedVariable
+            r_guesses = npa.guesses(T0, S0, r_drys, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) #@UndefinedVariable
                 
-        f = lambda r, r_dry: (Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms) - S0)
-        r0s = np.array([fsolve(f, guess, args=(rd, ), xtol=1e-10)[0] for guess, rd in zip(r_guesses, r_drys)])
+        f = lambda r, r_dry: (Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) - S0)
+        r0s = np.array([fsolve(f, (rd+guess)/2., args=(rd, ), xtol=1e-10)[0] for guess, rd in zip(r_guesses, r_drys)])
         if self.console: 
             #print "equilib r test: ", r0s[0], Seq(T0, r0s[0], r_drys[0], nss[0]) ,"\n"
-            for (r, r_dry) in zip(r0s, r_drys,):
-                ss = Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms)
-                rc, sc = kohler_crit(T0, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms)
-                print r, r_dry, ss, rc, sc
+            for (r, rg, r_dry) in zip(r0s, r_guesses, r_drys,):
+                ss = Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu)
+                rc, sc = kohler_crit(T0, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu)
+                #print r, rg, r_dry, ss, rc, sc
                 if r < 0 or r > 1e-3: print "Found bad r", r, r_dry
                 if np.abs(ss-S0)/S0 > 0.02: print "Found S discrepancy", ss, r_dry
         out['r0s'] = r0s
@@ -153,6 +153,8 @@ class ParcelModel(object):
         Nis = setup_results['Nis']
         nr = len(r_drys)
         
+        aerosol = self.aerosols[0]
+        
         ## Setup run time conditions        
         t0 = 0.
         if self.V:
@@ -166,11 +168,13 @@ class ParcelModel(object):
         
         ## Setup integrator
         if self.console:
-            x, info = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
+            x, info = odeint(npa.der, y0, t, args=(nr, r_drys, Nis, self.V, 
+                                                   aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu),
                              full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
         else:
-            x = odeint(npa.der, y0, t, args=(nr, nss, r_drys, Nis, self.V),
+            x = odeint(npa.der, y0, t, args=(nr, r_drys, Nis, self.V,  
+                                             aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu),
                              mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
         #s = info['message']
@@ -210,8 +214,8 @@ if __name__ == "__main__":
     ## Initial conditions
     P0 = 100000. # Pressure, Pa
     T0 = 294. # Temperature, K
-    S0 = -0.05 # Supersaturation. 1-RH from wv term
-    V = 10.0 # m/s
+    S0 = -0.02 # Supersaturation. 1-RH from wv term
+    V = 3.0 # m/s
     
     ## Aerosol properties
     ## AEROSOL 1 - (NH4)2SO4
@@ -220,13 +224,13 @@ if __name__ == "__main__":
                          'rho_s': 1.769*1e-3*1e6,
                          'rho_u': 1.700*1e-3*1e6,
                          'nu': 3.0, # number of ions into which a solute dissolve
-                         'epsilon': 0.8 # mass fraction of soluble material in the dry particle
+                         'epsilon': 0.3 # mass fraction of soluble material in the dry particle
                        }
     #ammonium_sulfate['rho_p'] = ammonium_sulfate['rho_u']/(1.-ammonium_sulfate['epsilon']*(1.-(ammonium_sulfate['rho_u']/ammonium_sulfate['rho_s']))) # total wet particle density
     #ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
 
     # Size Distribution
-    mu, sigma, N, bins = 0.05, 2.0, 10000., 50
+    mu, sigma, N, bins = 0.05, 2.0, 10000., 200
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
@@ -364,7 +368,7 @@ if __name__ == "__main__":
         plot(rs, Nis, color='k', alpha=0.5)
         semilogx(); #semilogy()
         
-        rs, Nis = aerosol.ix[1]*1e6, initial_aerosol.Nis
+        rs, Nis = aerosol.ix[0]*1e6, initial_aerosol.Nis
         plot(rs, Nis, color='r', alpha=0.5)
         
         #rs, Nis = pm.y0[-initial_aerosol.nr:]*1e6, initial_aerosol.Nis
@@ -408,7 +412,7 @@ if __name__ == "__main__":
         r_crits = [npa.guesses(T, s_crit, np.array([r_dry]), np.array([ns]))[0] for
                s_crit, r_dry, ns in zip(s_crits, aerosol.r_drys, nss)]
         '''
-        r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms) for r_dry in aerosol.r_drys])
+        r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) for r_dry in aerosol.r_drys])
         s_crits = np.array(s_crits)
         r_crits = np.array(r_crits)
         if S > S_max: S_max = S
