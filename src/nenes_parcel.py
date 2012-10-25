@@ -1,6 +1,6 @@
 """Cloud Parcel Model based on Nenes et al, 2001; implemented by 
 Daniel Rothenberg (darothen@mit.edu) as part of research undertaken for the
-General examination in the Program in Atmospheres, Oceans, and Climate"""
+General examination in the Program in Atmospheres, Oceans, and Climate TEST"""
 
 __docformat__ = 'reStructuredText'
 import pandas
