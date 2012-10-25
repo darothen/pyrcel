@@ -33,9 +33,6 @@ cdef inline double ka(double T, double rho, double r) nogil:
     denom = 1.0 + (Ka/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
     return Ka/denom
 
-    #return Ka
-    ##return 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
-
 @cython.cdivision(True)
 cdef inline double dv(double T, double r) nogil:
     """Diffusivity of water vapor in air, modified for non-continuum effects"""

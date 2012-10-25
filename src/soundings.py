@@ -6,9 +6,48 @@ import numpy as np
 from pandas import *
 from pylab import *
 
-from microphysics import gamma_d, Rd, g, epsilon
-from pywrfplotUtils import gamma_s, es
 from scipy.interpolate import interp1d
+
+## FROM PYWRFPLOTUTILS - Geiur Arne Waagbm http://code.google.com/p/pywrfplot
+P_top = 10**4
+P_bot = 10**5
+
+T_base = 300.0
+T_zero = 273.15
+L = 2.501e6 # latent heat of vaporization
+R = 287.04  # gas constant air
+Rd = R
+Rv = 461.5  # gas constant vapor
+eps = R/Rv
+cp = 1005.
+cv = 718.
+kappa = (cp-cv)/cp
+g = 9.81
+gamma_d = 9.8 # dry adiabatic lapse rate, C/km
+
+a = 2./7.
+b = eps*L*L/(R*cp)
+c = a*L/R
+
+def gamma_s(T,p):
+    """Calculates moist adiabatic lapse rate for T (Celsius) and p (Pa)
+    Note: We calculate dT/dp, not dT/dz
+    See formula 3.16 in Rogers&Yau for dT/dz, but this must be combined with
+    the dry adiabatic lapse rate (gamma = g/cp) and the 
+    inverse of the hydrostatic equation (dz/dp = -RT/pg)"""
+    esat = es(T)
+    wsat = eps*esat/(p-esat) # Rogers&Yau 2.18
+    numer = a*(T+T_zero) + c*wsat
+    denom = p * (1 + b*wsat/((T+T_zero)**2)) 
+    return numer/denom # Rogers&Yau 3.16
+
+def es(T):
+    """Returns saturation vapor pressure (Pascal) at temperature T (Celsius)
+    Formula 2.17 in Rogers&Yau"""
+    return 611.2*np.exp(17.67*T/(T+243.5))
+
+#######
+
 
 def read_PACS(filename):
     """
@@ -77,8 +116,6 @@ def plot_sounding(sounding, parcel_sounding=None):
     """
     Skew-T plot of sounding, adapted from pywrfplot
     """
-    from pywrfplotParams import T_zero,kappa,P_bot
-    from pywrfplotUtils import gamma_s
     
     skewness = 37.5
     P_b = 105000. # Bottom pressure, Pa
@@ -155,7 +192,7 @@ def virtual_temperature(sounding):
     rh = sounding['relative humidity']/100. # percent -> decimal
     pressure = sounding['pressure']*100. # hPa -> Pa
     
-    q = epsilon*es(temperature)*rh/pressure
+    q = eps*es(temperature)*rh/pressure
     tv = (temperature+273.15)*(1.+0.61*q)
     return tv
     
@@ -176,7 +213,7 @@ def parcel_sounding(sounding):
     dz = 10. # meters
     z0, p0 = trunc_sounding['height'].ix[first_ind], trunc_sounding['pressure'].ix[first_ind]
     
-    q = epsilon*es(t)*rh/(p0*100.)
+    q = eps*es(t)*rh/(p0*100.)
     tv = (t+273.15)*(1.+0.61*q)
     
     zs, ps, ts, tvs = [z0], [p0], [t], [tv]
@@ -188,7 +225,7 @@ def parcel_sounding(sounding):
         zs.append(z+dz)
         ts.append(t-(gamma_d*dz*1e-3))
         
-        q = epsilon*es(ts[-1])*parcel_rh_interp(z+dz)/(p0*100.)        
+        q = eps*es(ts[-1])*parcel_rh_interp(z+dz)/(p0*100.)        
         tvs.append((ts[-1]+273.15)*(1.+0.61*q))
         
         rho = (p*100.)/(Rd*(t+273.15)) # p: hPa -> Pa; t: C -> K
@@ -201,7 +238,7 @@ def parcel_sounding(sounding):
         z, p, t = zs[-1], ps[-1], ts[-1]
         #print z, p, t
         
-        q = epsilon*es(t)/(p*100.)
+        q = eps*es(t)/(p*100.)
         tv = (t+273.15)*(1.+0.61*q)
         rho = (p*100.)/(Rd*tv)
         dz = dp/(rho*g)
@@ -210,6 +247,6 @@ def parcel_sounding(sounding):
         zs.append(z+dz)
         ps.append(p-dp/100.)
         ts.append(t-(gamma_s(t, p*100.)*dp))
-        tvs.append((ts[-1]+273.15)*(1.+0.61*(epsilon*es(ts[-1])/(p*100.))))        
+        tvs.append((ts[-1]+273.15)*(1.+0.61*(eps*es(ts[-1])/(p*100.))))        
                 
     return DataFrame({'height': zs, 'pressure': ps, 'temperature': ts, 'virtual temperature': tvs})

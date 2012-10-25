@@ -177,14 +177,8 @@ class ParcelModel(object):
                                              aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu),
                              mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
-        #s = info['message']
-        #l = len(s)
-        #print "#"*(l+2)
-        #print "#"+s+"#"
-        #print "#"*(l+2)
     
         heights = t*self.V
-        #print len(heights), x.shape
         offset = 0
         if len(heights) > x.shape[0]:
             offset = 1
@@ -214,8 +208,8 @@ if __name__ == "__main__":
     ## Initial conditions
     P0 = 100000. # Pressure, Pa
     T0 = 294. # Temperature, K
-    S0 = -0.02 # Supersaturation. 1-RH from wv term
-    V = 3.0 # m/s
+    S0 = -0.05 # Supersaturation. 1-RH from wv term
+    V = 0.5 # m/s
     
     ## Aerosol properties
     ## AEROSOL 1 - (NH4)2SO4
@@ -230,7 +224,7 @@ if __name__ == "__main__":
     #ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
 
     # Size Distribution
-    mu, sigma, N, bins = 0.05, 2.0, 10000., 200
+    mu, sigma, N, bins = 0.05, 2.0, 1000., 50
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
@@ -390,28 +384,11 @@ if __name__ == "__main__":
     Nunact = []    
     S_max = S0
     aerosol = initial_aerosols[0]
-    '''
-    s_crits, d_crits = zip(*[sd_crits(2.*r, T0, aerosol) for r in aerosol.r_drys])
-    s_crits = np.array(s_crits)
-    d_drys = 2.*aerosol.r_drys
-    nss = np.array([(aerosol.rho_p*np.pi*aerosol.epsilon*(d_dry**3.))/(6.*aerosol.Ms) for d_dry in d_drys])
-    #r_crits = [npa.guesses(T0, s_crit, np.array([r_dry]), np.array([ns]))[0] for
-    #           s_crit, r_dry, ns in zip(s_crits, aerosol.r_drys, nss)]
-    r_crits = np.array(d_crits)/2.
-    for a, b, s in zip(r_drys, r_crits, s_crits):
-        print a, b, a > b, s
-    '''
 
     raw_input("N analysis...")
     aerosols = aerosols[aerosol.species]
     for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
-        '''
-        print parcel.index[i],
-        s_crits, d_crits = zip(*[sd_crits(2.*r, T, aerosol) for r in aerosol.r_drys])
-        s_crits = np.array(s_crits)
-        r_crits = [npa.guesses(T, s_crit, np.array([r_dry]), np.array([ns]))[0] for
-               s_crit, r_dry, ns in zip(s_crits, aerosol.r_drys, nss)]
-        '''
+
         r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) for r_dry in aerosol.r_drys])
         s_crits = np.array(s_crits)
         r_crits = np.array(r_crits)
@@ -430,15 +407,6 @@ if __name__ == "__main__":
         else:
             Nkn.append(0.0)           
             Nunact.append(np.sum(Nis))
-        
-        '''    
-        unactivated = Nis[rstep < r_crits]
-        #unactivated = Nis[(rstep < r_crits) & (S > s_crits)]
-        if len(unactivated) > 0:
-            Nunact.append(np.sum(unactivated))
-        else:
-            Nunact.append(0.0)
-        '''
         
         print parcel.index[i], Neq[i], Nkn[i], Nunact[i], S_max, S
 
