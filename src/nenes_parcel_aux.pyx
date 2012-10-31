@@ -47,7 +47,7 @@ cdef inline double es(double T):
     return 611.2*exp(17.67*T/(T+243.5))
 
 @cython.cdivision(True)
-cdef double Seq(double r, double r_dry, double T, double kappa):
+cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     '''Equilibrium supersaturation predicted by Kohler theory
     
     Includes optional switch `neg` for inverting the function - useful for
