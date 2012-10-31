@@ -47,30 +47,29 @@ cdef inline double es(double T):
     return 611.2*exp(17.67*T/(T+243.5))
 
 @cython.cdivision(True)
-cdef double Seq(double T, double r, double r_dry,  
-                double epsilon, double rho_p, double Ms, double nu) nogil:
-    '''Equilibrium supersaturation predicted by Kohler theory'''
-    cdef double A, B, C, ns
-    #ns = 4.*rho_p*epsilon*PI*(r**3)/(3.*Ms)
-    ns = epsilon*rho_p*(r_dry**3)/Ms
-    A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    #B = (3.*ns*Mw*nu)/(4.*PI*rho_w*(r**3 - r_dry**3))
-    B = (ns*Mw*nu)/(rho_w*(r**3 - r_dry**3))
-    C = exp(A - B) - 1.0
-    return C
+cdef double Seq(double r, double r_dry, double T, double kappa):
+    '''Equilibrium supersaturation predicted by Kohler theory
+    
+    Includes optional switch `neg` for inverting the function - useful for
+    finding the maxima numerically
+    
+    following Petters and Kredenweis, 2007
+    '''
+    cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
+    cdef double B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
+    return exp(A)*B - 1.0
 
 @cython.cdivision(True)
-cpdef double Seq_gil(double T, double r, double r_dry,  
-                    double epsilon, double rho_p, double Ms, double nu):
-    return Seq(T, r, r_dry, epsilon, rho_p, Ms, nu)
+cpdef double Seq_gil(double r, double r_dry, double T, double kappa):
+    return Seq(r, r_dry, T, kappa)
 
 ### GUESSING FUNCTION
 @cython.boundscheck(False)
 cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
-              double epsilon, double rho_p, double Ms, double nu):
+              np.ndarray[double, ndim=1] kappas):
     '''
     Given a parcel's temperature and supersaturation as well as a size distribution
-    of aerosols and their dissolved solute mass, computes seed guesses for determining
+    of aerosols and their kappa parameters, computes seed guesses for determining
     the equilibrium wet radii of the inactivated aerosols or, when possible, the exact
     equilibrium solution
     '''
@@ -78,14 +77,15 @@ cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
     cdef np.ndarray[double, ndim=1] guesses = np.empty(dtype='d', shape=(nr))
     
     cdef np.ndarray[double, ndim=1] r_range, ss 
-    cdef double ri, rdi
+    cdef double ri, rdi, ki
     cdef unsigned int i, j, idx_min
     for i in xrange(nr):
         rdi = r_drys[i]
+        ki = kappas[i]
         r_range = np.arange(rdi+rdi/1000., rdi*10., rdi/1000.)
         ss = np.empty(dtype='d', shape=(len(r_range)))
         for j in prange(r_range.shape[0], nogil=True):
-            ss[j] = Seq(T0, r_range[j], rdi, epsilon, rho_p, Ms, nu)
+            ss[j] = Seq(r_range[j], rdi, T0, ki)
         idx_min = np.argmin(np.abs(ss - S0))
         guesses[i] = r_range[idx_min]
         
@@ -93,17 +93,16 @@ cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
         
 ## DERIVATIVE
 def der(np.ndarray[double, ndim=1] y, double t, 
-       int nr, np.ndarray[double, ndim=1] r_drys,
-        np.ndarray[double, ndim=1] Nis, double V,
-        double epsilon, double rho_p, double Ms, double nu):
-    return _der(t, y, nr, r_drys, Nis, V, epsilon, rho_p, Ms, nu)
+       int nr, np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] Nis, 
+       double V, np.ndarray[double, ndim=1] kappas):
+    return _der(t, y, nr, r_drys, Nis, V, kappas)
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
 cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y, 
                                      int nr, np.ndarray[double, ndim=1] r_drys,
                                      np.ndarray[double, ndim=1] Nis, double V,
-                                     double epsilon, double rho_p, double Ms, double nu):
+                                     np.ndarray[double, ndim=1] kappas):
                                      
     cdef double P = y[0]
     cdef double T = y[1]
@@ -124,17 +123,18 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double G_a, G_b, G    
     cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr)) 
     cdef unsigned int i
-    cdef double r, r_dry, delta_S
+    cdef double r, r_dry, delta_S, kappa
 
     for i in prange(nr, nogil=True):
         r = rs[i]
         r_dry = r_drys[i]
+        kappa = kappas[i]
         
         G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
         G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T, rho_air, r)*T)
         G = 1./(G_a + G_b)
         
-        delta_S = S - Seq(T, r, r_dry, epsilon, rho_p, Ms, nu)
+        delta_S = S - Seq(r, r_dry, T, kappa)
         
         drs_dt[i] = (G/r)*delta_S
         

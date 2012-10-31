@@ -20,16 +20,7 @@ class AerosolSpecies(object):
     
     def __init__(self, **values):
         self.species = values['species'] # Species molecular formula
-        self.Ms = values['Ms'] # Molecular weight, kg/mol
-        self.epsilon = values['epsilon'] # mass fraction of soluble material
-        self.nu = values['nu'] # number of ions into which a solute dissolves
-        
-        if not "rho_p" in values:
-            self.rho_s = values['rho_s']
-            self.rho_u = values['rho_u']
-            self.rho_p = self.rho_u/(1.-self.epsilon*(1.-(self.rho_u/self.rho_s)))
-        else:
-            self.rho_p = values['rho_p']
+        self.kappa = values['kappa'] # Kappa hygroscopicity parameter
         
         self.distribution = values['distribution']
         self.r_drys = values['r_drys']
@@ -80,17 +71,19 @@ class ParcelModel(object):
         ## 1) Setup aerosols
         # a) grab all the initial aerosol size/concentrations
         species = []
-        r_drys, Nis = [], []
+        r_drys, Nis, kappas = [], [], []
         for aerosol in self.aerosols:
             r_drys.extend(aerosol.r_drys)
+            kappas.extend([aerosol.kappas]*aerosol.nr)
             Nis.extend(aerosol.Nis)
-            d_drys = 2.*aerosol.r_drys
-            species.extend([aerosol.species]*len(d_drys))
+            species.extend([aerosol.species]*aerosol.nr)
         
         r_drys = np.array(r_drys)
+        kappas = np.array(kappas)
         Nis = np.array(Nis)
         
         out['r_drys'] = r_drys
+        out['kappas'] = kappas
         out['Nis'] = Nis
         
         if self.console:
@@ -106,24 +99,24 @@ class ParcelModel(object):
         
         # b) find equilibrium wet particle radius
         if self.console: print "calculating seeds for equilibrium solver..."
-        r_guesses = []
-        for aerosol in self.aerosols:
-            r_guesses.extend(guesses(T0, S0, r_drys, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu))
-        r_guesses = np.array(r_guesses)
+        r_guesses = np.array(guesses(T0, S0, r_drys, kappas))
+        #r_guesses = []
+        #for aerosol in self.aerosols:
+        #    r_guesses.extend(guesses(T0, S0, r_drys, kappas))
+        #r_guesses = np.array(r_guesses)
         if self.console: print " done"
                             
         # wrapper function for quickly computing deviation from chosen equilibrium supersaturation given
         # current size and dry size
-        f = lambda r, r_dry: (Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) - S0)
+        f = lambda r, r_dry, kappa: (Seq(r, r_dry, T0, kappa) - S0)
         ## Compute the equilibrium wet particle radii
-        r0s = np.array([fsolve(f, (rd+guess)/2., args=(rd, ), xtol=1e-10)[0] for guess, rd in zip(r_guesses, r_drys)])
+        r0s = np.array([fsolve(f, (rd+guess)/2., args=(rd, kappa), xtol=1e-10)[0] for guess, rd, kappa in zip(r_guesses, r_drys, kappas)])
         ## Console logging output, if requested, of the equilibrium calcuations. Useful for 
         ## checking if the computations worked
         if self.console: 
-            #print "equilib r test: ", r0s[0], Seq(T0, r0s[0], r_drys[0], nss[0]) ,"\n"
-            for (r,  r_dry, sp) in zip(r0s, r_drys, species):
-                ss = Seq(T0, r, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu)
-                rc, sc = kohler_crit(T0, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu)
+            for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappa):
+                ss = Seq(r, r_dry, T0, kappa)
+                rc, _ = kohler_crit(T0, r_dry, kappa)
                 if r < 0 or r > 1e-3: print "Found bad r", r, r_dry, sp
                 if np.abs(ss-S0)/S0 > 0.02: print "Found S discrepancy", ss, r_dry
         out['r0s'] = r0s
@@ -149,6 +142,7 @@ class ParcelModel(object):
         setup_results = self._setup_run(P0, T0, S0)
         y0 = setup_results['y0']
         r_drys = setup_results['r_drys']
+        kappas = setup_results['kappas']
         Nis = setup_results['Nis']
         nr = len(r_drys)
         
@@ -167,15 +161,12 @@ class ParcelModel(object):
         
         ## Setup integrator
         if self.console:
-            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, 
-                                                   aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu),
+            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
                              full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
         else:
-            x = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V,  
-                                             aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu),
-                             mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
+            x = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
+                       mxstep=max_steps, mxhnil=0, atol=1e-15, rtol=1e-12)
     
         heights = t*self.V
         offset = 0
@@ -213,30 +204,25 @@ if __name__ == "__main__":
     ## Aerosol properties
     ## AEROSOL 1 - (NH4)2SO4
     # Chemistry
-    ammonium_sulfate = { 'Ms': 0.13214, # Molecular weight, kg/mol
-                         'rho_s': 1.769*1e-3*1e6,
-                         'rho_u': 1.700*1e-3*1e6,
-                         'nu': 3.0, # number of ions into which a solute dissolve
-                         'epsilon': 0.9 # mass fraction of soluble material in the dry particle
-                       }
-    #ammonium_sulfate['rho_p'] = ammonium_sulfate['rho_u']/(1.-ammonium_sulfate['epsilon']*(1.-(ammonium_sulfate['rho_u']/ammonium_sulfate['rho_s']))) # total wet particle density
-    #ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
+    ammonium_sulfate = { 
+        'kappa': 0.6, # Hygroscopicity parameter
+    }
 
     # Size Distribution
     mu, sigma, N, bins = 0.05, 2.0, 100., 50
     l = 0
     r = bins
     ## SINGLE MODE
-    #aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
+    aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
     ## MULTIMODE
-    aerosol_dist = MultiModeLognorm(mus=[0.007, 0.027, 0.43],
-                                    sigmas=[1.8, 2.16, 2.21], 
-                                    Ns=[106000., 32000., 54.,])
-    mu = (multiply.reduce(aerosol_dist.mus))**(1./3.)
-    sigma = 6.0
+    #aerosol_dist = MultiModeLognorm(mus=[0.007, 0.027, 0.43],
+    #                                sigmas=[1.8, 2.16, 2.21], 
+    #                                Ns=[106000., 32000., 54.,])
+    #mu = (multiply.reduce(aerosol_dist.mus))**(1./3.)
+    #sigma = 6.0
     #############
-    lr, rr = np.log10(8e-4), np.log10(0.8) 
-    #lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
+    #lr, rr = np.log10(8e-4), np.log10(0.8) 
+    lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
     
     rs = np.logspace(lr, rr, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
@@ -252,14 +238,8 @@ if __name__ == "__main__":
     
     ## AEROSOL 2 - NaCl
     # Chemistry
-    NaCl = { 'Ms': 0.06, # Molecular weight, kg/mol
-                         'rho_s': 1.001*1e-3*1e6,
-                         'rho_u': 1.001*1e-3*1e6,
-                         'nu': 2.0, # number of ions into which a solute dissolve
-                         'epsilon': 0.5 # mass fraction of soluble material in the dry particle
-                       }
-    #NaCl['rho_p'] = NaCl['rho_u']/(1.-NaCl['epsilon']*(1.-(NaCl['rho_u']/NaCl['rho_s']))) # total wet particle density
-    NaCl['rho_p'] = 2.16*1e-3*1e6
+    NaCl = { 'kappa': 1.4, # Hygroscopicity parameter
+    }
 
     # Size Distribution
     '''
@@ -311,7 +291,7 @@ if __name__ == "__main__":
     
     ## Run model    
     dt = np.max([V/100., 0.01])
-    dt = 0.1
+    dt = 0.01
     parcel, aerosols = pm.run(P0, T0, S0, z_top=500.0, 
                               dt=dt, max_steps=500)
     
@@ -396,7 +376,7 @@ if __name__ == "__main__":
     aerosols = aerosols[aerosol.species]
     for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
 
-        r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.epsilon, aerosol.rho_p, aerosol.Ms, aerosol.nu) for r_dry in aerosol.r_drys])
+        r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.kappa) for r_dry, in aerosol.r_drys])
         s_crits = np.array(s_crits)
         r_crits = np.array(r_crits)
         if S > S_max: S_max = S

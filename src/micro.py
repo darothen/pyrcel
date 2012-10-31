@@ -2,7 +2,7 @@
 Microphysics constants and sub-routines for Nenes model
 """
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import fmin
 
 
 ## Microphysics constants
@@ -35,22 +35,26 @@ def es(T):
     Formula 2.17 in Rogers&Yau"""
     return 611.2*np.exp(17.67*T/(T+243.5))
 
-def Seq(T, r, r_dry, epsilon, rho_p, Ms, nu):
-    '''Equilibrium supersaturation predicted by Kohler theory'''
-    #ns = f_nss(rho_p, epsilon, r_dry, Ms)
-    ns = epsilon*rho_p*(r_dry**3)/Ms
+def Seq(r, r_dry, T, kappa, neg=False):
+    '''Equilibrium supersaturation predicted by Kohler theory
+    
+    Includes optional switch `neg` for inverting the function - useful for
+    finding the maxima numerically
+    
+    following Petters and Kredenweis, 2007
+    '''
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    #B = (3.*ns*Mw*nu)/(4.*np.pi*rho_w*(r**3 - r_dry**3))
-    B = (ns*Mw*nu)/(rho_w*(r**3 - r_dry**3))
-    return np.exp(A - B) - 1.0
+    B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
+    if neg:
+        return 1.0 - np.exp(A)*B
+    else:
+        return np.exp(A)*B - 1.0
 
-def f_nss(rho_p, epsilon, r, Ms):
-    return rho_p*epsilon*np.pi*((2.*r)**3)/(6.*Ms)
-
-def kohler_crit(T, r_dry, epsilon, rho_p, Ms, nu):
-    A = (2.*Mw*sigma_w(T))/(R*T*rho_w)
-    B = (Mw*nu*rho_p*epsilon)/(Ms*rho_w)
-    f = lambda r: (3.*(r**2)*B*(r_dry**3))/((r**3 - r_dry**3)**2) - A/(r**2)
-    r_crit = fsolve(f, r_dry*1.01, xtol=1e-10)[0]
-    s_crit = Seq(T, r_crit, r_dry, epsilon, rho_p, Ms, nu)
-    return r_crit, s_crit
+def kohler_crit(T, r_dry, kappa):
+    '''Numerically find the critical radius predicted by kappa Kohler theory'''
+    out = fmin(Seq, r_dry*1.01, args=(r_dry, T, kappa, True), ftol=1e-10, xtol=1e-10)
+    r_crit = out[0]
+    if r_crit > r_dry:
+        return r_crit, Seq(r_crit, r_dry, T, kappa)
+    else:
+        return r_dry, Seq(r_dry, r_dry, T, kappa)
