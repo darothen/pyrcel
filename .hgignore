@@ -11,3 +11,4 @@ syntax: glob
 *.c
 *.h
 build/*
+src_bak/*

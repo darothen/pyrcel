@@ -4,7 +4,7 @@ General examination in the Program in Atmospheres, Oceans, and Climate TEST"""
 
 __docformat__ = 'reStructuredText'
 import pandas
-from lognorm import Lognorm
+from lognorm import Lognorm, MultiModeLognorm
 
 from pylab import *
 ion()
@@ -14,7 +14,6 @@ from scipy.integrate import odeint
 
 from nenes_parcel_aux import der, guesses
 from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit
-
 
 class AerosolSpecies(object):
     """This class organizes metadata about an aerosol species"""
@@ -206,10 +205,10 @@ class ParcelModel(object):
 if __name__ == "__main__":
     
     ## Initial conditions
-    P0 = 100000. # Pressure, Pa
-    T0 = 294. # Temperature, K
-    S0 = -0.05 # Supersaturation. 1-RH from wv term
-    V = 0.1 # m/s
+    P0 = 80000. # Pressure, Pa
+    T0 = 273. # Temperature, K
+    S0 = -0.02 # Supersaturation. 1-RH from wv term
+    V = 1.0 # m/s
     
     ## Aerosol properties
     ## AEROSOL 1 - (NH4)2SO4
@@ -224,13 +223,21 @@ if __name__ == "__main__":
     #ammonium_sulfate['rho_p'] = 1.769*1e-3*1e6
 
     # Size Distribution
-    mu, sigma, N, bins = 0.05, 2.0, 200., 200
+    mu, sigma, N, bins = 0.05, 2.0, 100., 50
     l = 0
     r = bins
-    aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    #rs = np.logspace(-2.5, 1.5, num=bins+1)[:]
-    lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
-    #lr, rr = np.log10(1e-3), np.log10(5.0)
+    ## SINGLE MODE
+    #aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
+    ## MULTIMODE
+    aerosol_dist = MultiModeLognorm(mus=[0.007, 0.027, 0.43],
+                                    sigmas=[1.8, 2.16, 2.21], 
+                                    Ns=[106000., 32000., 54.,])
+    mu = (multiply.reduce(aerosol_dist.mus))**(1./3.)
+    sigma = 6.0
+    #############
+    lr, rr = np.log10(8e-4), np.log10(0.8) 
+    #lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
+    
     rs = np.logspace(lr, rr, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
@@ -267,9 +274,9 @@ if __name__ == "__main__":
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
     '''
-    r_drys = np.array([0.05*1e-6, ])
+    r_drys = np.array([0.01*1e-6, ])
     rs = np.array([r_drys[0]*0.9, r_drys[0]*1.1])*1e6
-    Nis = np.array([1000, ])
+    Nis = np.array([10, ])
     
     
     NaCl['distribution'] = aerosol_dist
@@ -282,7 +289,7 @@ if __name__ == "__main__":
     ######
     
     #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
-    initial_aerosols = [AerosolSpecies(**NaCl)]
+    initial_aerosols = [AerosolSpecies(**ammonium_sulfate)]
     #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
     print initial_aerosols
     
@@ -304,8 +311,8 @@ if __name__ == "__main__":
     
     ## Run model    
     dt = np.max([V/100., 0.01])
-    dt = 0.01
-    parcel, aerosols = pm.run(P0, T0, S0, z_top=200.0, 
+    dt = 0.1
+    parcel, aerosols = pm.run(P0, T0, S0, z_top=500.0, 
                               dt=dt, max_steps=500)
     
     xs = np.arange(501)
