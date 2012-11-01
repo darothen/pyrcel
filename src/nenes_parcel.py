@@ -74,7 +74,7 @@ class ParcelModel(object):
         r_drys, Nis, kappas = [], [], []
         for aerosol in self.aerosols:
             r_drys.extend(aerosol.r_drys)
-            kappas.extend([aerosol.kappas]*aerosol.nr)
+            kappas.extend([aerosol.kappa]*aerosol.nr)
             Nis.extend(aerosol.Nis)
             species.extend([aerosol.species]*aerosol.nr)
         
@@ -114,7 +114,7 @@ class ParcelModel(object):
         ## Console logging output, if requested, of the equilibrium calcuations. Useful for 
         ## checking if the computations worked
         if self.console: 
-            for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappa):
+            for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
                 ss = Seq(r, r_dry, T0, kappa)
                 rc, _ = kohler_crit(T0, r_dry, kappa)
                 if r < 0 or r > 1e-3: print "Found bad r", r, r_dry, sp
@@ -196,10 +196,10 @@ class ParcelModel(object):
 if __name__ == "__main__":
     
     ## Initial conditions
-    P0 = 80000. # Pressure, Pa
-    T0 = 273. # Temperature, K
-    S0 = -0.02 # Supersaturation. 1-RH from wv term
-    V = 1.0 # m/s
+    P0 = 95000. # Pressure, Pa
+    T0 = 285.2 # Temperature, K
+    S0 = -0.05 # Supersaturation. 1-RH from wv term
+    V = 0.5 # m/s
     
     ## Aerosol properties
     ## AEROSOL 1 - (NH4)2SO4
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     }
 
     # Size Distribution
-    mu, sigma, N, bins = 0.05, 2.0, 100., 50
+    mu, sigma, N, bins = 0.05, 2.0, 300., 200
     l = 0
     r = bins
     ## SINGLE MODE
@@ -238,25 +238,25 @@ if __name__ == "__main__":
     
     ## AEROSOL 2 - NaCl
     # Chemistry
-    NaCl = { 'kappa': 1.4, # Hygroscopicity parameter
+    NaCl = { 'kappa': 0.01, # Hygroscopicity parameter
     }
 
     # Size Distribution
     '''
-    mu, sigma, N, bins = 0.1, 2.5, 100., 50
+    mu, sigma, N, bins = 0.01, 1.35, 300., 200
     l = 0
     r = bins
     aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    #rs = np.logspace(-2.5, -1.6, num=bins+1)[:]
     lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
+    #lr, rr = np.log10(0.001), np.log10(3500.)
     rs = np.logspace(lr, rr, num=bins+1)[:]
     mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
     r_drys = mids*1e-6
     '''
-    r_drys = np.array([0.01*1e-6, ])
+    r_drys = np.array([0.25*1e-6, ])
     rs = np.array([r_drys[0]*0.9, r_drys[0]*1.1])*1e6
-    Nis = np.array([10, ])
+    Nis = np.array([10000., ])
     
     
     NaCl['distribution'] = aerosol_dist
@@ -269,9 +269,15 @@ if __name__ == "__main__":
     ######
     
     #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
-    initial_aerosols = [AerosolSpecies(**ammonium_sulfate)]
-    #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
+    #initial_aerosols = [AerosolSpecies(**ammonium_sulfate)]
+    #initial_aerosols = [AerosolSpecies(**NaCl)]
+    initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
     print initial_aerosols
+    
+    aer_species = [a.species for a in initial_aerosols]
+    aer_dict = dict()
+    for aerosol in initial_aerosols:
+        aer_dict[aerosol.species] = aerosol
     
     for aerosol in initial_aerosols: print np.sum(aerosol.Nis) *1e-6
     
@@ -282,7 +288,7 @@ if __name__ == "__main__":
     for i, aerosol in enumerate(initial_aerosols):
         rs, Nis = aerosol.rs, aerosol.Nis
         bar(rs[:-1], Nis/np.diff(rs)*1e-6, diff(rs), color=colors[i], alpha=0.5)
-        #semilogy()
+    #semilogy()
     #vlines(mids, 0, ylim()[1], color='red', linestyle='dotted')
     semilogx()
         
@@ -290,15 +296,16 @@ if __name__ == "__main__":
     pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=True)
     
     ## Run model    
-    dt = np.max([V/100., 0.01])
+    #rdt = np.max([V/100., 0.01])
     dt = 0.01
-    parcel, aerosols = pm.run(P0, T0, S0, z_top=500.0, 
+    parcel, aerosols = pm.run(P0, T0, S0, z_top=100.0, 
                               dt=dt, max_steps=500)
     
     xs = np.arange(501)
     parcel = parcel.ix[parcel.index % 1 == 0]
     aero_subset = {}
     for key in aerosols:
+        print key
         aerosol = aerosols[key]
         subset = aerosol.ix[aerosol.index % 1 == 0]
         aero_subset[key] = subset
@@ -307,6 +314,7 @@ if __name__ == "__main__":
     
     subplot(3,2,4)
     p = parcel.S.plot(logx=False)
+    print parcel.S.max()
     max_idx = np.argmax(parcel.S)
     max_z = parcel.index[max_idx]
     vlines([max_z], ylim()[0], ylim()[1], color='k', linestyle='dashed')
@@ -328,7 +336,7 @@ if __name__ == "__main__":
     
     ## PLOT AEROSOLS!!
     show()
-    n_species = len(initial_aerosols)
+    n_species = len(aer_species)
     fig = figure(1, figsize=(9, 5*n_species))
     clf()
     for n, key in enumerate(aerosols):
@@ -346,78 +354,96 @@ if __name__ == "__main__":
         bar(rs[:-1], Nis, diff(rs), color=colors[n], alpha=0.2)
         
         rs, Nis = aerosol.ix[-1]*1e6, initial_aerosol.Nis
+        if not rs.shape == Nis.shape:
+            new_Nis = np.zeros_like(rs)
+            new_Nis[:len(Nis)] = Nis[:]
+            new_Nis[len(Nis):] = 0.0
+            Nis = new_Nis
         plot(rs, Nis, color='k', alpha=0.5)
         semilogx(); #semilogy()
         
         rs, Nis = aerosol.ix[0]*1e6, initial_aerosol.Nis
+        if not rs.shape == Nis.shape:
+            new_Nis = np.zeros_like(rs)
+            new_Nis[:len(Nis)] = Nis[:]
+            new_Nis[len(Nis):] = 0.0
+            Nis = new_Nis
         plot(rs, Nis, color='r', alpha=0.5)
         
         #rs, Nis = pm.y0[-initial_aerosol.nr:]*1e6, initial_aerosol.Nis
         #plot(rs, Nis, color='b', alpha=0.5)
-        
-    
-    def sd_crits(d_s, T, aerosol):
-        #A = (0.66/T)*1e-6
-        A = (4.*Mw*sigma_w(T))/(R*T*rho_w)  
-        ns = (aerosol.rho_p*np.pi*aerosol.epsilon*(d_s**3.))/(6.*aerosol.Ms) 
-        B = (6.*ns*Mw)/(np.pi*rho_w)
-        s_crit = np.exp(np.sqrt(4.*(A**3)/(27.*B))) - 1.0
-        d_crit = np.sqrt(3.*B/A)
-        return s_crit, d_crit
 
-
-    Neq = []
-    Nkn = []
-    Nunact = []    
-    S_max = S0
-    aerosol = initial_aerosols[0]
 
     raw_input("N analysis...")
-    aerosols = aerosols[aerosol.species]
-    for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
 
-        r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aerosol.kappa) for r_dry, in aerosol.r_drys])
-        s_crits = np.array(s_crits)
-        r_crits = np.array(r_crits)
-        if S > S_max: S_max = S
+    for species in aer_species:
+        print species
+        aerosol = aerosols[species]
+        aer_meta = aer_dict[species]
+        Nis = aer_meta.Nis
 
-        big_s =  S_max >= s_crits
-        Neq.append(np.sum(Nis[big_s]))
-
-        rstep = np.array(aerosols.ix[i])
-        #active_radii = (S > s_crits) & (rstep > r_crits)
-        active_radii = (rstep > r_crits)
-        #sar = np.min(active_radii) if len(active_radii) > 0 else 1e99
-        if len(active_radii) > 0:
-            Nkn.append(np.sum(Nis[active_radii]))
-            Nunact.append(np.sum(Nis[(rstep < r_crits)]))
-        else:
-            Nkn.append(0.0)           
-            Nunact.append(np.sum(Nis))
+        Neq = []
+        Nkn = []
+        Nunact = []    
+        S_max = S0
+    
+        for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
+    
+            r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aer_meta.kappa) for r_dry in aer_meta.r_drys])
+            s_crits = np.array(s_crits)
+            r_crits = np.array(r_crits)
+            if S > S_max: S_max = S
+    
+            big_s =  S_max >= s_crits
+            Neq.append(np.sum(Nis[big_s]))
+    
+            rstep = np.array(aerosol.ix[i])
+            #active_radii = (S > s_crits) | (rstep > r_crits)
+            active_radii = (rstep > r_crits)
+            #sar = np.min(active_radii) if len(active_radii) > 0 else 1e99
+            if len(active_radii) > 0:
+                Nkn.append(np.sum(Nis[active_radii]))
+                Nunact.append(np.sum(Nis[(rstep < r_crits)]))
+            else:
+                Nkn.append(0.0)           
+                Nunact.append(np.sum(Nis))
+            
+            print parcel.index[i], Neq[i], Nkn[i], Nunact[i], S_max, S
+    
+        Neq = np.array(Neq)
+        Nkn = np.array(Nkn)
+        Nunact = np.array(Nunact)
+    
+        parcel[species+'_Neq'] = Neq
+        parcel[species+'_Nkn'] = Nkn
+        parcel[species+'_Nunact'] = Nunact
         
-        print parcel.index[i], Neq[i], Nkn[i], Nunact[i], S_max, S
-
-
-    parcel['Neq'] = Neq
-    parcel['Nkn'] = Nkn
-    parcel['Nunact'] = Nunact
-    
-    alphaz = parcel.Nkn/parcel.Neq
-    alphaz[isnan(alphaz)] = 0.
-    phiz = Nunact/parcel.Nkn
-    phiz[phiz == inf] = 1.
-    
-    parcel['alpha'] = alphaz
-    parcel['phi'] = phiz
-    
-    figure(2)
-    ax = subplot(3,2,5)
-    parcel[['Neq', 'Nkn']].plot(ax=ax, grid=True)
-    xlabel("Height")
-    
-    subplot(3,2,6)
-    parcel.alpha.plot()
-    parcel.phi.plot()
-    ylim(0, 1)
-    xlabel("Height"); ylabel(r'$\alpha(z),\quad\phi(z)$')
-    print parcel.alpha.ix[-1]
+        alphaz = Nkn/Neq
+        alphaz[isnan(alphaz)] = 0.
+        phiz = Nunact/Nkn
+        phiz[phiz == inf] = 1.
+        
+        parcel[species+'_alpha'] = alphaz
+        parcel[species+'_phi'] = phiz
+        
+        figure(2)
+        ax = subplot(3,2,5)
+        parcel[[species+'_Neq', species+'_Nkn']].plot(ax=ax, grid=True)
+        xlabel("Height")
+        
+        subplot(3,2,6)
+        parcel[species+'_alpha'].plot()
+        parcel[species+'_phi'].plot()
+        ylim(0, 1)
+        xlabel("Height"); ylabel(r'$\alpha(z),\quad\phi(z)$')
+        print alphaz[-1]
+        
+        print "=="*35
+        print species + " Summary - "
+        print "Max activated fraction"
+        print "   Eq: ", Neq.max()/np.sum(aer_meta.Nis)
+        print "  Kin: ", Nkn.max()/np.sum(aer_meta.Nis)
+        print ""
+        print "Alpha maximum: %2.2f" % alphaz.max()
+        print "  Phi maximum: %2.2f" % phiz.max()
+        print "=="*35

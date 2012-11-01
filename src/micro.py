@@ -2,7 +2,7 @@
 Microphysics constants and sub-routines for Nenes model
 """
 import numpy as np
-from scipy.optimize import fmin
+from scipy.optimize import fminbound
 
 
 ## Microphysics constants
@@ -52,9 +52,8 @@ def Seq(r, r_dry, T, kappa, neg=False):
 
 def kohler_crit(T, r_dry, kappa):
     '''Numerically find the critical radius predicted by kappa Kohler theory'''
-    out = fmin(Seq, r_dry*1.01, args=(r_dry, T, kappa, True), ftol=1e-10, xtol=1e-10)
-    r_crit = out[0]
-    if r_crit > r_dry:
-        return r_crit, Seq(r_crit, r_dry, T, kappa)
-    else:
-        return r_dry, Seq(r_dry, r_dry, T, kappa)
+    out = fminbound(Seq, r_dry, r_dry*1e3, args=(r_dry, T, kappa, True),
+                    xtol=1e-10, full_output=True, disp=0)
+    r_crit, s_crit = out[:2]
+    s_crit *= -1.0
+    return r_crit, s_crit
