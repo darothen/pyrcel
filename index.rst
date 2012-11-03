@@ -20,6 +20,7 @@ Contents:
    :maxdepth: 2
 
    parcel.rst
+   utilities.rst
 
 Indices and tables
 ==================

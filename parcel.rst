@@ -1,22 +1,24 @@
-Documentation for the Code
+Documentation for the parcel model
 **************************
 
-.. automodule:: src
+.. automodule:: parcel_model
 
 Parcel model -- driver
 =========================
 
 (test)
 
-.. automodule:: src.parcel
-   :members:
+.. automodule:: parcel_model.parcel
 
 .. autoclass:: ParcelModel
    :members: _setup_run, run
+
+.. autoclass:: AerosolSpecies
+   :members:
 
 Parcel model -- auxilary
 =============================
 
 (another test)
 
-.. automodule:: src.parcel_aux
+.. automodule:: parcel_model.parcel_aux
