@@ -13,3 +13,4 @@ syntax: glob
 build/*
 src_bak/*
 old/*
+_build/*
