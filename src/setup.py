@@ -5,6 +5,6 @@ import numpy
 
 setup(
     cmdclass = {'build_ext': build_ext},
-    ext_modules = [Extension("nenes_parcel_aux", ["nenes_parcel_aux.pyx"], 
+    ext_modules = [Extension("parcel_aux", ["parcel_aux.pyx"], 
                              include_dirs=[numpy.get_include(), ])]
 )

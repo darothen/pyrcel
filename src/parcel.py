@@ -12,7 +12,7 @@ ion()
 from scipy.optimize import fsolve
 from scipy.integrate import odeint
 
-from nenes_parcel_aux import der, guesses
+from parcel_aux import der, guesses
 from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit
 
 class AerosolSpecies(object):
