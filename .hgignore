@@ -12,3 +12,4 @@ syntax: glob
 *.h
 build/*
 src_bak/*
+old/*
