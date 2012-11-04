@@ -1,4 +1,10 @@
-"""Class and utilities for manipulating lognormal distributions."""
+"""
+.. module:: parcel
+    :synopsis: Class and utilities for manipulating lognormal distributions.
+
+.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
+
+"""
 
 __docformat__ = "reStructuredText"
 

@@ -1,14 +1,10 @@
 Documentation for the parcel model
-**************************
-
-.. automodule:: parcel_model
+****************************
 
 Parcel model -- driver
-=========================
+============================
 
-(test)
-
-.. automodule:: parcel_model.parcel
+.. automodule:: parcel
 
 .. autoclass:: ParcelModel
    :members: _setup_run, run
@@ -21,4 +17,6 @@ Parcel model -- auxilary
 
 (another test)
 
-.. automodule:: parcel_model.parcel_aux
+.. automodule:: parcel_aux
+   :members:
+

@@ -31,7 +31,6 @@ def sigma_w(T):
     :param T: temperature (deg C)
     :type T: float
     :returns: :math:`\sigma_w(T)` (J/m**2)
-    :rtype: float:
 
     """
     return 0.0761 - (1.55e-4)*(T-273.15)
@@ -49,8 +48,8 @@ def es(T):
 
     :param T: temperature (deg C)
     :type T: float
+
     :returns: :math:`e_s(T)` (Pa)
-    :rtype: float
 
     """
     return 611.2*np.exp(17.67*T/(T+243.5))
@@ -85,17 +84,20 @@ def Seq(r, r_dry, T, kappa, neg=False):
 
     :param r: droplet radius (m)
     :type r: float
+
     :param r_dry: particle dry radius (m)
     :type r_dry: float
+
     :param T: environment temperature (K)
     :type T: float
+
     :param kappa: particle hygroscopicity
     :type kappa: float > 0.0
+
     :param neg: flag indicating to return the negative of the supersaturation, default ``False``
     :type neg: boolean -- optional
 
     :returns: :math:`S_\\text{eq}`
-    :rtype: float
 
     """
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
@@ -106,6 +108,28 @@ def Seq(r, r_dry, T, kappa, neg=False):
         return np.exp(A)*B - 1.0
 
 def kohler_crit(T, r_dry, kappa):
+    """Calculates the critical radius and supersaturation of an aerosol particle.
+
+    Passes the negative or inverted supersaturation function from :func:`Seq` to
+    a minimum-value optimization routine from SciPy to efficiently calculate the
+    radius at which the curve achieves its maximum supersaturation, and that
+    supersaturation value.
+
+    :param T: environment temperature (K)
+    :type T: float
+
+    :param r_dry: parcel dry radius (m)
+    :type r_dry: float
+
+    :param kappa: particle hygroscopicity
+    :type kappa: float
+
+    ------
+
+    :returns: r_crit - critical radius (value of `r` maximizing :func:`Seq`)
+    :returns: s_crit - :func:`Seq` evaluated at ``r_crit``
+
+    """
     '''Numerically find the critical radius predicted by kappa Kohler theory'''
     out = fminbound(Seq, r_dry, r_dry*1e3, args=(r_dry, T, kappa, True),
                     xtol=1e-10, full_output=True, disp=0)

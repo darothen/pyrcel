@@ -1,3 +1,13 @@
+# cython: embedsignature:True
+# cython: profile=True
+# (adds doc-strings accessible by Sphinx)
+"""
+.. module:: parcel
+    :synopsis: Parcel model performance functions.
+
+.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
+
+"""
 
 cimport cython
 cimport numpy as np
@@ -19,15 +29,16 @@ cdef double ac = 1.0 # condensation constant
 cdef double Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
 cdef double at = 0.96 # thermal accomodation coefficient
 cdef double L = 2.5e6 # Latent heat of condensation, J/kg
-cdef double Cp = 1004.0 # Specific heat of dry air at constant pressure, J/kg 
+cdef double Cp = 1004.0 # Specific heat of dry air at constant pressure, J/kg
 cdef double PI = pi # Pi, constant
 
 ## AUXILIARY FUNCTIONS
 cdef inline double sigma_w(double T) nogil:
+    """Surface tension of water"""
     return 0.0761 - (1.55e-4)*(T-273.15) # surface tension of water, J/m^2 given T in Kelvin
 
 @cython.cdivision(True)
-cdef inline double ka(double T, double rho, double r) nogil: 
+cdef inline double ka(double T, double rho, double r) nogil:
     """Thermal conductivity of air, modified for non-continuum effects"""
     cdef double denom
     denom = 1.0 + (Ka/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
@@ -48,35 +59,32 @@ cdef inline double es(double T):
 
 @cython.cdivision(True)
 cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
-    '''Equilibrium supersaturation predicted by Kohler theory
-    
-    Includes optional switch `neg` for inverting the function - useful for
-    finding the maxima numerically
-    
-    following Petters and Kredenweis, 2007
-    '''
+    """See :func:`parcel_model.micro.Seq` for full documentation.
+    """
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
     cdef double B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
     return exp(A)*B - 1.0
 
 @cython.cdivision(True)
 cpdef double Seq_gil(double r, double r_dry, double T, double kappa):
+    """Header of :func:`parcel_model.micro.Seq` ported to Cython and GIL-released.
+    """
     return Seq(r, r_dry, T, kappa)
 
 ### GUESSING FUNCTION
 @cython.boundscheck(False)
 cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
               np.ndarray[double, ndim=1] kappas):
-    '''
+    """
     Given a parcel's temperature and supersaturation as well as a size distribution
     of aerosols and their kappa parameters, computes seed guesses for determining
     the equilibrium wet radii of the inactivated aerosols or, when possible, the exact
-    equilibrium solution
-    '''
+    equilibrium solution.
+    """
     cdef unsigned int nr = r_drys.shape[0]
     cdef np.ndarray[double, ndim=1] guesses = np.empty(dtype='d', shape=(nr))
-    
-    cdef np.ndarray[double, ndim=1] r_range, ss 
+
+    cdef np.ndarray[double, ndim=1] r_range, ss
     cdef double ri, rdi, ki
     cdef unsigned int i, j, idx_min
     for i in xrange(nr):
@@ -88,40 +96,90 @@ cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
             ss[j] = Seq(r_range[j], rdi, T0, ki)
         idx_min = np.argmin(np.abs(ss - S0))
         guesses[i] = r_range[idx_min]
-        
+
     return guesses
-        
+
 ## DERIVATIVE
-def der(np.ndarray[double, ndim=1] y, double t, 
-       int nr, np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] Nis, 
+def der(np.ndarray[double, ndim=1] y, double t,
+       int nr, np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] Nis,
        double V, np.ndarray[double, ndim=1] kappas):
+    """Time-derivatives of variables tracked by the parcel model.
+
+    :param y:
+        Vector representing the current state of the parcel model system,
+            * P - pressure (Pa)
+            * T - temperature (K)
+            * wv - water vapor mass mixing ratio (kg/kg)
+            * wc - droplet liquid water mass mixing ratio (kg/kg)
+            * S - parcel supersaturation
+            * rs - droplet radii (m)
+                -- the final *nr* elements of the state vector `y`
+    :type y: np.ndarray
+
+    :param t:
+        Current time-step at which derivatives are being computed
+    :type t: float
+
+    :param nr:
+        Total number of aerosol radii (across all species) being tracked within
+        the parcel model and in the state vector `y`
+    :type nr: int
+
+    :param r_drys:
+        Dry radii (m) of all the wetted aerosol being tracked, concatenated across all
+        species into a single array of length `nr`. Should correspond to the order in
+        which the wetted radii appear in `y`
+    :type r_drys: np.ndarray
+
+    :param Nis:
+        Number concentrations (m**-3) of the wetted aerosols being tracked,
+        concatenated across all species into a single array of length `nr`
+    :type Nis: np.ndarray
+
+    :param V:
+        Updraft velocity (m)
+    :type V: float
+
+    :param kappas:
+        Aerosol hygroscopicities, concatenated across all species into a single
+        array of length `nr`
+    :type kappas: np.ndarray
+
+    :returns:
+        derivatives of all variables in state vector `y`, in their original order
+
+    """
+
     return _der(t, y, nr, r_drys, Nis, V, kappas)
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
-cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y, 
+cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
                                      int nr, np.ndarray[double, ndim=1] r_drys,
                                      np.ndarray[double, ndim=1] Nis, double V,
                                      np.ndarray[double, ndim=1] kappas):
-                                     
+    """Private function for computing the derivatives used to integrate
+    the parcel model forward in time. See :func:`parcel_model.parcel_aux.der`
+    for complete documentation.
+    """
     cdef double P = y[0]
     cdef double T = y[1]
     cdef double wv = y[2]
     cdef double wc = y[3]
     cdef double S = y[4]
     cdef np.ndarray[double, ndim=1] rs = y[5:]
-    
+
     cdef double pv_sat = es(T-273.15) # saturation vapor pressure
     cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
     cdef double Tv = (1.+0.61*wv)*T
     cdef double rho_air = P/(Rd*Tv)
-    
-    # 1) dP_dt 
+
+    # 1) dP_dt
     cdef double dP_dt = (-g*P*V)/(Rd*Tv)
-    
+
     # 2) dr_dt
-    cdef double G_a, G_b, G    
-    cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr)) 
+    cdef double G_a, G_b, G
+    cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr))
     cdef unsigned int i
     cdef double r, r_dry, delta_S, kappa
 
@@ -129,15 +187,15 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
         r = rs[i]
         r_dry = r_drys[i]
         kappa = kappas[i]
-        
+
         G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
         G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T, rho_air, r)*T)
         G = 1./(G_a + G_b)
-        
+
         delta_S = S - Seq(r, r_dry, T, kappa)
-        
+
         drs_dt[i] = (G/r)*delta_S
-        
+
     # 3) dwc_dt
     cdef double dwc_dt = 0.0
     cdef double Ni, dr_dt
@@ -148,15 +206,15 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
         dr_dt = drs_dt[i]
         dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
     dwc_dt = (4.*PI*rho_w/rho_air)*dwc_dt
-    
+
     # 4) dwv_dt
     cdef double dwv_dt
     dwv_dt = -dwc_dt
-    
-    # 5) dT_dt 
-    cdef double dT_dt  
+
+    # 5) dT_dt
+    cdef double dT_dt
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
-    
+
     # 6) dS_dt
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
     cdef double S_a, S_b, S_c, dS_dt
@@ -165,7 +223,7 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     S_c = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
     dS_dt = (1./wv_sat)*(dwv_dt - S_a*(S_b-S_c))
     #dS_dt = 0.
-    
+
     cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
     x[0] = dP_dt
     x[1] = dT_dt
@@ -173,5 +231,5 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     x[3] = dwc_dt
     x[4] = dS_dt
     x[5:] = drs_dt[:]
-    
+
     return x
