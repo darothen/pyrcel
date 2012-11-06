@@ -1,8 +1,8 @@
 Documentation for the parcel model
-****************************
+**********************************
 
 Parcel model -- driver
-============================
+======================
 
 .. automodule:: parcel
 
@@ -13,7 +13,7 @@ Parcel model -- driver
    :members:
 
 Parcel model -- auxilary
-=============================
+========================
 
 (another test)
 

@@ -9,13 +9,14 @@
 
 """
 
-cimport cython
-cimport numpy as np
-import numpy as np
-
 from cython.parallel import prange
+from scipy.optimize import fminbound
 from libc.math cimport exp, sqrt
 from math import pi
+
+import numpy as np
+cimport numpy as np
+cimport cython
 
 ## Import constants from nenes_parcel
 cdef double Mw = 18.0153/1e3 # Molecular weight of water, kg/mol
@@ -63,7 +64,8 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     """
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
     cdef double B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
-    return exp(A)*B - 1.0
+    cdef double returnval = exp(A)*B - 1.0
+    return returnval
 
 @cython.cdivision(True)
 cpdef double Seq_gil(double r, double r_dry, double T, double kappa):

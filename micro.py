@@ -124,8 +124,6 @@ def kohler_crit(T, r_dry, kappa):
     :param kappa: particle hygroscopicity
     :type kappa: float
 
-    ------
-
     :returns: r_crit - critical radius (value of `r` maximizing :func:`Seq`)
     :returns: s_crit - :func:`Seq` evaluated at ``r_crit``
 
