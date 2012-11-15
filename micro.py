@@ -102,6 +102,7 @@ def Seq(r, r_dry, T, kappa, neg=False):
     """
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
     B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
+    #print A, B, np.exp(A), np.exp(A)*B
     if neg:
         return 1.0 - np.exp(A)*B
     else:
