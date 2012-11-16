@@ -21,6 +21,10 @@ Mw = 18.0153/1e3 #: Molecular weight of water, kg/mol
 #Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
 #ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
 
+## SNIPPETS:
+#parcel.Tv = (1. + 0.61*parcel.wv)*parcel['T']
+#parcel.rho = parcel.P/(Rd*parcel.Tv)
+
 ## AUXILIARY FUNCTIONS
 def sigma_w(T):
     """Calculate the surface tension of water for a given temperature.
@@ -101,12 +105,39 @@ def Seq(r, r_dry, T, kappa, neg=False):
 
     """
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
+    if kappa == 0.0:
+        B = 1.
+    else:
+        B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
     #print A, B, np.exp(A), np.exp(A)*B
     if neg:
         return 1.0 - np.exp(A)*B
     else:
         return np.exp(A)*B - 1.0
+
+def critical_curve(T, r_a, r_b, kappa):
+    """Calculates curves of critical wet radius and supersaturations for aerosol
+    particles.
+
+    Calls :func:`kohler_crit` for values of ``r_dry`` between ``r_a`` and ``r_b``
+    to calculate how the critical supersaturation changes with the dry radius for a
+    particle of specified :math:`\\kappa = ` ``kappa``.
+
+    :param T: environment temperature (K)
+    :type T: float
+
+    :param r_a, r_b: parcel dry radii left and right bounds (m)
+    :type r_a, r_b: float, float
+
+    :param kappa: particle hygroscopicity
+    :type kappa: float > 0.0
+
+    :returns: arrays of dry radii, critical radii, and supersaturations
+
+    """
+    rs = np.logspace(np.log10(r_a), np.log10(r_b), 200)
+    ss = np.array(map(lambda r_dry: kohler_crit(T, r_dry, kappa), rs))
+    return rs, ss[:, 0], ss[:, 1]
 
 def kohler_crit(T, r_dry, kappa):
     """Calculates the critical radius and supersaturation of an aerosol particle.
@@ -135,3 +166,27 @@ def kohler_crit(T, r_dry, kappa):
     r_crit, s_crit = out[:2]
     s_crit *= -1.0
     return r_crit, s_crit
+
+def r_eff(rho, wc, Ni):
+    """Calculates the cloud droplet effective radius given the parcel liquid
+    water mixing ratio and the number of activated droplets, as well as the parcel
+    air density
+
+    Assuming the droplet population is monodisperse or close to it, the cloud droplet
+    effective radius can be computed by
+
+    .. math::
+        r_{\\text{eff}} = \left(\\frac{3 \\rho_a w_c}{4 \pi N_i \\rho_w}\\right)^{1/3}
+
+    :param rho: parcel air density (kg/m^3)
+    :type rho: float
+
+    :param wc: liquid water mixing ratio (kg/kg)
+    :type wc: float
+
+    :param Ni: droplet number concentration (1/m^3)
+    :type Ni: float
+
+    :returns: droplet effective radius (m^3)
+    """
+    return (3.*rho*wc/(4.*np.pi*rho_w*Ni))**(1./3.)

@@ -40,14 +40,18 @@ cdef inline double sigma_w(double T) nogil:
 
 @cython.cdivision(True)
 cdef inline double ka(double T, double rho, double r) nogil:
-    """Thermal conductivity of air, modified for non-continuum effects"""
+    """Thermal conductivity of air, modified for non-continuum effects
+
+    Revise with equation 17.71, Seinfeld and Pandis?"""
     cdef double denom
     denom = 1.0 + (Ka/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
     return Ka/denom
 
 @cython.cdivision(True)
 cdef inline double dv(double T, double r) nogil:
-    """Diffusivity of water vapor in air, modified for non-continuum effects"""
+    """Diffusivity of water vapor in air, modified for non-continuum effects
+
+    Revise with equation 17.62, Seinfeld and Pandis?"""
     cdef double denom
     denom = 1.0 + (Dv/(ac*r))*sqrt((2*PI*Mw)/(R*T))
     return Dv/denom
@@ -63,7 +67,11 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     """See :func:`parcel_model.micro.Seq` for full documentation.
     """
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    cdef double B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
+    cdef double B
+    if kappa == 0.0:
+        B = 1.0
+    else:
+        B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
     cdef double returnval = exp(A)*B - 1.0
     return returnval
 
@@ -220,11 +228,20 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     # 6) dS_dt
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
     cdef double S_a, S_b, S_c, dS_dt
+    cdef double S_b_old, S_c_old, dS_dt_old
     S_a = (S+1.0)
-    S_b = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
-    S_c = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
-    dS_dt = (1./wv_sat)*(dwv_dt - S_a*(S_b-S_c))
-    #dS_dt = 0.
+
+    ## NENES
+    S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
+    S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
+    dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
+
+    ## PRUPPACHER
+    S_b = dT_dt*0.622*L/(Rd*T**2.)
+    S_c = g*V/(Rd*T)
+    dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
+
+    print t, dS_dt, dS_dt_old
 
     cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
     x[0] = dP_dt

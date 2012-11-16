@@ -332,80 +332,14 @@ if __name__ == "__main__":
     ## Initial conditions
     P0 = 95000. # Pressure, Pa
     T0 = 285.2 # Temperature, K
-    S0 = -0.05 # Supersaturation. 1-RH from wv term
-    V = 0.5 # m/s
+    S0 = -0.02 # Supersaturation. 1-RH from wv term
+    V = 1. # m/s
 
-    ## Aerosol properties
-    ## AEROSOL 1 - (NH4)2SO4
-    # Chemistry
-    ammonium_sulfate = {
-        'kappa': 0.6, # Hygroscopicity parameter
-    }
+    aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.10, sigma=2.0, N=1000.),
+                          bins=300, kappa=0.6)
+    aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.02, ], 'Nis': [1000.0, ]}, kappa=0.1)
 
-    # Size Distribution
-    mu, sigma, N, bins = 0.05, 2.0, 300., 200
-    l = 0
-    r = bins
-    ## SINGLE MODE
-    aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    ## MULTIMODE
-    #aerosol_dist = MultiModeLognorm(mus=[0.007, 0.027, 0.43],
-    #                                sigmas=[1.8, 2.16, 2.21],
-    #                                Ns=[106000., 32000., 54.,])
-    #mu = (multiply.reduce(aerosol_dist.mus))**(1./3.)
-    #sigma = 6.0
-    #############
-    #lr, rr = np.log10(8e-4), np.log10(0.8)
-    lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
-
-    rs = np.logspace(lr, rr, num=bins+1)[:]
-    mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
-    Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
-    r_drys = mids*1e-6
-
-    ammonium_sulfate['distribution'] = aerosol_dist
-    ammonium_sulfate['r_drys'] = r_drys
-    ammonium_sulfate['rs'] = rs
-    ammonium_sulfate['Nis'] = Nis*1e6
-    ammonium_sulfate['species'] = '(NH4)2SO4'
-    ammonium_sulfate['nr'] = len(r_drys)
-
-    ## AEROSOL 2 - NaCl
-    # Chemistry
-    NaCl = { 'kappa': 0.01, # Hygroscopicity parameter
-    }
-
-    # Size Distribution
-    '''
-    mu, sigma, N, bins = 0.01, 1.35, 300., 200
-    l = 0
-    r = bins
-    aerosol_dist = Lognorm(mu=mu, sigma=sigma, N=N)
-    lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
-    #lr, rr = np.log10(0.001), np.log10(3500.)
-    rs = np.logspace(lr, rr, num=bins+1)[:]
-    mids = np.array([np.sqrt(a*b) for a, b in zip(rs[:-1], rs[1:])])[l:r]
-    Nis = np.array([0.5*(b-a)*(aerosol_dist.pdf(a) + aerosol_dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])[l:r]
-    r_drys = mids*1e-6
-    '''
-    r_drys = np.array([0.25*1e-6, ])
-    rs = np.array([r_drys[0]*0.9, r_drys[0]*1.1])*1e6
-    Nis = np.array([10000., ])
-
-
-    NaCl['distribution'] = aerosol_dist
-    NaCl['r_drys'] = r_drys
-    NaCl['rs'] = rs
-    NaCl['Nis'] = Nis*1e6
-    NaCl['species'] = 'NaCl'
-    NaCl['nr'] = len(r_drys)
-
-    ######
-
-    #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
-    initial_aerosols = [AerosolSpecies(**ammonium_sulfate)]
-    #initial_aerosols = [AerosolSpecies(**NaCl)]
-    #initial_aerosols = [AerosolSpecies(**ammonium_sulfate), AerosolSpecies(**NaCl)]
+    initial_aerosols = [aerosol1, aerosol2]
     print initial_aerosols
 
     aer_species = [a.species for a in initial_aerosols]
@@ -431,9 +365,8 @@ if __name__ == "__main__":
 
     ## Run model
     #rdt = np.max([V/100., 0.01])
-    dt = 0.01
-    parcel, aerosols = pm.run(P0, T0, S0, z_top=100.0,
-                              dt=dt, max_steps=500)
+    dt = 0.001
+    parcel, aerosols = pm.run(z_top=100.0, dt=dt, max_steps=500)
 
     xs = np.arange(501)
     parcel = parcel.ix[parcel.index % 1 == 0]

@@ -18,7 +18,7 @@ from pylab import *
 ## Initial conditions
 P0 = 100000. # Pressure, Pa
 T0 = 294. # Temperature, K
-S0 = -0.05 # Supersaturation. 1-RH from wv term
+S0 = -0.02 # Supersaturation. 1-RH from wv term
 V = 0.5 # m/s
 
 def make_ammonium_sulfate(epsilon=0.3, N=200.):

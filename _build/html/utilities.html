@@ -102,6 +102,32 @@ this method will return the supersaturation as a decimal with resepct to 1.0,</p
 </dd></dl>
 
 <dl class="function">
+<dt id="micro.critical_curve">
+<tt class="descclassname">micro.</tt><tt class="descname">critical_curve</tt><big>(</big><em>T</em>, <em>r_a</em>, <em>r_b</em>, <em>kappa</em><big>)</big><a class="headerlink" href="#micro.critical_curve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates curves of critical wet radius and supersaturations for aerosol
+particles.</p>
+<p>Calls <tt class="xref py py-func docutils literal"><span class="pre">kohler_crit()</span></tt> for values of <tt class="docutils literal"><span class="pre">r_dry</span></tt> between <tt class="docutils literal"><span class="pre">r_a</span></tt> and <tt class="docutils literal"><span class="pre">r_b</span></tt>
+to calculate how the critical supersaturation changes with the dry radius for a
+particle of specified <span class="math">\(\kappa = ` ``kappa`\)</span>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>T</strong> (<em>float</em>) &#8211; environment temperature (K)</li>
+<li><strong>r_b</strong> (<em>r_a,</em>) &#8211; parcel dry radii left and right bounds (m)</li>
+<li><strong>kappa</strong> (<em>float &gt; 0.0</em>) &#8211; particle hygroscopicity</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">arrays of dry radii, critical radii, and supersaturations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
 <dt id="micro.es">
 <tt class="descclassname">micro.</tt><tt class="descname">es</tt><big>(</big><em>T</em><big>)</big><a class="headerlink" href="#micro.es" title="Permalink to this definition">¶</a></dt>
 <dd><p>Calculates the saturation vapor pressure over water for a given temperature.</p>
@@ -145,6 +171,25 @@ supersaturation value.</p>
 </tr>
 <tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">s_crit - <tt class="xref py py-func docutils literal"><span class="pre">Seq()</span></tt> evaluated at <tt class="docutils literal"><span class="pre">r_crit</span></tt></p>
 </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="micro.r_eff">
+<tt class="descclassname">micro.</tt><tt class="descname">r_eff</tt><big>(</big><em>wc</em>, <em>Ni</em><big>)</big><a class="headerlink" href="#micro.r_eff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the cloud droplet effective radius given the parcel liquid
+water mixing ratio and the number of activated droplets.</p>
+<p>Assuming the droplet population is monodisperse or close to it, the cloud droplet
+effective radius can be computed by</p>
+<div class="math">
+\[r_{\text{eff}} = \left(\frac{3 \rho_a w_c}{4 \pi N_i \rho_w}\right)^{1/3}\]</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>wc</strong> &#8211; liquid water mixing ratio (kg/kg)</td>
 </tr>
 </tbody>
 </table>
