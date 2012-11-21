@@ -333,13 +333,14 @@ if __name__ == "__main__":
     P0 = 95000. # Pressure, Pa
     T0 = 285.2 # Temperature, K
     S0 = -0.02 # Supersaturation. 1-RH from wv term
-    V = 1. # m/s
+    V = 1.0 # m/s
 
-    aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.10, sigma=2.0, N=1000.),
+    aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.05, sigma=2.0, N=500.),
                           bins=300, kappa=0.6)
-    aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.02, ], 'Nis': [1000.0, ]}, kappa=0.1)
+    #aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.02, ], 'Nis': [1000.0, ]}, kappa=0.1)
 
-    initial_aerosols = [aerosol1, aerosol2]
+    #initial_aerosols = [aerosol1, aerosol2]
+    initial_aerosols = [aerosol1, ]
     print initial_aerosols
 
     aer_species = [a.species for a in initial_aerosols]
@@ -365,7 +366,7 @@ if __name__ == "__main__":
 
     ## Run model
     #rdt = np.max([V/100., 0.01])
-    dt = 0.001
+    dt = 0.01
     parcel, aerosols = pm.run(z_top=100.0, dt=dt, max_steps=500)
 
     xs = np.arange(501)

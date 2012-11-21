@@ -1,6 +1,9 @@
 from lognorm import Lognorm
 from parcel import ParcelModel, AerosolSpecies
 from micro import kohler_crit
+
+from pylab import *
+ion()
 import pandas
 
 import numpy as np
@@ -14,39 +17,36 @@ z_top = 100.0 # meters
 dt = 0.01 # seconds
 
 ## Iterate over number concentration of biomass burn aerosol
-aer2Nis = np.logspace(2, 4, 15)
+#aer2Nis = np.logspace(2, 4, 15)
+aer2rs = np.logspace(np.log10(0.01), np.log10(0.25), 25)
 results = {}
+N = 10000.0
 
-for N in aer2Nis:
-    print N
-    aerosol1 = AerosolSpecies('sulf', Lognorm(mu=0.05, sigma=2.0, N=500.),
-                              bins=50, kappa=0.6)
-    aerosol2 = AerosolSpecies('carbon', {'r_drys': [0.200, ], 'Nis': [N, ]}, kappa=0.075)
-
-    initial_aerosols = [aerosol1, aerosol2, ]
+#for N in aer2Nis:
+#    print N
+for r in aer2rs:
+    print r
+    initial_aerosols = [AerosolSpecies('sulf', Lognorm(mu=0.05, sigma=2.0, N=100.),
+                              bins=264, kappa=0.6),
+                        AerosolSpecies('carbon', {'r_drys': [r, ], 'Nis': [N, ]}, kappa=0.2)]
     aer_species = [a.species for a in initial_aerosols]
     aer_dict = dict()
     for aerosol in initial_aerosols:
         aer_dict[aerosol.species] = aerosol
 
-    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=False)
+    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=True)
     parcel, aerosols = pm.run(z_top, dt)
 
-    result_dict = {}
-    result_dict['parcel'] = parcel
-    result_dict['aerosols'] = aerosols
-
-    xs = np.arange(501)
     parcel = parcel.ix[parcel.index % 1 == 0]
-    aero_subset = {}
-    for key in aerosols:
-        aerosol = aerosols[key]
-        subset = aerosol.ix[aerosol.index % 1 == 0]
-        aero_subset[key] = subset
-    aerosols2 = aero_subset
+    aerosols2 = {}
+    for species in aer_species:
+        aerosol = aerosols[species]
+        aerosols2[species] = aerosol.ix[aerosol.index % 1 == 0]
+
+    ##
 
     for species in aer_species:
-        print species
+        if species == 'sulf': continue
         aerosol = aerosols2[species]
         aer_meta = aer_dict[species]
         Nis = aer_meta.Nis
@@ -88,24 +88,26 @@ for N in aer2Nis:
         parcel[species+'_Nunact'] = Nunact
 
         alphaz = Nkn/Neq
-        alphaz[np.isnan(alphaz)] = 0.
+        alphaz[isnan(alphaz)] = 0.
         phiz = Nunact/Nkn
-        phiz[phiz == np.inf] = 1.
+        phiz[phiz == inf] = 1.
 
         parcel[species+'_alpha'] = alphaz
         parcel[species+'_phi'] = phiz
+    ##
+    result_dict = {}
+    result_dict['parcel'] = parcel
+    result_dict['aerosols'] = aerosols
 
-        print "=="*35
-        print species + " Summary - "
-        print "Max activated fraction"
-        print "   Eq: ", Neq.max()/np.sum(aer_meta.Nis)
-        print "  Kin: ", Nkn.max()/np.sum(aer_meta.Nis)
-        print ""
-        print "Alpha maximum: %2.2f" % alphaz.max()
-        print "  Phi maximum: %2.2f" % phiz.max()
-        print "=="*35
+    results[r] = result_dict
 
-        result_dict[species] = {'Eq_max': Neq.max()/np.sum(aer_meta.Nis),
-                                'Kn_max': Nkn.max()/np.sum(aer_meta.Nis)}
+figure(1)
+s_maxes = [results[r]['parcel'].S.max() for r in aer2rs]
+plot(aer2rs, s_maxes)
+for r, s in zip(aer2rs, s_maxes):
+    act = np.any(results[r]['parcel']['carbon_Neq']) > 0.
+    if act:
+        plot(r, s, 'or')
 
-    results[N] = result_dict
+
+

@@ -237,11 +237,16 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
 
     ## PRUPPACHER
-    S_b = dT_dt*0.622*L/(Rd*T**2.)
-    S_c = g*V/(Rd*T)
-    dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
+    #S_b = dT_dt*0.622*L/(Rd*T**2.)
+    #S_c = g*V/(Rd*T)
+    #dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
 
-    print t, dS_dt, dS_dt_old
+    ## SEINFELD
+    S_b = L*Mw*dT_dt/(R*T**2.)
+    S_c = V*g*Ma/(R*T)
+    dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
+
+    #print t, dS_dt, dS_dt_old
 
     cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
     x[0] = dP_dt

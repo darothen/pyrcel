@@ -10,8 +10,8 @@ Ms = 0.13214
 nu = 3.0
 epsilon = 0.7
 rho_p = 1.769e-3*1e6
-kappa = 0.001
-r_dry = 0.02 # micron
+kappa = 0.01
+r_dry = 0.250 # micron
 
 # Original supersaturation
 Seq1 = Seq
