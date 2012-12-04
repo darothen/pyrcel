@@ -330,12 +330,12 @@ class ParcelModel(object):
 if __name__ == "__main__":
 
     ## Initial conditions
-    P0 = 95000. # Pressure, Pa
-    T0 = 285.2 # Temperature, K
-    S0 = -0.02 # Supersaturation. 1-RH from wv term
-    V = 1.0 # m/s
+    P0 = 100000. # Pressure, Pa
+    T0 = 294.0 # Temperature, K
+    S0 = -0.00 # Supersaturation. 1-RH from wv term
+    V = 0.5 # m/s
 
-    aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.05, sigma=2.0, N=500.),
+    aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.05, sigma=2.0, N=100.),
                           bins=300, kappa=0.6)
     #aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.02, ], 'Nis': [1000.0, ]}, kappa=0.1)
 

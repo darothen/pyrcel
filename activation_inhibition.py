@@ -18,24 +18,24 @@ dt = 0.01 # seconds
 
 ## Iterate over number concentration of biomass burn aerosol
 #aer2Nis = np.logspace(2, 4, 15)
-aer2rs = np.logspace(np.log10(0.01), np.log10(0.25), 25)
+aer2rs = np.logspace(np.log10(0.01), np.log10(0.2), 15)
 results = {}
-N = 10000.0
+N = 5000.0
 
 #for N in aer2Nis:
 #    print N
 for r in aer2rs:
     print r
     initial_aerosols = [AerosolSpecies('sulf', Lognorm(mu=0.05, sigma=2.0, N=100.),
-                              bins=264, kappa=0.6),
-                        AerosolSpecies('carbon', {'r_drys': [r, ], 'Nis': [N, ]}, kappa=0.2)]
+                              bins=200, kappa=0.6),
+                        AerosolSpecies('carbon', {'r_drys': [r, ], 'Nis': [N, ]}, kappa=0.01)]
     aer_species = [a.species for a in initial_aerosols]
     aer_dict = dict()
     for aerosol in initial_aerosols:
         aer_dict[aerosol.species] = aerosol
 
     pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=True)
-    parcel, aerosols = pm.run(z_top, dt)
+    parcel, aerosols = pm.run(z_top, dt, max_steps=2000)
 
     parcel = parcel.ix[parcel.index % 1 == 0]
     aerosols2 = {}
@@ -103,11 +103,17 @@ for r in aer2rs:
 
 figure(1)
 s_maxes = [results[r]['parcel'].S.max() for r in aer2rs]
-plot(aer2rs, s_maxes)
+p = plot(aer2rs, s_maxes, label="%1.2f" % aer_meta.kappa)
 for r, s in zip(aer2rs, s_maxes):
     act = np.any(results[r]['parcel']['carbon_Neq']) > 0.
     if act:
         plot(r, s, 'or')
-
-
+for r in aer2rs:
+    r_crit, s_crit = kohler_crit(T0, r*1e-6, aer_meta.kappa)
+    print r, s_crit, aer_meta.kappa, T0
+    plot(r, s_crit, marker="x", color=p[0].get_color())
+ylim(0, 0.01)
+xlabel("dry radius - carbon ($\mu$m)")
+ylabel("Smax - 1.0")
+legend()
 

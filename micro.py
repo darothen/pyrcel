@@ -17,15 +17,23 @@ Rd = 287.0 #: Gas constant for dry air, J/(kg K)
 R = 8.314 #: Universal gas constant, J/(mol K)
 Mw = 18.0153/1e3 #: Molecular weight of water, kg/mol
 
+# Additional constants from the auxiliary file
+Ma = 28.9/1e3 # Molecular weight of dry air, kg/mol
+#Dv = 3.e-5 # Diffusivity of water vapor in air, m^2/s
+ac = 1.0 # condensation constant
+Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
+at = 0.96 # thermal accomodation coefficient
+
 ## NOT CORRECTING FOR NON-CONTINUUM EFFECTS
-#Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
-#ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
+Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
+ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
 
 ## SNIPPETS:
 #parcel.Tv = (1. + 0.61*parcel.wv)*parcel['T']
 #parcel.rho = parcel.P/(Rd*parcel.Tv)
 
 ## AUXILIARY FUNCTIONS
+
 def sigma_w(T):
     """Calculate the surface tension of water for a given temperature.
 
