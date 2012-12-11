@@ -7,6 +7,8 @@
 """
 import numpy as np
 from scipy.optimize import fminbound
+from scipy.special import erfc, erf
+
 
 ## Microphysics constants
 g = 9.81 #: Gravitational constant, m/s**2
@@ -23,6 +25,7 @@ Ma = 28.9/1e3 # Molecular weight of dry air, kg/mol
 ac = 1.0 # condensation constant
 Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
 at = 0.96 # thermal accomodation coefficient
+epsilon = 0.622 # molecular weight of water / molecular weight of dry air
 
 ## NOT CORRECTING FOR NON-CONTINUUM EFFECTS
 Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
@@ -33,6 +36,64 @@ ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air,
 #parcel.rho = parcel.P/(Rd*parcel.Tv)
 
 ## AUXILIARY FUNCTIONS
+def activation(V, T, P, aerosols):
+
+    ## Originally from Abdul-Razzak 198 w/ Ma. Need kappa formulation
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (R*T)/(es(T-273.15)*Mw) + (Mw*(L**2))/(Cp*Ma*T*P)
+
+    ## Condensation effects
+    G_a = (rho_w*R*T)/(es(T-273.15)*Dv*Mw)
+    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T)*T)
+    G = 1./(G_a + G_b)
+
+    Smis = []
+    Sparts = []
+    for aerosol in aerosols:
+        sigma = aerosol.sigma
+        am = aerosol.mu*1e-6
+        N = aerosol.N*1e6
+        kappa = aerosol.kappa
+
+        fi = 0.5*np.exp(2.5*(np.log(sigma)**2))
+        gi = 1.0 + 0.25*np.log(sigma)
+
+
+        A = (2.*sigma_w(T)*Mw)/(rho_w*R*T)
+        _, Smi2 = kohler_crit(T, am, kappa)
+
+        zeta = (2./3.)*A*(np.sqrt(alpha*V/G))
+        etai = ((alpha*V/G)**(3./2.))/(N*gamma*rho_w*2.*np.pi)
+
+        ##
+        Spa = fi*((zeta/etai)**(1.5))
+        Spb = gi*(((Smi2**2)/(etai + 3.*zeta))**(0.75))
+        S_part = (1./(Smi2**2))*(Spa + Spb)
+
+        Smis.append(Smi2)
+        Sparts.append(S_part)
+
+    Smax = 1./np.sqrt(np.sum(Sparts))
+
+    act_fracs = []
+    for Smi, aerosol in zip(Smis, aerosols):
+        ui = 2.*np.log(Smi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
+        N_act = 0.5*aerosol.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.N)
+
+    return Smax, act_fracs
+
+'''
+    print Smax
+    print "osmotic", N_act, N_act/N
+    print "kappa", N_act2, N_act2/N
+
+    x = np.linspace(-3, 3, 1000)
+    plot(x, erfc(x))
+    plot(u, erfc(u), marker='o', markersize=14)
+    plot(u2, erfc(u2), marker='d', color='r', markersize=14)
+'''
+
 
 def sigma_w(T):
     """Calculate the surface tension of water for a given temperature.

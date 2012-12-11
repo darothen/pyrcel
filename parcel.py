@@ -66,7 +66,11 @@ class AerosolSpecies(object):
         A :mod:`numpy` array instance of length `nr` with the number concentration in
         (m**-3) of each aerosol size bin.
 
-    To construct an :class:`AerosolSpecies`, only the metadata (`species` and `kapa`) and
+    .. attribute :: N
+
+        The total aerosol species number concentration in (m**-3)
+
+    To construct an :class:`AerosolSpecies`, only the metadata (`species` and `kappa`) and
     the size distribution needs to be specified. The size distribution (`distribution`) can be
     an instance of :class:`parcel_model.lognorm.Lognorm`, as long as an extra parameter `bins`,
     which is an `int` representing how many bins into which the distribution should be divided,
@@ -110,15 +114,17 @@ class AerosolSpecies(object):
             self.r_drys = np.array(distribution['r_drys'])*1e-6
             self.rs = np.array([self.r_drys[0]*0.9, self.r_drys[0]*1.1, ])*1e6
             self.Nis = np.array(distribution['Nis'])
+            self.N = np.sum(self.Nis)
 
         elif isinstance(distribution, Lognorm):
             # Check for missing keyword argument
             if bins is None:
                 raise ValueError("Need to specify `bins` argument if passing a Lognorm distribution")
 
-            mu = distribution.mu
-            sigma = distribution.sigma
-            lr, rr = np.log10(mu/(10.*sigma)), np.log10(mu*10.*sigma)
+            self.mu = distribution.mu
+            self.sigma = distribution.sigma
+            self.N = distribution.N
+            lr, rr = np.log10(self.mu/(10.*self.sigma)), np.log10(self.mu*10.*self.sigma)
 
             self.rs = np.logspace(lr, rr, num=bins+1)[:]
             mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
@@ -378,7 +384,6 @@ if __name__ == "__main__":
         subset = aerosol.ix[aerosol.index % 1 == 0]
         aero_subset[key] = subset
     aerosols = pandas.Panel(aero_subset)
-
 
     subplot(3,2,4)
     p = parcel.S.plot(logx=False)
