@@ -12,7 +12,7 @@ T0 = 294.0 # Temperature, K
 S0 = 0.00 # Supersaturation. 1-RH from wv term
 
 z_top = 20.0 # meters
-#dt = 0.005 # seconds
+dt = 0.001# seconds
 
 Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
 
@@ -29,12 +29,14 @@ for aerosol in initial_aerosols:
 fig, axes = subplots(2, 1, sharex=True, num=5)
 
 for V in Vs:
-    dt = 0.001 if V < 0.5 else 0.01
+    t_end = np.ceil(z_top/V)
+    ts = np.arange(0.0, t_end+dt, dt)
+
     print V, "(%d)" % len(np.arange(0, (z_top/dt)+dt, dt))
 
     print "   ... model run",
     pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=False)
-    parcel, aerosols = pm.run(z_top, dt)
+    parcel, aerosols = pm.run(z_top, dt, ts=ts)
 
     xs = np.arange(501)
     parcel = parcel.ix[parcel.index % 1 == 0]
@@ -120,3 +122,5 @@ ax2.set_ylabel("Mode 2\nNumber Fraction Activated", multialignment="center")
 ax2.semilogx()
 
 draw()
+savefig("fig5.pdf", transparent=True, bbox_inches="tight")
+

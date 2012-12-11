@@ -275,7 +275,7 @@ class ParcelModel(object):
 
         return out
 
-    def run(self, z_top, dt=0.1, max_steps=1000):
+    def run(self, z_top, dt=None, ts=None, max_steps=1000):
 
         P0, T0, S0 = self.P0, self.T0, self.S0
 
@@ -289,15 +289,18 @@ class ParcelModel(object):
         aerosol = self.aerosols[0]
 
         ## Setup run time conditions
-        t0 = 0.
-        if self.V:
-            t_end = z_top/self.V
+        if dt:
+            t0 = 0.
+            if self.V:
+                t_end = z_top/self.V
+            else:
+                t_end = dt*1000
+            t = np.arange(t0, t_end+dt, dt)
+            if self.console:
+                print "\n"+"n_steps = %d" % (len(t))+"\n"
+                #raw_input("Continue run?")
         else:
-            t_end = dt*1000
-        t = np.arange(t0, t_end+dt, dt)
-        if self.console:
-            print "\n"+"n_steps = %d" % (len(t))+"\n"
-            #raw_input("Continue run?")
+            t = ts[:]
 
         ## Setup integrator
         if self.console:
