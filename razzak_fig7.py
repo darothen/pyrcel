@@ -16,9 +16,9 @@ dt = 0.001 # seconds
 
 Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
 
-aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.05, sigma=2.0, N=100.),
+aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.2, sigma=2.0, N=100.),
                           bins=200, kappa=0.6)
-aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.05, sigma=2.0, N=100.),
+aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.02, sigma=2.0, N=100.),
                           bins=200, kappa=0.05)
 initial_aerosols = [aerosol1, aerosol2, ]
 aer_species = [a.species for a in initial_aerosols]
@@ -29,19 +29,24 @@ for aerosol in initial_aerosols:
 fig, axes = subplots(2, 1, sharex=True, num=5)
 
 for V in Vs:
-    dt = 0.001 if V < 0.5 else 0.01
-    print V, "(%d)" % len(np.arange(0, (z_top/dt)+dt, dt))
+    zs = np.linspace(0, z_top, 100001)
+    print zs[zs%1 == 0]
+    
+    ts = zs/V
+    print "delta t =", np.diff(ts)[0]
+    
+    print V, "(%d)" % len(ts)
 
     print "   ... model run",
     pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=False)
-    parcel, aerosols = pm.run(z_top, dt)
+    parcel, aerosols = pm.run(z_top, ts=ts)
 
     xs = np.arange(501)
-    parcel = parcel.ix[parcel.index % 1 == 0]
+    parcel = parcel.ix[parcel.index % 1. == 0]
     aero_subset = {}
     for key in aerosols:
         aerosol = aerosols[key]
-        subset = aerosol.ix[aerosol.index % 1 == 0]
+        subset = aerosol.ix[aerosol.index % 1. == 0]
         aero_subset[key] = subset
     aerosols2 = aero_subset
     print " done"
@@ -89,9 +94,12 @@ for V in Vs:
         eq_frac = Neq.max()/np.sum(aer_meta.Nis)
 
         ax = axes[0] if species == "Mode 1" else axes[1]
-        lbl_kn, lbl_eq = ("Kinetic", "Equilibrium") if V == Vs[0] else (None, None)
-        ax.plot(V, kn_frac, color="r", marker="D", linestyle="None", label=lbl_kn)
-        ax.plot(V, eq_frac, color="b", marker="D", linestyle="None", label=lbl_eq)
+        if V == Vs[0]:
+            ax.plot(V, kn_frac, color="r", marker="D", linestyle="None", label="Kinetic")
+            ax.plot(V, eq_frac, color="b", marker="D", linestyle="None", label="Equilibrium")
+        else:
+            ax.plot(V, kn_frac, color="r", marker="D", linestyle="None")
+            ax.plot(V, eq_frac, color="b", marker="D", linestyle="None")
     print " done"
 
 Vs = np.logspace(np.log10(0.01), np.log10(5.0), 100)
@@ -120,4 +128,4 @@ ax2.set_ylabel("Mode 2\nNumber Fraction Activated", multialignment="center")
 ax2.semilogx()
 
 draw()
-savefig("fig5.pdf", transparent=True, bbox_inches="tight")
+savefig("fig7.pdf", transparent=True, bbox_inches="tight")
