@@ -5,20 +5,26 @@ from micro import kohler_crit, Rd, r_eff, activation
 import numpy as np
 from pylab import *
 ion()
+rc('text', usetex=True)
+rc('font', family='serif')
+rc('font', size=16)
+rc('legend', fontsize=12)
 
 
 P0 = 100000. # Pressure, Pa
 T0 = 294.0 # Temperature, K
 S0 = 0.00 # Supersaturation. 1-RH from wv term
 
-z_top = 20.0 # meters
+z_top = 30.0 # meters
 dt = 0.001 # seconds
 
-Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
+#Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
+Vs = np.logspace(np.log10(0.5), np.log10(5), 5)
 
-aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.05, sigma=2.0, N=100.),
+
+aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.2, sigma=2.0, N=100.),
                           bins=200, kappa=0.6)
-aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.05, sigma=2.0, N=100.),
+aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.02, sigma=2.0, N=100.),
                           bins=200, kappa=0.05)
 initial_aerosols = [aerosol1, aerosol2, ]
 aer_species = [a.species for a in initial_aerosols]
@@ -29,7 +35,7 @@ for aerosol in initial_aerosols:
 fig, axes = subplots(2, 1, sharex=True, num=5)
 
 for V in Vs:
-    zs = np.linspace(0, z_top, 100001)
+    zs = np.linspace(0, z_top, 20001)
     print zs[zs%1 == 0]
 
     ts = zs/V
@@ -94,7 +100,7 @@ for V in Vs:
         eq_frac = Neq.max()/np.sum(aer_meta.Nis)
 
         ax = axes[0] if species == "Mode 1" else axes[1]
-        if V == Vs[0]
+        if V == Vs[0]:
             ax.plot(V, kn_frac, color="r", marker="D", linestyle="None", label="Kinetic")
             ax.plot(V, eq_frac, color="b", marker="D", linestyle="None", label="Equilibrium")
         else:
@@ -116,7 +122,7 @@ ax1, ax2 = axes
 ax1.plot(Vs, mode1_act, 'k-', label="Parameterized")
 ax1.set_ylim(0, 1)
 ax1.legend(loc="best", frameon=False, prop=legend_props)
-ax1.set_ylabel("Mode 1\nNumber Fraction Activated", multialignment="center")
+ax1.set_ylabel("Mode 1\n$N$ Fraction Activated", multialignment="center")
 ax1.semilogx()
 ax1.set_xlim(0.01, 10.0)
 
@@ -124,8 +130,8 @@ ax2.plot(Vs, mode2_act, 'k-', label="Parameterized")
 ax2.set_ylim(0, 1)
 ax2.legend(loc="best", frameon=False, prop=legend_props)
 ax2.set_xlabel("Updraft Velocity (m s$^{-1}$)")
-ax2.set_ylabel("Mode 2\nNumber Fraction Activated", multialignment="center")
+ax2.set_ylabel("Mode 2\n$N$ Fraction Activated", multialignment="center")
 ax2.semilogx()
 
 draw()
-savefig("fig5.pdf", transparent=True, bbox_inches="tight")
+savefig("razzak_fig5.pdf", transparent=True, bbox_inches="tight")

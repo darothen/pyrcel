@@ -5,13 +5,17 @@ from micro import kohler_crit, Rd, r_eff, activation
 import numpy as np
 from pylab import *
 ion()
+rc('text', usetex=True)
+rc('font', family='serif')
+rc('font', size=16)
+rc('legend', fontsize=12)
 
 
 P0 = 100000. # Pressure, Pa
 T0 = 294.0 # Temperature, K
 S0 = 0.00 # Supersaturation. 1-RH from wv term
 
-z_top = 20.0 # meters
+z_top = 30.0 # meters
 dt = 0.001 # seconds
 
 Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
@@ -116,7 +120,7 @@ ax1, ax2 = axes
 ax1.plot(Vs, mode1_act, 'k-', label="Parameterized")
 ax1.set_ylim(0, 1)
 ax1.legend(loc="best", frameon=False, prop=legend_props)
-ax1.set_ylabel("Mode 1\nNumber Fraction Activated", multialignment="center")
+ax1.set_ylabel("Mode 1\n$N$ Fraction Activated", multialignment="center")
 ax1.semilogx()
 ax1.set_xlim(0.01, 10.0)
 
@@ -124,8 +128,8 @@ ax2.plot(Vs, mode2_act, 'k-', label="Parameterized")
 ax2.set_ylim(0, 1)
 ax2.legend(loc="best", frameon=False, prop=legend_props)
 ax2.set_xlabel("Updraft Velocity (m s$^{-1}$)")
-ax2.set_ylabel("Mode 2\nNumber Fraction Activated", multialignment="center")
+ax2.set_ylabel("Mode 2\n$N$ Fraction Activated", multialignment="center")
 ax2.semilogx()
 
 draw()
-savefig("fig7.pdf", transparent=True, bbox_inches="tight")
+savefig("razzak_fig7.pdf", transparent=True, bbox_inches="tight")

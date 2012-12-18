@@ -6,6 +6,10 @@ import numpy as np
 from pylab import *
 ion()
 
+rc('text', usetex=True)
+rc('font', family='serif')
+rc('font', size=16)
+rc('legend', fontsize=12)
 
 P0 = 100000. # Pressure, Pa
 T0 = 294.0 # Temperature, K

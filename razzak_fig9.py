@@ -13,41 +13,44 @@ rc('legend', fontsize=12)
 
 P0 = 100000. # Pressure, Pa
 T0 = 294.0 # Temperature, K
-S0 = 0.00 # Supersaturation. 1-RH from wv term
-V = 0.5 # m/s
+S0 = -0.005 # Supersaturation. 1-RH from wv term
 
-z_top = 20.0 # meters
+z_top = 40.0 # meters
 dt = 0.001 # seconds
 
-mode2_mus = np.logspace(np.log10(0.01), np.log10(0.5), 7)
+Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
+#Vs = [1.0, ]
 
-aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.05, sigma=2.0, N=100.),
-                          bins=200, kappa=0.6)
+aerosol1 = AerosolSpecies('Nuclei Mode', Lognorm(mu=0.008, sigma=1.6, N=1000.), bins=200, kappa=0.6)
+aerosol2 = AerosolSpecies('Accumulation Mode', Lognorm(mu=0.034, sigma=2.1, N=800.), bins=200, kappa=0.05)
+aerosol3 = AerosolSpecies('Coarse Mode', Lognorm(mu=.46, sigma=2.2, N=0.72), bins=200, kappa=0.6)
+initial_aerosols = [aerosol1, aerosol2, aerosol3]
+aer_species = [a.species for a in initial_aerosols]
+aer_dict = dict()
+for aerosol in initial_aerosols:
+    aer_dict[aerosol.species] = aerosol
 
-fig, axes = subplots(2, 1, sharex=True, num=4)
+fig, axes = subplots(3, 1, sharex=True, num=9, figsize=(8,11))
 
-for mu in mode2_mus:
-    print mu
-
-    aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=mu, sigma=2.0, N=100.),
-                              bins=200, kappa=0.05)
-
-    initial_aerosols = [aerosol1, aerosol2, ]
-    aer_species = [a.species for a in initial_aerosols]
-    aer_dict = dict()
-    for aerosol in initial_aerosols:
-        aer_dict[aerosol.species] = aerosol
+for V in Vs:
+    zs = np.linspace(0, z_top, 20001)
+    print zs[zs%1 == 0]
+    
+    ts = zs/V
+    print "delta t =", np.diff(ts)[0]
+    
+    print V, "(%d)" % len(ts)
 
     print "   ... model run",
-    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=False)
-    parcel, aerosols = pm.run(z_top, dt)
+    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=True)
+    parcel, aerosols = pm.run(z_top, ts=ts)
 
     xs = np.arange(501)
-    parcel = parcel.ix[parcel.index % 1 == 0]
+    parcel = parcel.ix[parcel.index % 1. == 0]
     aero_subset = {}
     for key in aerosols:
         aerosol = aerosols[key]
-        subset = aerosol.ix[aerosol.index % 1 == 0]
+        subset = aerosol.ix[aerosol.index % 1. == 0]
         aero_subset[key] = subset
     aerosols2 = aero_subset
     print " done"
@@ -95,36 +98,38 @@ for mu in mode2_mus:
         eq_frac = Neq.max()/np.sum(aer_meta.Nis)
 
         ax = axes[0] if species == "Mode 1" else axes[1]
-        lbl_kn, lbl_eq = ("Kinetic", "Equilibrium") if mu == mode2_mus[0] else (None, None)
-        ax.plot(mu, kn_frac, color="r", marker="D", linestyle="None", label=lbl_kn)
-        ax.plot(mu, eq_frac, color="b", marker="D", linestyle="None", label=lbl_eq)
+        ## Select correct axis
+        if species == "Nuclei Mode": ax = axes[0]
+        elif species == "Accumulation Mode": ax = axes[1]
+        else: ax = axes[2]
+
+        if V == Vs[0]:
+            ax.plot(V, kn_frac, color="r", marker="D", linestyle="None", label="Kinetic")
+            ax.plot(V, eq_frac, color="b", marker="D", linestyle="None", label="Equilibrium")
+        else:
+            ax.plot(V, kn_frac, color="r", marker="D", linestyle="None")
+            ax.plot(V, eq_frac, color="b", marker="D", linestyle="None")
     print " done"
 
-mus = np.logspace(np.log10(0.01), np.log10(0.5), 100)
+Vs = np.logspace(np.log10(0.01), np.log10(5.0), 100)
 actfracs = []
-for mu in mus:
-    aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=mu, sigma=2.0, N=100.), bins=200, kappa=0.05)
-    initial_aerosols = [aerosol1, aerosol2, ]
+for V in Vs:
     Smax, act = activation(V, T0, P0, initial_aerosols)
     actfracs.append(act)
 actfracs = np.array(actfracs)
-mode1_act, mode2_act = actfracs[:, 0], actfracs[:, 1]
+mode_acts = actfracs[:, 0], actfracs[:, 1], actfracs[:, 2]
 
 legend_props = {'size':12}
 
-ax1, ax2 = axes
-ax1.plot(mus, mode1_act, 'k-', label="Parameterized")
-ax1.set_ylim(0, 1)
-ax1.legend(loc="best", frameon=False, prop=legend_props)
-ax1.set_ylabel("Mode 1\n$N$ Fraction Activated", multialignment="center")
-ax1.semilogx()
-ax1.set_xlim(0.01, 1.0)
-
-ax2.plot(mus, mode2_act, 'k-', label="Parameterized")
-ax2.set_ylim(0, 1)
-ax2.legend(loc="best", frameon=False, prop=legend_props)
-ax2.set_xlabel("Mode 2 Mode Radius ($\mu$m)")
-ax2.set_ylabel("Mode 2\n$N Fraction Activated", multialignment="center")
-ax2.semilogx()
+ax1, ax2, ax3 = axes
+for ax, act, aerosol in zip(axes, mode_acts, initial_aerosols):
+    ax.plot(Vs, act, 'k-', label="Parameterized")
+    ax.set_ylim(0, 1)
+    ax.legend(loc="best", frameon=False, prop=legend_props)
+    ax.set_ylabel("%s\n$N$umber Fraction Activated" % aerosol.species, multialignment="center")
+    ax.semilogx()
+ax.set_xlim(0.01, 10.0)
+ax.set_xlabel("Updraft Velocity (m s$^{-1}$)")
 
 draw()
+savefig("fig9.pdf", transparent=True, bbox_inches="tight")
