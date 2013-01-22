@@ -5,10 +5,6 @@ from micro import kohler_crit, Rd, r_eff, activation
 import numpy as np
 from pylab import *
 ion()
-rc('text', usetex=True)
-rc('font', family='serif')
-rc('font', size=16)
-rc('legend', fontsize=12)
 
 
 P0 = 100000. # Pressure, Pa
@@ -126,7 +122,7 @@ for ax, act, aerosol in zip(axes, mode_acts, initial_aerosols):
     ax.plot(Vs, act, 'k-', label="Parameterized")
     ax.set_ylim(0, 1)
     ax.legend(loc="best", frameon=False, prop=legend_props)
-    ax.set_ylabel("%s\n$N$umber Fraction Activated" % aerosol.species, multialignment="center")
+    ax.set_ylabel("%s\nNumber Fraction Activated" % aerosol.species, multialignment="center")
     ax.semilogx()
 ax.set_xlim(0.01, 10.0)
 ax.set_xlabel("Updraft Velocity (m s$^{-1}$)")

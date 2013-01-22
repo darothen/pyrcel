@@ -10,21 +10,18 @@ rc('font', family='serif')
 rc('font', size=16)
 rc('legend', fontsize=12)
 
-
 P0 = 100000. # Pressure, Pa
 T0 = 294.0 # Temperature, K
 S0 = 0.00 # Supersaturation. 1-RH from wv term
 
-z_top = 30.0 # meters
+z_top = 20.0 # meters
 dt = 0.001 # seconds
 
-#Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
-Vs = np.logspace(np.log10(0.5), np.log10(5), 5)
+Vs = np.logspace(np.log10(0.05), np.log10(5), 6)
 
-
-aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.2, sigma=2.0, N=100.),
+aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.05, sigma=2.0, N=100.),
                           bins=200, kappa=0.6)
-aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.02, sigma=2.0, N=100.),
+aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.05, sigma=2.0, N=100.),
                           bins=200, kappa=0.05)
 initial_aerosols = [aerosol1, aerosol2, ]
 aer_species = [a.species for a in initial_aerosols]
@@ -35,7 +32,7 @@ for aerosol in initial_aerosols:
 fig, axes = subplots(2, 1, sharex=True, num=5)
 
 for V in Vs:
-    zs = np.linspace(0, z_top, 20001)
+    zs = np.linspace(0, z_top, 100001)
     print zs[zs%1 == 0]
 
     ts = zs/V
