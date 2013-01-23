@@ -14,6 +14,8 @@ from disco.job import Job
 
 from pandas.io.parsers import read_csv
 
+import os
+
 def compute_act_fraction(S, T, i, aer_meta, aerosol, Nis, S_max):
 
     r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aer_meta.kappa) for r_dry in aer_meta.r_drys])
@@ -54,8 +56,8 @@ for aerosol in initial_aerosols:
 fig, axes = subplots(2, 1, sharex=True, num=5)
 
 for V in Vs:
-    
-    zs = np.linspace(0, z_top, 10000)
+
+    zs = np.linspace(0, z_top, 5000)
     print zs[zs%1 == 0]
 
     ts = zs/V
@@ -75,11 +77,7 @@ for V in Vs:
     #    subset = aerosol.ix[aerosol.index % 1. == 0]
     #    aero_subset[key] = subset
     #aerosols2 = aero_subset
-    print " done"
-    parcel.to_csv("parcel.csv", index=False)
-    for species in aer_species:
-        aerosols[species].to_csv("%s.csv" % species, index=False)
-    
+    pm.write_csv(parcel, aerosols, "./temp_data")
 
     print "   ... activation",
     ## Compute Activation stats
