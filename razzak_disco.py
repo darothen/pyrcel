@@ -10,6 +10,10 @@ rc('font', family='serif')
 rc('font', size=16)
 rc('legend', fontsize=12)
 
+from disco.job import Job
+
+from pandas.io.parsers import read_csv
+
 def compute_act_fraction(S, T, i, aer_meta, aerosol, Nis, S_max):
 
     r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aer_meta.kappa) for r_dry in aer_meta.r_drys])
@@ -19,7 +23,7 @@ def compute_act_fraction(S, T, i, aer_meta, aerosol, Nis, S_max):
 
     big_s =  S_max >= s_crits
 
-    rstep = np.array(aerosol.ix[i])
+    rstep = np.array(aerosol)
     active_radii = (rstep > r_crits)
 
     Neq = np.sum(Nis[big_s])
@@ -33,9 +37,9 @@ T0 = 294.0 # Temperature, K
 S0 = 0.00 # Supersaturation. 1-RH from wv term
 
 z_top = 30.0 # meters
-dt = 0.001 # seconds
+dt = 0.01 # seconds
 
-Vs = np.logspace(np.log10(0.5), np.log10(5), 1)
+Vs = [0.5]
 
 aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.2, sigma=2.0, N=100.),
                           bins=200, kappa=0.6)
@@ -50,7 +54,8 @@ for aerosol in initial_aerosols:
 fig, axes = subplots(2, 1, sharex=True, num=5)
 
 for V in Vs:
-    zs = np.linspace(0, z_top, 100001)
+    
+    zs = np.linspace(0, z_top, 10000)
     print zs[zs%1 == 0]
 
     ts = zs/V
@@ -63,19 +68,23 @@ for V in Vs:
     parcel, aerosols = pm.run(z_top, ts=ts)
 
     xs = np.arange(501)
-    parcel = parcel.ix[parcel.index % 1. == 0]
-    aero_subset = {}
-    for key in aerosols:
-        aerosol = aerosols[key]
-        subset = aerosol.ix[aerosol.index % 1. == 0]
-        aero_subset[key] = subset
-    aerosols2 = aero_subset
+    #parcel = parcel.ix[parcel.index % 1. == 0]
+    #aero_subset = {}
+    #for key in aerosols:
+    #    aerosol = aerosols[key]
+    #    subset = aerosol.ix[aerosol.index % 1. == 0]
+    #    aero_subset[key] = subset
+    #aerosols2 = aero_subset
     print " done"
+    parcel.to_csv("parcel.csv", index=False)
+    for species in aer_species:
+        aerosols[species].to_csv("%s.csv" % species, index=False)
+    
 
     print "   ... activation",
     ## Compute Activation stats
     for species in aer_species:
-        aerosol = aerosols2[species]
+        aerosol = aerosols[species]
         aer_meta = aer_dict[species]
         Nis = aer_meta.Nis
 
@@ -85,21 +94,24 @@ for V in Vs:
         S_max = S0
 
         for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
+            kn, eq, unact = compute_act_fraction(S, T, i, aer_meta, aerosol.ix[i], Nis, S_max)
 
-            kn, eq, unact = compute_act_fraction(S, T, i, aer_meta, aerosol, Nis, S_max)
+            Neq.append(eq)
 
-            if len(active_radii) > 0:
-                Nkn.append(np.sum(Nis[active_radii]))
-                Nunact.append(np.sum(Nis[(rstep < r_crits)]))
+            if kn > 0:
+                Nkn.append(kn)
+                Nunact.append(unact)
             else:
                 Nkn.append(0.0)
-                Nunact.append(np.sum(Nis))
-
-            print species, parcel.index[i], Neq[i], Nkn[i], Nunact[i], S_max, S
+                Nunact.append(unact)
 
         Neq = np.array(Neq)
         Nkn = np.array(Nkn)
         Nunact = np.array(Nunact)
+
+        print Neq
+        print Nkn
+        print Nunact
 
         kn_frac = Nkn.max()/np.sum(aer_meta.Nis)
         eq_frac = Neq.max()/np.sum(aer_meta.Nis)
@@ -138,5 +150,5 @@ ax2.set_xlabel("Updraft Velocity (m s$^{-1}$)")
 ax2.set_ylabel("Mode 2\n$N$ Fraction Activated", multialignment="center")
 ax2.semilogx()
 
-draw()
+#draw()
 savefig("razzak_fig7.pdf", transparent=True, bbox_inches="tight")
