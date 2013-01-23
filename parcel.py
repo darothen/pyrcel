@@ -22,6 +22,8 @@ from scipy.integrate import odeint
 from parcel_aux import der, guesses
 from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit
 
+import os
+
 class AerosolSpecies(object):
     """Container class for organizing and passing around important details about
     aerosol species present in the parcel model.
@@ -336,7 +338,7 @@ class ParcelModel(object):
 
         return df1, aerosol_dfs
 
-    def write_csv(parcel_data, aerosol_data, output_dir=None):
+    def write_csv(self, parcel_data, aerosol_data, output_dir=None):
         """Write output to CSV files.
 
         Utilize pandas fast output procedures to write the model run output to a set of CSV files.
@@ -354,11 +356,11 @@ class ParcelModel(object):
             output_dir = os.getcwd()
 
         # Write parcel data
-        parcel_data.to_csv(os.path.join(output_dir, "parcel.csv"), header=None)
+        parcel_data.to_csv(os.path.join(output_dir, "parcel.csv"))
 
         # Write aerosol data
         for species, data in aerosol_data.iteritems():
-            data.to_csv(os.path.join(output_dir, "%s.csv" % species), header=None)
+            data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
 if __name__ == "__main__":
 

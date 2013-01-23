@@ -2,151 +2,154 @@ from lognorm import Lognorm
 from parcel import ParcelModel, AerosolSpecies
 from micro import kohler_crit, Rd, r_eff, activation
 
-import numpy as np
-from pylab import *
-ion()
-rc('text', usetex=True)
-rc('font', family='serif')
-rc('font', size=16)
-rc('legend', fontsize=12)
-
+from disco.core import result_iterator
 from disco.job import Job
 
-from pandas.io.parsers import read_csv
+import numpy as np
 
-import os
+from collections import OrderedDict
 
-def compute_act_fraction(S, T, i, aer_meta, aerosol, Nis, S_max):
+import os, csv, operator
 
-    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aer_meta.kappa) for r_dry in aer_meta.r_drys])
-    s_crits = np.array(s_crits)
-    r_crits = np.array(r_crits)
-    if S > S_max: S_max = S
+class ActivatedFractionJob(Job):
+    required_modules = ['numpy',
+                        ('lognorm', "/home/darothen/workspace/parcel_model/lognorm.py"),
+                        ('parcel', "/home/darothen/workspace/parcel_model/parcel.py"),
+                        ('parcel_aux', "/home/darothen/workspace/parcel_model/parcel_aux.so"),
+                        ('micro', "/home/darothen/workspace/parcel_model/micro.py"),
+                        'collections']
+    partitions = 100
 
-    big_s =  S_max >= s_crits
+    @staticmethod
+    def map_reader(fd, size, url, params):
+        reader = csv.reader(fd, delimiter=',')
+        for i, row in enumerate(reader):
+            if i == 0: continue
+            yield row
 
-    rstep = np.array(aerosol)
+    def map(self, row, params):
+        from razzak_disco import compute_act_fraction
+        key, aerosol_rs = row[0], row[1:]
+        aerosol_rs = np.array(aerosol_rs, dtype=np.float)
+        S, T = params[key]['S'], params[key]['T']
+        aer_meta = params['aer_meta']
+        #yield key, compute_act_fraction(S, T, aer_meta, aerosol_rs)
+        yield key, (S, T, aer_meta, aerosol_rs)
+
+    def reduce(self, rows_iter, out, params):
+        for key, args in rows_iter:
+            out.add(float(key), compute_act_fraction(*args))
+
+def compute_act_fraction(S, T, aer_meta, aerosol_rs):
+    kappa = aer_meta.kappa
+    r_drys = aer_meta.r_drys
+    Nis = aer_meta.Nis
+
+    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in  r_drys])
+
+    s_crits = numpy.array(s_crits)
+    r_crits = numpy.array(r_crits)
+
+    #big_s =  S_max >= s_crits
+    big_s =  S >= s_crits
+
+    rstep = aerosol_rs
     active_radii = (rstep > r_crits)
 
-    Neq = np.sum(Nis[big_s])
-    Nkn = np.sum(Nis[active_radii])
-    Nunact = np.sum(Nis[(rstep < r_crits)])
+    N_tot = numpy.sum(Nis)
+
+    Neq = numpy.sum(Nis[big_s])/N_tot
+    Nkn = numpy.sum(Nis[active_radii])/N_tot
+    Nunact = numpy.sum(Nis[(rstep < r_crits)])/N_tot
 
     return Neq, Nkn, Nunact
 
-P0 = 100000. # Pressure, Pa
-T0 = 294.0 # Temperature, K
-S0 = 0.00 # Supersaturation. 1-RH from wv term
+if __name__ == "__main__":
 
-z_top = 30.0 # meters
-dt = 0.01 # seconds
+    P0 = 100000. # Pressure, Pa
+    T0 = 294.0 # Temperature, K
+    S0 = -0.00 # Supersaturation. 1-RH from wv term
 
-Vs = [0.5]
+    z_top = 30.0 # meters
+    dt = 0.01 # seconds
 
-aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.2, sigma=2.0, N=100.),
-                          bins=200, kappa=0.6)
-aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.02, sigma=2.0, N=100.),
-                          bins=200, kappa=0.05)
-initial_aerosols = [aerosol1, aerosol2, ]
-aer_species = [a.species for a in initial_aerosols]
-aer_dict = dict()
-for aerosol in initial_aerosols:
-    aer_dict[aerosol.species] = aerosol
+    Vs = [0.5]
 
-fig, axes = subplots(2, 1, sharex=True, num=5)
+    aerosol1 = AerosolSpecies('Mode 1', Lognorm(mu=0.2, sigma=2.0, N=100.),
+                              bins=200, kappa=0.6)
+    aerosol2 = AerosolSpecies('Mode 2', Lognorm(mu=0.02, sigma=2.0, N=100.),
+                              bins=200, kappa=0.05)
+    initial_aerosols = [aerosol1, aerosol2, ]
+    aer_species = [a.species for a in initial_aerosols]
+    aer_dict = dict()
+    for aerosol in initial_aerosols:
+        aer_dict[aerosol.species] = aerosol
 
-for V in Vs:
+    for V in Vs:
+        zs = np.linspace(0, z_top, 6001)
+        print zs[zs%1 == 0]
 
-    zs = np.linspace(0, z_top, 5000)
-    print zs[zs%1 == 0]
+        ts = zs/V
+        print "delta t =", np.diff(ts)[0]
 
-    ts = zs/V
-    print "delta t =", np.diff(ts)[0]
+        print V, "(%d)" % len(ts)
 
-    print V, "(%d)" % len(ts)
+        print "   ... model run",
 
-    print "   ... model run",
-    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=False)
-    parcel, aerosols = pm.run(z_top, ts=ts)
+        pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=False)
+        parcel, aerosols = pm.run(z_top, ts=ts)
 
-    xs = np.arange(501)
-    #parcel = parcel.ix[parcel.index % 1. == 0]
-    #aero_subset = {}
-    #for key in aerosols:
-    #    aerosol = aerosols[key]
-    #    subset = aerosol.ix[aerosol.index % 1. == 0]
-    #    aero_subset[key] = subset
-    #aerosols2 = aero_subset
-    pm.write_csv(parcel, aerosols, "./temp_data")
+        parcel = parcel.ix[parcel.index % 1. == 0]
+        aero_subset = {}
+        for key in aerosols:
+            aerosol = aerosols[key]
+            subset = aerosol.ix[aerosol.index % 1. == 0]
+            aero_subset[key] = subset
+        aerosols = aero_subset
+        pm.write_csv(parcel, aerosols, "./temp_data")
 
-    print "   ... activation",
-    ## Compute Activation stats
-    for species in aer_species:
-        aerosol = aerosols[species]
-        aer_meta = aer_dict[species]
-        Nis = aer_meta.Nis
+        print "done"
 
-        Neq = []
-        Nkn = []
-        Nunact = []
-        S_max = S0
+        print "   ... activation"
+        params = OrderedDict()
+        with open("./temp_data/parcel.csv", "r") as param_file:
+            for i, line in enumerate(param_file.readlines()):
+                if i == 0: continue
+                key, P, S, T, wc, wv = line.strip().split(',')
+                params[key] = {'T': float(T), 'S': float(S)}
 
-        for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
-            kn, eq, unact = compute_act_fraction(S, T, i, aer_meta, aerosol.ix[i], Nis, S_max)
+        ## Compute Activation stats
+        from razzak_disco import ActivatedFractionJob
+        for species in aer_species:
+            if species == "Mode 2": continue
+            aer_meta = aer_dict[species]
 
-            Neq.append(eq)
+            params['aer_meta'] = aer_meta
 
-            if kn > 0:
+            Neq = []
+            Nkn = []
+            Nunact = []
+            S_max = S0
+
+            mode_fn = "/home/darothen/workspace/parcel_model/temp_data/%s.csv" % species
+            print mode_fn
+            disco_job = ActivatedFractionJob().run(input=[mode_fn],
+                                                   params=params)
+            for key, result in sorted(result_iterator(disco_job.wait(show=True))):
+                print key, result
+                eq, kn, unact = result
+                Neq.append(eq)
                 Nkn.append(kn)
                 Nunact.append(unact)
-            else:
-                Nkn.append(0.0)
-                Nunact.append(unact)
 
-        Neq = np.array(Neq)
-        Nkn = np.array(Nkn)
-        Nunact = np.array(Nunact)
+            ###
 
-        print Neq
-        print Nkn
-        print Nunact
+            Neq = np.array(Neq)
+            Nkn = np.array(Nkn)
+            Nunact = np.array(Nunact)
 
-        kn_frac = Nkn.max()/np.sum(aer_meta.Nis)
-        eq_frac = Neq.max()/np.sum(aer_meta.Nis)
+            print Neq
+            print Nkn
+            print Nunact
 
-        ax = axes[0] if species == "Mode 1" else axes[1]
-        if V == Vs[0]:
-            ax.plot(V, kn_frac, color="r", marker="D", linestyle="None", label="Kinetic")
-            ax.plot(V, eq_frac, color="b", marker="D", linestyle="None", label="Equilibrium")
-        else:
-            ax.plot(V, kn_frac, color="r", marker="D", linestyle="None")
-            ax.plot(V, eq_frac, color="b", marker="D", linestyle="None")
-    print " done"
-
-Vs = np.logspace(np.log10(0.01), np.log10(5.0), 100)
-actfracs = []
-for V in Vs:
-    Smax, act = activation(V, T0, P0, initial_aerosols)
-    actfracs.append(act)
-actfracs = np.array(actfracs)
-mode1_act, mode2_act = actfracs[:, 0], actfracs[:, 1]
-
-legend_props = {'size':12}
-
-ax1, ax2 = axes
-ax1.plot(Vs, mode1_act, 'k-', label="Parameterized")
-ax1.set_ylim(0, 1)
-ax1.legend(loc="best", frameon=False, prop=legend_props)
-ax1.set_ylabel("Mode 1\n$N$ Fraction Activated", multialignment="center")
-ax1.semilogx()
-ax1.set_xlim(0.01, 10.0)
-
-ax2.plot(Vs, mode2_act, 'k-', label="Parameterized")
-ax2.set_ylim(0, 1)
-ax2.legend(loc="best", frameon=False, prop=legend_props)
-ax2.set_xlabel("Updraft Velocity (m s$^{-1}$)")
-ax2.set_ylabel("Mode 2\n$N$ Fraction Activated", multialignment="center")
-ax2.semilogx()
-
-#draw()
-savefig("razzak_fig7.pdf", transparent=True, bbox_inches="tight")
+        print " done"
