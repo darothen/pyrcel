@@ -154,7 +154,8 @@ class AerosolSpecies(object):
     def from_summary_str(summary_str):
         import ast
         summary_dict = ast.literal_eval(summary_str)
-        aerosol = AerosolSpecies(**summary_dict)
+        dist = Lognorm(mu=summary_dict['mu'], sigma=summary_dict['sigma'], N=summary_dict['N'])
+        aerosol = AerosolSpecies(summary_dict['species'], dist, summary_dict['kappa'], summary_dict['bins'])
         return aerosol
 
 class ParcelModel(object):
