@@ -2,8 +2,8 @@ from lognorm import Lognorm
 from parcel import ParcelModel, AerosolSpecies
 from micro import kohler_crit, Rd, r_eff, activation
 
-from disco.core import result_iterator
-from disco.job import Job
+#from disco.core import result_iterator
+#from disco.job import Job
 
 import numpy as np
 

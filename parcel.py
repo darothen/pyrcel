@@ -20,7 +20,7 @@ from scipy.optimize import fsolve
 from scipy.integrate import odeint
 
 from parcel_aux import der, guesses
-from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit
+from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, eq_act_fraction
 
 import os
 
@@ -109,6 +109,7 @@ class AerosolSpecies(object):
 
         self.species = species # Species molecular formula
         self.kappa = kappa # Kappa hygroscopicity parameter
+        self.bins = bins # Number of bins for discretizing the size distribution
 
         ## Handle the size distribution passed to the constructor
         self.distribution = distribution
@@ -144,6 +145,18 @@ class AerosolSpecies(object):
     def __repr__(self):
         return "%s - %r" % (self.species, self.distribution)
 
+    def summary_str(self):
+        summary_dict = { "species": self.species, "mu": self.mu, "sigma": self.sigma, "N": self.N,
+                         "kappa": self.kappa, "bins": self.bins }
+        return str(summary_dict)
+
+    @staticmethod
+    def from_summary_str(summary_str):
+        import ast
+        summary_dict = ast.literal_eval(summary_str)
+        aerosol = AerosolSpecies(**summary_dict)
+        return aerosol
+
 class ParcelModel(object):
     """Container class to set-up and run the parcel model.
 
@@ -171,7 +184,7 @@ class ParcelModel(object):
         Based on the aerosol population which has been stored in the model, this
         method will finish initializing the model. This has three major parts:
 
-        1. Concate the aerosol population information (their dry radii, hygroscopicites,
+        1. Concatenate the aerosol population information (their dry radii, hygroscopicities,
             etc) into single arrays which can be placed into the state vector for forward
             integration.
         2. Given the initial ambient water vapor concentration (computed from the temperature,
@@ -335,10 +348,55 @@ class ParcelModel(object):
             aerosol_dfs[species] = pandas.DataFrame( radii_dict, index=heights[offset:])
             species_shift += nr
 
-
         return df1, aerosol_dfs
 
-    def write_csv(self, parcel_data, aerosol_data, output_dir=None):
+    def write_summary(self, parcel_data, aerosol_data, out_filename):
+        ## Check if parent dir of out_filename exists, and if not,
+        ## create it
+        out_dir = os.path.dirname(out_filename)
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
+        ## Open a file to write to
+        with open(out_filename, 'w') as out_file:
+            ## Write header
+            out_file.write("PARCEL MODEL\n")
+            out_file.write("--------------------------------------\n")
+
+            ## Write initial conditions
+            out_file.write("V = %f\n" % self.V)
+            out_file.write("P0 = %f\n" % self.P0)
+            out_file.write("T0 = %f\n" % self.T0)
+            out_file.write("S0 = %f\n" % self.S0)
+            out_file.write("--------------------------------------\n")
+
+            ## Write aerosol details
+            for aerosol in self.aerosols:
+                out_file.write(aerosol.species+" = "+aerosol.summary_str()+"\n")
+            out_file.write("--------------------------------------\n")
+
+            ## Write simulation summary results
+            # 1) Maximum supersaturation in parcel
+            S_max = parcel_data['S'].max()
+            S_max_idx = np.argmax(parcel_data.S)
+            out_file.write("S_max = %f\n" % S_max)
+
+            # 2) Activated fraction of each species
+            T_at_S_max = parcel_data['T'].ix[S_max_idx]
+            for aerosol in self.aerosols:
+                act_frac = eq_act_fraction(S_max, T_at_S_max, aerosol.kappa, aerosol.r_drys, aerosol.Nis)
+                out_file.write("%s - eq_act_frac = %f\n" % (aerosol.species, act_frac))
+
+    @staticmethod
+    def write_to_hdf(name, parcel_data, aerosol_data, store_loc, meta=None):
+        pass
+
+    @staticmethod
+    def retrieve_from_hdf(store_loc, run_name):
+        pass
+
+    @staticmethod
+    def write_csv(parcel_data, aerosol_data, output_dir=None):
         """Write output to CSV files.
 
         Utilize pandas fast output procedures to write the model run output to a set of CSV files.
@@ -474,7 +532,6 @@ if __name__ == "__main__":
 
         #rs, Nis = pm.y0[-initial_aerosol.nr:]*1e6, initial_aerosol.Nis
         #plot(rs, Nis, color='b', alpha=0.5)
-
 
     raw_input("N analysis...")
 
