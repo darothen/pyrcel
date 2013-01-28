@@ -384,9 +384,17 @@ class ParcelModel(object):
 
             # 2) Activated fraction of each species
             T_at_S_max = parcel_data['T'].ix[S_max_idx]
+            total_number = 0.0
+            total_activated = 0.0
             for aerosol in self.aerosols:
                 act_frac = eq_act_fraction(S_max, T_at_S_max, aerosol.kappa, aerosol.r_drys, aerosol.Nis)
-                out_file.write("%s - eq_act_frac = %f\n" % (aerosol.species, act_frac))
+                act_num = act_frac*aerosol.N
+                out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" % (aerosol.species, act_frac, act_num, aerosol.N))
+
+                total_number += aerosol.N
+                total_activated += act_num
+            total_act_frac = total_activated/total_number
+            out_file.write("Total activated fraction = %f (%3.2f/%3.2f)\n" % (total_act_frac, total_activated, total_number))
 
     @staticmethod
     def write_to_hdf(name, parcel_data, aerosol_data, store_loc, meta=None):
