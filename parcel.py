@@ -158,6 +158,12 @@ class AerosolSpecies(object):
         aerosol = AerosolSpecies(summary_dict['species'], dist, summary_dict['kappa'], summary_dict['bins'])
         return aerosol
 
+class ParcelModelError(Exception):
+    def __init__(self, error_str):
+        self.error_str = error_str
+    def __str__(self):
+        return repr(self.error_str)
+
 class ParcelModel(object):
     """Container class to set-up and run the parcel model.
 
@@ -267,12 +273,19 @@ class ParcelModel(object):
         r0s = np.array([fsolve(f, (rd+guess)/2., args=(rd, kappa), xtol=1e-10)[0] for guess, rd, kappa in zip(r_guesses, r_drys, kappas)])
         ## Console logging output, if requested, of the equilibrium calcuations. Useful for
         ## checking if the computations worked
+        raised = False
         if self.console:
             for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
                 ss = Seq(r, r_dry, T0, kappa)
                 rc, _ = kohler_crit(T0, r_dry, kappa)
-                if r < 0 or r > 1e-3: print "Found bad r", r, r_dry, sp
-                if np.abs(ss-S0)/S0 > 0.02: print "Found S discrepancy", ss, r_dry
+                if r < 0 or r > 1e-3:
+                    print "Found bad r", r, r_dry, sp
+                    raised = True
+                if np.abs(ss-S0)/S0 > 0.02:
+                    print "Found S discrepancy", ss, r_dry
+                    raised = True
+        if raised:
+            raise ParcelModelError("Couldn't calculate initial aerosol population wet sizes.")
         out['r0s'] = r0s
 
         # c) compute equilibrium droplet water content
@@ -324,8 +337,11 @@ class ParcelModel(object):
                              full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
         else:
-            x = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
-                       mxstep=max_steps, mxhnil=0, atol=1e-15, rtol=1e-12)
+            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
+                             full_output=1, mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
+        if not info['message'] == "Integration successful.":
+            raise ParcelModelError("scipy.odeint failed with message '%s'" % info['message'])
 
         heights = t*self.V
         offset = 0
