@@ -20,7 +20,7 @@ from scipy.optimize import fsolve
 from scipy.integrate import odeint
 
 from parcel_aux import der, guesses
-from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, eq_act_fraction
+from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, act_fraction
 
 import os
 
@@ -280,8 +280,9 @@ class ParcelModel(object):
             if r < 0 or r > 1e-3:
                 if self.console: print "Found bad r", r, r_dry, sp
                 raised = True
-            if np.abs(ss-S0)/S0 > 0.02:
-                if self.console: print "Found S discrepancy", ss, s0, r_dry
+            #if np.abs(ss-S0)/S0 > 0.02:
+            if np.abs(ss-S0) > 1e-10:
+                if self.console: print "Found S discrepancy", ss, S0, r_dry
                 raised = True
         if raised:
             raise ParcelModelError("Couldn't calculate initial aerosol population wet sizes.")

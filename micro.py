@@ -236,18 +236,27 @@ def kohler_crit(T, r_dry, kappa):
     s_crit *= -1.0
     return r_crit, s_crit
 
-def eq_act_fraction(Smax, T, kappa, r_drys, Nis):
+def act_fraction(Smax, T, rs, kappa, r_drys, Nis):
     """Calculates the equilibrium activated fraction given the details of a population
     of aerosol sizes.
+
+    NOTE - This works for a *single mode*. In order to study the entire aerosol
+    population activated in the parcel model, this will need to be called however
+    many times there are modes for each separate mode.
     """
     r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in r_drys])
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
     activated_eq = (Smax >= s_crits)
+    activated_kn = (rs >= r_crits)
+
     N_tot = np.sum(Nis)
 
-    return np.sum(Nis[activated_eq])/N_tot
+    eq_frac = np.sum(Nis[activated_eq])/N_tot
+    kn_frac = np.sum(Nis[activated_kn])/N_tot
+
+    return eq_frac, kn_frac
 
 def r_eff(rho, wc, Ni):
     """Calculates the cloud droplet effective radius given the parcel liquid
