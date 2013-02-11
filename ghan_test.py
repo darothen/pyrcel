@@ -13,6 +13,7 @@ P0 = 100000. # Pressure, Pa
 T0 = 279.0 # Temperature, K
 S0 = -0.00 # Supersaturation. 1-RH from wv term
 V = 0.1 # m/s
+explicit = False
 
 aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.05, sigma=2.0, N=1000.),
                           bins=200, kappa=0.7)
@@ -34,7 +35,7 @@ hygro = [a.kappa for a in initial_aerosols]
 rad = [a.mu for a in initial_aerosols]
 
 ## Call Ghan code
-fn, smax = ghan_act.activation(T0, P0/100., V*100., True,
+fn, smax = ghan_act.activation(T0, P0/100., V*100., explicit,
                                na, sig, rhodry, hygro, rad)
 
 print fn, smax

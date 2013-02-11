@@ -274,16 +274,15 @@ class ParcelModel(object):
         ## Console logging output, if requested, of the equilibrium calcuations. Useful for
         ## checking if the computations worked
         raised = False
-        if self.console:
-            for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
-                ss = Seq(r, r_dry, T0, kappa)
-                rc, _ = kohler_crit(T0, r_dry, kappa)
-                if r < 0 or r > 1e-3:
-                    print "Found bad r", r, r_dry, sp
-                    raised = True
-                if np.abs(ss-S0)/S0 > 0.02:
-                    print "Found S discrepancy", ss, r_dry
-                    raised = True
+        for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
+            ss = Seq(r, r_dry, T0, kappa)
+            rc, _ = kohler_crit(T0, r_dry, kappa)
+            if r < 0 or r > 1e-3:
+                if self.console: print "Found bad r", r, r_dry, sp
+                raised = True
+            if np.abs(ss-S0)/S0 > 0.02:
+                if self.console: print "Found S discrepancy", ss, s0, r_dry
+                raised = True
         if raised:
             raise ParcelModelError("Couldn't calculate initial aerosol population wet sizes.")
         out['r0s'] = r0s
