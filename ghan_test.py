@@ -39,3 +39,4 @@ fn, smax = ghan_act.activation(T0, P0/100., V*100., explicit,
                                na, sig, rhodry, hygro, rad)
 
 print fn, smax
+

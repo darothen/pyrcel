@@ -231,20 +231,26 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double S_b_old, S_c_old, dS_dt_old
     S_a = (S+1.0)
 
-    ## NENES
+    ## NENES (2001)
     S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
     S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
     dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
 
-    ## PRUPPACHER
+    ## PRUPPACHER (PK 1997)
     #S_b = dT_dt*0.622*L/(Rd*T**2.)
     #S_c = g*V/(Rd*T)
     #dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
 
-    ## SEINFELD
-    S_b = L*Mw*dT_dt/(R*T**2.)
-    S_c = V*g*Ma/(R*T)
-    dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
+    ## SEINFELD (SP 1998)
+    #S_b = L*Mw*dT_dt/(R*T**2.)
+    #S_c = V*g*Ma/(R*T)
+    #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
+
+    ## GHAN (2011)
+    cdef double alpha, gamma
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+    dS_dt = alpha*V - gamma*dwc_dt
 
     #print t, dS_dt, dS_dt_old
 

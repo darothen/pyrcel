@@ -6,7 +6,7 @@
 
 """
 import numpy as np
-from scipy.optimize import fminbound
+from scipy.optimize import fminbound, bisect
 from scipy.special import erfc, erf
 
 
@@ -38,7 +38,7 @@ ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air,
 ## AUXILIARY FUNCTIONS
 def activation(V, T, P, aerosols):
 
-    ## Originally from Abdul-Razzak 198 w/ Ma. Need kappa formulation
+    ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
     gamma = (R*T)/(es(T-273.15)*Mw) + (Mw*(L**2))/(Cp*Ma*T*P)
 
@@ -94,6 +94,100 @@ def activation(V, T, P, aerosols):
     plot(u2, erfc(u2), marker='d', color='r', markersize=14)
 '''
 
+def activate_FN(V, T, P, aerosol, tol=1e-5, max_iters=100):
+    """Sketch implementation of Fountoukis and Nenes (2005) parameterization
+    """
+    #print "P =", P0
+    #print "T =", T0
+    #print ""
+
+    A = (2.*Mw*sigma_w(T))/(R*T*rho_w)
+
+    G_a = (rho_w*R*T)/(es(T-273.15)*Dv*Mw)
+    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T)*T)
+    G = 4./(G_a + G_b)
+
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+
+    Smin = 1e-5 # minimum allowable super-saturation
+
+    ## Compute sgi of each mode
+    _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+    #print aer
+    #print sgi
+    #print "--"*20
+
+    ## Initial estimate of Smax
+    Smax = 0.01
+
+    for i in xrange(max_iters):
+        #print Smax, sm
+
+        delta = Smax**4 - (16./9.)*((A**2)*alpha*V/G)
+        #print "delta =", delta
+        if delta >= 0:
+            sp_sm_sq = 0.5*(1. + ((1 - 16*A*A*alpha*V/9/G/(Smax**4))**0.5))
+            sp_sm = np.sqrt(sp_sm_sq)
+        else:
+            arg = (2e7*A/3)*(Smax**(-0.3824))
+            sp_sm = np.min([arg, 1.0])
+
+        Spart = sp_sm*Smax
+        #print "Spart =", Spart, "Smax =", Smax
+
+        log_sig = np.log(aer.sigma)
+
+        upart = (np.log(sgi/Spart)**2)/(3.*np.sqrt(2)*log_sig)
+        umax = lambda Smax: (np.log(sgi/Smax)**2)/(3.*np.sqrt(2)*log_sig)
+
+        Ni = aerosol.N*1e6
+
+        def I1(Smax):
+            A1 = (Ni/2)*((G/alpha/V)**0.5)
+            A2 = Smax
+            C1 = erfc(upart)
+            C2 = 0.5*((sgi/Smax)**2)
+            C3a = np.exp(9.*(log_sig**2)/2.)
+            C3b = erfc(upart + 3*log_sig/np.sqrt(2))
+            return A1*A2*(C1 + C2*C3a*C3b)
+
+        def I2(Smax):
+            A1 = A*Ni/3./sgi
+            A2 = np.exp(9.*(log_sig**2)/8.)
+            C1 = erf(upart - 3*log_sig/(2*np.sqrt(2)))
+            C2 = erf(umax(Smax) - 3*log_sig/(2*np.sqrt(2)))
+            return A1*A2*(C1 - C2)
+
+        #print "upart =", upart, "umax =", umax(Smax)
+        #print "erfc(upart) =", erfc(upart)
+        #print "I1, I2", I1(Smax), I2(Smax)
+        #print "   I_analytic =", I1(Smax) + I2(Smax)
+        #print "   I_integral =", I_int(Spart, Smax)
+
+        f = lambda ss: np.pi*gamma*rho_w*G*ss*(I1(ss) + I2(ss))/(2*alpha*V) - 1.0
+
+        #ssi = np.linspace(Smin, 0.01, 100)
+        #plot(ssi, [f(s) for s in ssi])
+        #plot([Spart, Smax], [f(Spart), f(Smax)], "D")
+        #xlim(ssi[0], ssi[-1])
+        #ylim(-1.1, 0.1)
+        #draw()
+
+        #print "f(%f)" % Spart, f(Spart), "f(b)", f(0.01)
+
+        #print Smax, "--->",
+        new_Smax = bisect(f, Smin, 0.01)
+        #print new_Smax
+
+        if np.abs(Smax - new_Smax) < tol:
+            break
+        Smax = new_Smax
+
+        #print "**"*10
+
+    #print "Final (%d iters) - " % i, new_Smax
+    return Smax
 
 def sigma_w(T):
     """Calculate the surface tension of water for a given temperature.
