@@ -94,100 +94,128 @@ def activation(V, T, P, aerosols):
     plot(u2, erfc(u2), marker='d', color='r', markersize=14)
 '''
 
-def activate_FN(V, T, P, aerosol, tol=1e-5, max_iters=100):
+
+def activate_FN(V, T, P, aerosols, tol=1e-6, max_iters=100):
     """Sketch implementation of Fountoukis and Nenes (2005) parameterization
     """
-    #print "P =", P0
-    #print "T =", T0
-    #print ""
 
-    A = (2.*Mw*sigma_w(T))/(R*T*rho_w)
+    nmd_par = len(aerosols) # number of modes
+    vhfi = 3.0 # van't hoff factor (ions/molecule)
 
-    G_a = (rho_w*R*T)/(es(T-273.15)*Dv*Mw)
-    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T)*T)
-    G = 4./(G_a + G_b)
+    ## Setup constants
+    akoh_par = 4.0*Mw*sigma_w(T)/R/T/rho_w
+    rho_air = P*Ma/R/T # air density
 
-    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+    alpha = g*Mw*L/Cp/R/T/T - g*Ma/R/T
+    gamma = P*Ma/es(T-273.15)/Mw + Mw*L*L/Cp/R/T/T
 
-    Smin = 1e-5 # minimum allowable super-saturation
+    bet2_par = R*T*rho_w/es(T-273.15)/Dv/Mw/4. + L*rho_w/4./Ka/T*(L*Mw/R/T - 1.0)
+    beta = 0.5*np.pi*gamma*rho_w/bet2_par/alpha/V/rho_air
 
-    ## Compute sgi of each mode
-    _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
-    #print aer
-    #print sgi
-    #print "--"*20
+    cf1  = 0.5*(((1/bet2_par)/(alpha*V))**0.5)
+    cf2  = akoh_par/3.0
 
-    ## Initial estimate of Smax
-    Smax = 0.01
+    sgis = []
+    for aerosol in aerosols:
+        _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+        sgis.append(sgi)
 
-    for i in xrange(max_iters):
-        #print Smax, sm
+    def sintegral(spar):
+        ## descriminant criterion
+        descr = 1.0 - (16./9.)*alpha*V*bet2_par*((akoh_par/(spar**2))**2)
 
-        delta = Smax**4 - (16./9.)*((A**2)*alpha*V/G)
-        #print "delta =", delta
-        if delta >= 0:
-            sp_sm_sq = 0.5*(1. + ((1 - 16*A*A*alpha*V/9/G/(Smax**4))**0.5))
-            sp_sm = np.sqrt(sp_sm_sq)
+        if descr <= 0.0:
+            crit2 = True
+            ratio = (2e7/3.)*akoh_par*spar**(-0.3824)
+            if ratio > 1.0: ratio = 1.0
+            ssplt2 = spar*ratio
         else:
-            arg = (2e7*A/3)*(Smax**(-0.3824))
-            sp_sm = np.min([arg, 1.0])
+            crit2 = False
+            ssplt1 = 0.5*(1.0 - np.sqrt(descr)) # min root of both
+            ssplt2 = 0.5*(1.0 + np.sqrt(descr)) # max root of both
+            ssplt1 = np.sqrt(ssplt1)*spar # multiply ratios with smax
+            ssplt2 = np.sqrt(ssplt2)*spar
+        ssplt = ssplt2 # store ssplit in common
 
-        Spart = sp_sm*Smax
-        #print "Spart =", Spart, "Smax =", Smax
+        summ, summat, summa = 0, 0, 0
 
-        log_sig = np.log(aer.sigma)
+        sqtwo = np.sqrt(2.0)
 
-        upart = (np.log(sgi/Spart)**2)/(3.*np.sqrt(2)*log_sig)
-        umax = lambda Smax: (np.log(sgi/Smax)**2)/(3.*np.sqrt(2)*log_sig)
+        for aerosol, sgi in zip(aerosols, sgis):
 
-        Ni = aerosol.N*1e6
+            sg_par = sgi
+            tpi = aerosol.N*1e6
 
-        def I1(Smax):
-            A1 = (Ni/2)*((G/alpha/V)**0.5)
-            A2 = Smax
-            C1 = erfc(upart)
-            C2 = 0.5*((sgi/Smax)**2)
-            C3a = np.exp(9.*(log_sig**2)/2.)
-            C3b = erfc(upart + 3*log_sig/np.sqrt(2))
-            return A1*A2*(C1 + C2*C3a*C3b)
+            dlgsg = np.log(aerosol.sigma)
+            dlgsp = np.log(sg_par/spar)
 
-        def I2(Smax):
-            A1 = A*Ni/3./sgi
-            A2 = np.exp(9.*(log_sig**2)/8.)
-            C1 = erf(upart - 3*log_sig/(2*np.sqrt(2)))
-            C2 = erf(umax(Smax) - 3*log_sig/(2*np.sqrt(2)))
-            return A1*A2*(C1 - C2)
+            orism1 = 2.0*np.log(sg_par/ssplt2)/(3.*sqtwo*dlgsg)
+            orism2 = orism1 - 3.0*dlgsg/(2.0*sqtwo)
 
-        #print "upart =", upart, "umax =", umax(Smax)
-        #print "erfc(upart) =", erfc(upart)
-        #print "I1, I2", I1(Smax), I2(Smax)
-        #print "   I_analytic =", I1(Smax) + I2(Smax)
-        #print "   I_integral =", I_int(Spart, Smax)
+            orism3 = 2.0*dlgsp/(3.0*sqtwo*dlgsg) - 3.0*dlgsg/(2.0*sqtwo)
+            orism4 = orism1 + 3.0*dlgsg/sqtwo
 
-        f = lambda ss: np.pi*gamma*rho_w*G*ss*(I1(ss) + I2(ss))/(2*alpha*V) - 1.0
+            orism5 = 2.0*dlgsp/(3*sqtwo*dlgsg)
+            ekth = np.exp((9./2.)*dlgsg*dlgsg)
 
-        #ssi = np.linspace(Smin, 0.01, 100)
-        #plot(ssi, [f(s) for s in ssi])
-        #plot([Spart, Smax], [f(Spart), f(Smax)], "D")
-        #xlim(ssi[0], ssi[-1])
-        #ylim(-1.1, 0.1)
-        #draw()
+            integ1 = tpi*spar*((1-erf(orism1)) - 0.5*((sg_par/spar)**2)*ekth*(1.0-erf(orism4)))
+            integ2 = (np.exp((9./8.)*dlgsg*dlgsg)*tpi/sg_par)*(erf(orism2) - erf(orism3))
 
-        #print "f(%f)" % Spart, f(Spart), "f(b)", f(0.01)
+            nd = (tpi/2.)*(1.0 - erf(orism5))
 
-        #print Smax, "--->",
-        new_Smax = bisect(f, Smin, 0.01)
-        #print new_Smax
+            summ += integ1
+            summat += integ2
+            summa += nd
 
-        if np.abs(Smax - new_Smax) < tol:
-            break
-        Smax = new_Smax
+        return summa, summ, summat
 
-        #print "**"*10
+    ## Initial values for bisection
+    x1 = 1e-5 # min cloud supersaturation
+    ndrpl, sinteg1, sinteg2 = sintegral(x1)
+    print ndrpl, sinteg1, sinteg2
+    y1 = (sinteg1*cf1 + sinteg2*cf2)*beta*x1 - 1.0
 
-    #print "Final (%d iters) - " % i, new_Smax
-    return Smax
+    x2 = 1.0 # max cloud supersaturation
+    ndrpl, sinteg1, sinteg2 = sintegral(x2)
+    print ndrpl, sinteg1, sinteg2
+    y2 = (sinteg1*cf1 + sinteg2*cf2)*beta*x2 - 1.0
+
+    print (x1, y1), (x2, y2)
+
+    print "BISECTION"
+    print "--"*20
+    ## Perform bisection
+    for i in xrange(max_iters):
+        x3 = 0.5*(x1 + x2)
+        ndrpl, sinteg1, sinteg3 = sintegral(x3)
+        y3 = (sinteg1*cf1 + sinteg2*cf2)*beta*x3 - 1.0
+
+        if np.sign(y1)*np.sign(y3) <= 0.:
+            y2 = y3
+            x2 = x3
+        else:
+            y1 = y3
+            x1 = x3
+
+        if np.abs(x2-x1) <= tol*x1: break
+
+        print i, (x1, y1), (x2, y2)
+
+    ## Converged ; return
+    x3 = 0.5*(x1 + x2)
+    ndrpl, sinteg1, sinteg3 = sintegral(x3)
+    y3 = (sinteg1*cf1 + sinteg2*cf2)*beta*x3 - 1.0
+
+    Smax = x3
+    print "Smax = %f (%f)" % (Smax, 0.0)
+
+    act_fracs = []
+    for aerosol, sgi in zip(aerosols, sgis):
+        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
+        N_act = 0.5*aerosol.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.N)
+
+    return Smax, act_fracs
 
 def sigma_w(T):
     """Calculate the surface tension of water for a given temperature.
