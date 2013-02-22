@@ -562,7 +562,7 @@ c-----------------------------------------------------------------------
 	subroutine explactstate(nmode,totaln,sigma,rmean,
      &                        	hygro,tt,pp)
 
-	parameter (nbin=1000)
+	parameter (nbin=900)
 	parameter (nbinp=nbin+1)
 
 	real*4 totaln(nmode),sigma(nmode),rmean(nmode)
@@ -679,7 +679,7 @@ c           write (60,304) i,conc(i),rdrymic,ymic,ycritmic,scrit(i)
 	end
 	subroutine explact(vv,smax)
 
-	parameter (nbin=1000)
+	parameter (nbin=900)
 	parameter (nbinp=nbin+1)
 
 c	external fex,jex
@@ -785,7 +785,7 @@ c        write(6,*) 'nstep=',nstep
 
 	subroutine fex (neq,y,ydot)
 
-	parameter (nbin=1000)
+	parameter (nbin=900)
 	parameter (nbinp=nbin+1)
 
         real*8 latentht,g1,g2,d1,d2,cond1,cond2,alpha,beta,cons,ai
@@ -828,7 +828,7 @@ c        write(6,*) 'nstep=',nstep
 
 c        not used
 
-	parameter (nbin=1000)
+	parameter (nbin=900)
 	parameter (nbinp=nbin+1)
 
 	real*8 pd(nrpd,nbinp),y(nbinp)
@@ -957,7 +957,7 @@ c        print *,'x,t,e,dt=',x,t,e,dt
 
 	subroutine newstate (neq,y,activen,dt,smax)
 
-	parameter (nbin=1000)
+	parameter (nbin=900)
 	parameter (nbinp=nbin+1)
 
 	real*8 y(nbinp)

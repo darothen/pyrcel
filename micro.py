@@ -9,7 +9,6 @@ import numpy as np
 from scipy.optimize import fminbound, bisect
 from scipy.special import erfc, erf
 
-
 ## Microphysics constants
 g = 9.81 #: Gravitational constant, m/s**2
 Cp = 1004.0 #: Specific heat of dry air at constant pressure, J/kg
@@ -36,7 +35,7 @@ ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air,
 #parcel.rho = parcel.P/(Rd*parcel.Tv)
 
 ## AUXILIARY FUNCTIONS
-def activation(V, T, P, aerosols):
+def activate_ARG(V, T, P, aerosols):
 
     ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
@@ -352,7 +351,7 @@ def kohler_crit(T, r_dry, kappa):
 
     """
     '''Numerically find the critical radius predicted by kappa Kohler theory'''
-    out = fminbound(Seq, r_dry, r_dry*1e3, args=(r_dry, T, kappa, True),
+    out = fminbound(Seq, r_dry, r_dry*1e4, args=(r_dry, T, kappa, True),
                     xtol=1e-10, full_output=True, disp=0)
     r_crit, s_crit = out[:2]
     s_crit *= -1.0

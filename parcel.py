@@ -258,27 +258,14 @@ class ParcelModel(object):
         wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
-        if self.console: print "calculating seeds for equilibrium solver..."
-        r_guesses = np.array(guesses(T0, S0, r_drys, kappas))
-        #r_guesses = []
-        #for aerosol in self.aerosols:
-        #    r_guesses.extend(guesses(T0, S0, r_drys, kappas))
-        #r_guesses = np.array(r_guesses)
-        if self.console: print " done"
-
         # wrapper function for quickly computing deviation from chosen equilibrium supersaturation given
         # current size and dry size
         f = lambda r, r_dry, kappa: (Seq(r, r_dry, T0, kappa) - S0)
         ## Compute the equilibrium wet particle radii
-        '''
-        r0s = np.array([fsolve(f, (rd+guess)/2., args=(rd, kappa), xtol=1e-10)[0] for guess, rd, kappa in zip(r_guesses, r_drys, kappas)])
-        '''
-        ## NEW TECHNIQUE -
-        # Locate the critical value (always > 0), and use bisection from it and
-        # r_dry to find equilibrium wet particle radius for a given S0
-
         r0s = []
         for r_dry , kappa in zip(r_drys, kappas):
+        # Locate the critical value (f(r_crit) > 0), and use bisection from it and
+        # r_dry (f(r_dry) < 0) to find equilibrium wet particle radius for a given S0
             r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
@@ -292,7 +279,7 @@ class ParcelModel(object):
         for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
             ss = Seq(r, r_dry, T0, kappa)
             rc, _ = kohler_crit(T0, r_dry, kappa)
-            if r < 0: # or r > 1e-3:
+            if r < 0:
                 if self.console: print "Found bad r", r, r_dry, sp
                 raised = True
             #if np.abs(ss-S0)/S0 > 0.02:

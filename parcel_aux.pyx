@@ -86,6 +86,10 @@ cpdef double Seq_gil(double r, double r_dry, double T, double kappa):
 cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
               np.ndarray[double, ndim=1] kappas):
     """
+    - DEPRECATED -
+    As of 2/21/2013, a more accurate bisection method is used to compute the equilibrium
+    wet radii for inactivate aerosols, and this routine is no longer necessary.
+
     Given a parcel's temperature and supersaturation as well as a size distribution
     of aerosols and their kappa parameters, computes seed guesses for determining
     the equilibrium wet radii of the inactivated aerosols or, when possible, the exact
@@ -199,7 +203,7 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
         kappa = kappas[i]
 
         G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
-        G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T, rho_air, r)*T)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
         G = 1./(G_a + G_b)
 
         delta_S = S - Seq(r, r_dry, T, kappa)
