@@ -22,7 +22,11 @@ from scipy.integrate import odeint
 from parcel_aux import der, guesses
 from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, act_fraction
 
-from odespy.odepack import Lsode, Lsoda
+## Check if the odespy module is available
+try:
+    from odespy.odepack import Lsode, Lsoda
+except ImportError:
+    pass
 
 import os
 
@@ -173,6 +177,12 @@ class ParcelModel(object):
 
     """
 
+    _solvers = {
+        'odeint': _solve_odeint,
+        'lsoda': _solve_lsoda,
+        'lsode': _solve_lsode,
+    }
+
     def __init__(self, aerosols, V, T0, S0, P0, console=False):
         """
         Initialize the model with information about updraft speed and the aerosol
@@ -308,7 +318,57 @@ class ParcelModel(object):
 
         return out
 
-    def run(self, z_top, dt=None, ts=None, max_steps=1000):
+    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000):
+        """
+        Wrapper for odespy.odepack.Lsode
+        """
+        solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12)
+        solver.set_initial_condition(y0)
+        solver.set(f_args=args)
+
+        try:
+            x, t = solver.solve(t)
+        except ValueError, e:
+            raise ParcelModelError("something broke in LSODE")
+            return None, False
+
+        return x, True
+
+    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000):
+        """
+        Wrapper for odespy.odepack.Lsoda
+        """
+        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12)
+        solver.set_initial_condition(y0)
+        solver.set(f_args=args)
+
+        try:
+            x, t = solver.solve(t)
+        except ValueError, e:
+            raise ParcelModelError("something broke in LSODE")
+            return None, False
+
+        return x, True
+
+    def _solve_odeint(f, t, y0, args, console=False, max_steps=1000):
+        """
+        Wrapper for scipy.integrate.odeint
+        """
+        if self.console:
+            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
+                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
+
+        else:
+            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
+                             full_output=1, mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
+
+        success = info['message'] == "Integration successful."
+
+        return x, success
+
+    def run(self, z_top, dt=None, ts=None, max_steps=1000, solver="odeint"):
 
         P0, T0, S0 = self.P0, self.T0, self.S0
 
@@ -318,8 +378,6 @@ class ParcelModel(object):
         kappas = setup_results['kappas']
         Nis = setup_results['Nis']
         nr = len(r_drys)
-
-        aerosol = self.aerosols[0]
 
         ## Setup run time conditions
         if dt:
@@ -335,29 +393,12 @@ class ParcelModel(object):
         else:
             t = ts[:]
 
-        ## Setup integrator
-        if self.console:
+        ## Setup/run integrator
+        args = (nr, r_drys, Nis, self.V, kappas)
+        x, success = self._solvers[solver](der, t, y0, args, console, max_steps)
+        if not success:
+            raise ParcelModelError("Solver '%s' failed; check console output" % solver)
 
-            '''
-            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
-                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-            '''
-            solver = Lsode(der, fargs=(nr, r_drys, Nis, self.V, kappas), atol=1e-15, rtol=1e-12)
-            solver.set_initial_condition(y0)
-            solver.set(f_args=[nr, r_drys, Nis, self.V, kappas])
-            try:
-                x, t = solver.solve(t)
-            except ValueError, e:
-                raise ParcelModelError("something broke in LSODE")
-            info = {'message': "Integration successful."}
-
-        else:
-            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
-                             full_output=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-        if not info['message'] == "Integration successful.":
-            raise ParcelModelError("scipy.odeint failed with message '%s'" % info['message'])
 
         heights = t*self.V
         offset = 0
@@ -460,190 +501,3 @@ class ParcelModel(object):
         # Write aerosol data
         for species, data in aerosol_data.iteritems():
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
-
-if __name__ == "__main__":
-
-    ## Initial conditions
-    P0 = 100000. # Pressure, Pa
-    T0 = 294.0 # Temperature, K
-    S0 = -0.00 # Supersaturation. 1-RH from wv term
-    V = 0.5 # m/s
-
-    aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.05, sigma=2.0, N=100.),
-                          bins=300, kappa=0.6)
-    #aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.02, ], 'Nis': [1000.0, ]}, kappa=0.1)
-
-    #initial_aerosols = [aerosol1, aerosol2]
-    initial_aerosols = [aerosol1, ]
-    print initial_aerosols
-
-    aer_species = [a.species for a in initial_aerosols]
-    aer_dict = dict()
-    for aerosol in initial_aerosols:
-        aer_dict[aerosol.species] = aerosol
-
-    for aerosol in initial_aerosols: print np.sum(aerosol.Nis) *1e-6
-
-    figure(2, figsize=(12,10))
-    #clf()
-    subplot(3,2,1)
-    colors = 'bgrcmyk'
-    for i, aerosol in enumerate(initial_aerosols):
-        rs, Nis = aerosol.rs, aerosol.Nis
-        bar(rs[:-1], Nis/np.diff(rs)*1e-6, diff(rs), color=colors[i], alpha=0.5)
-    #semilogy()
-    #vlines(mids, 0, ylim()[1], color='red', linestyle='dotted')
-    semilogx()
-
-
-    pm = ParcelModel(initial_aerosols, V, T0, S0, P0, console=True)
-
-    ## Run model
-    #rdt = np.max([V/100., 0.01])
-    dt = 0.01
-    parcel, aerosols = pm.run(z_top=100.0, dt=dt, max_steps=500)
-
-    xs = np.arange(501)
-    parcel = parcel.ix[parcel.index % 1 == 0]
-    aero_subset = {}
-    for key in aerosols:
-        print key
-        aerosol = aerosols[key]
-        subset = aerosol.ix[aerosol.index % 1 == 0]
-        aero_subset[key] = subset
-    aerosols = pandas.Panel(aero_subset)
-
-    subplot(3,2,4)
-    p = parcel.S.plot(logx=False)
-    print parcel.S.max()
-    max_idx = np.argmax(parcel.S)
-    max_z = parcel.index[max_idx]
-    vlines([max_z], ylim()[0], ylim()[1], color='k', linestyle='dashed')
-    xlabel("Height"); ylabel("Supersaturation")
-
-    #subplot(3,2,2)
-    #step = 1 if len(aerosols) < 20000 else 50
-    #for r in aerosols[::step]:
-    #    (aerosols[r]*1e6).plot(logy=True)
-    #vlines([max_z], ylim()[0], ylim()[1], color='k', linestyle='dashed')
-    #xlabel("Height"); ylabel("Wet Radius, micron")
-
-
-    subplot(3,2,3)
-    plot(parcel['T'], parcel['P']*1e-2)
-    ylim(ylim()[::-1])
-    hlines([parcel.P[max_idx]*1e-2], xlim()[0], xlim()[1], color='k', linestyle='dashed')
-    xlabel("Temperature"); ylabel("Pressure (hPa)")
-
-    ## PLOT AEROSOLS!!
-    show()
-    n_species = len(aer_species)
-    fig = figure(1, figsize=(9, 5*n_species))
-    clf()
-    for n, key in enumerate(aerosols):
-        subplot(2, n_species, n+1)
-        aerosol = aerosols[key]
-        for r in aerosol:
-            (aerosol[r]*1e6).plot(logy=True)
-        vlines([max_z], ylim()[0], ylim()[1], color='k', linestyle='dashed')
-        xlabel("Height"); ylabel("Wet Radius, micron")
-        title(key)
-
-        subplot(2, n_species, n+1 + n_species)
-        initial_aerosol = initial_aerosols[n]
-        rs, Nis = initial_aerosol.rs, initial_aerosol.Nis
-        bar(rs[:-1], Nis, diff(rs), color=colors[n], alpha=0.2)
-
-        rs, Nis = aerosol.ix[-1]*1e6, initial_aerosol.Nis
-        if not rs.shape == Nis.shape:
-            new_Nis = np.zeros_like(rs)
-            new_Nis[:len(Nis)] = Nis[:]
-            new_Nis[len(Nis):] = 0.0
-            Nis = new_Nis
-        plot(rs, Nis, color='k', alpha=0.5)
-        semilogx(); #semilogy()
-
-        rs, Nis = aerosol.ix[0]*1e6, initial_aerosol.Nis
-        if not rs.shape == Nis.shape:
-            new_Nis = np.zeros_like(rs)
-            new_Nis[:len(Nis)] = Nis[:]
-            new_Nis[len(Nis):] = 0.0
-            Nis = new_Nis
-        plot(rs, Nis, color='r', alpha=0.5)
-
-        #rs, Nis = pm.y0[-initial_aerosol.nr:]*1e6, initial_aerosol.Nis
-        #plot(rs, Nis, color='b', alpha=0.5)
-
-    raw_input("N analysis...")
-
-    for species in aer_species:
-        print species
-        aerosol = aerosols[species]
-        aer_meta = aer_dict[species]
-        Nis = aer_meta.Nis
-
-        Neq = []
-        Nkn = []
-        Nunact = []
-        S_max = S0
-
-        for S, T, i in zip(parcel.S, parcel['T'], xrange(len(parcel.S))):
-
-            r_crits, s_crits = zip(*[kohler_crit(T, r_dry, aer_meta.kappa) for r_dry in aer_meta.r_drys])
-            s_crits = np.array(s_crits)
-            r_crits = np.array(r_crits)
-            if S > S_max: S_max = S
-
-            big_s =  S_max >= s_crits
-            Neq.append(np.sum(Nis[big_s]))
-
-            rstep = np.array(aerosol.ix[i])
-            #active_radii = (S > s_crits) | (rstep > r_crits)
-            active_radii = (rstep > r_crits)
-            #sar = np.min(active_radii) if len(active_radii) > 0 else 1e99
-            if len(active_radii) > 0:
-                Nkn.append(np.sum(Nis[active_radii]))
-                Nunact.append(np.sum(Nis[(rstep < r_crits)]))
-            else:
-                Nkn.append(0.0)
-                Nunact.append(np.sum(Nis))
-
-            print parcel.index[i], Neq[i], Nkn[i], Nunact[i], S_max, S
-
-        Neq = np.array(Neq)
-        Nkn = np.array(Nkn)
-        Nunact = np.array(Nunact)
-
-        parcel[species+'_Neq'] = Neq
-        parcel[species+'_Nkn'] = Nkn
-        parcel[species+'_Nunact'] = Nunact
-
-        alphaz = Nkn/Neq
-        alphaz[isnan(alphaz)] = 0.
-        phiz = Nunact/Nkn
-        phiz[phiz == inf] = 1.
-
-        parcel[species+'_alpha'] = alphaz
-        parcel[species+'_phi'] = phiz
-
-        figure(2)
-        ax = subplot(3,2,5)
-        parcel[[species+'_Neq', species+'_Nkn']].plot(ax=ax, grid=True)
-        xlabel("Height")
-
-        subplot(3,2,6)
-        parcel[species+'_alpha'].plot()
-        parcel[species+'_phi'].plot()
-        ylim(0, 1)
-        xlabel("Height"); ylabel(r'$\alpha(z),\quad\phi(z)$')
-        print alphaz[-1]
-
-        print "=="*35
-        print species + " Summary - "
-        print "Max activated fraction"
-        print "   Eq: ", Neq.max()/np.sum(aer_meta.Nis)
-        print "  Kin: ", Nkn.max()/np.sum(aer_meta.Nis)
-        print ""
-        print "Alpha maximum: %2.2f" % alphaz.max()
-        print "  Phi maximum: %2.2f" % phiz.max()
-        print "=="*35
