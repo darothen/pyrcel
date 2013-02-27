@@ -170,6 +170,74 @@ class ParcelModelError(Exception):
     def __str__(self):
         return repr(self.error_str)
 
+class ParcelIntegrator(Exception):
+    """
+    Container class for the various integrators to use in the parcel model
+    """
+
+    @staticmethod
+    def solver(method):
+        solvers = {
+            'odeint': ParcelIntegrator._solve_odeint,
+            'lsoda': ParcelIntegrator._solve_lsoda,
+            'lsode': ParcelIntegrator._solve_lsode,
+        }
+
+        return solvers[method]
+
+    @staticmethod
+    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000):
+        """
+        Wrapper for odespy.odepack.Lsode
+        """
+        solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12)
+        solver.set_initial_condition(y0)
+        solver.set(f_args=args)
+
+        try:
+            x, t = solver.solve(t)
+        except ValueError, e:
+            raise ParcelModelError("something broke in LSODE")
+            return None, False
+
+        return x, True
+
+    @staticmethod
+    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000):
+        """
+        Wrapper for odespy.odepack.Lsoda
+        """
+        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12)
+        solver.set_initial_condition(y0)
+        solver.set(f_args=args)
+
+        try:
+            x, t = solver.solve(t)
+        except ValueError, e:
+            raise ParcelModelError("something broke in LSODE")
+            return None, False
+
+        return x, True
+
+    @staticmethod
+    def _solve_odeint(f, t, y0, args, console=False, max_steps=1000):
+        """
+        Wrapper for scipy.integrate.odeint
+        """
+        if console:
+            x, info = odeint(der, y0, t, args=args,
+                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
+
+        else:
+            x, info = odeint(der, y0, t, args=args,
+                             full_output=1, mxstep=max_steps,
+                             mxhnil=0, atol=1e-15, rtol=1e-12)
+
+        success = info['message'] == "Integration successful."
+
+        return x, success
+
 class ParcelModel(object):
     """Container class to set-up and run the parcel model.
 
@@ -177,11 +245,6 @@ class ParcelModel(object):
 
     """
 
-    _solvers = {
-        'odeint': _solve_odeint,
-        'lsoda': _solve_lsoda,
-        'lsode': _solve_lsode,
-    }
 
     def __init__(self, aerosols, V, T0, S0, P0, console=False):
         """
@@ -318,56 +381,6 @@ class ParcelModel(object):
 
         return out
 
-    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000):
-        """
-        Wrapper for odespy.odepack.Lsode
-        """
-        solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12)
-        solver.set_initial_condition(y0)
-        solver.set(f_args=args)
-
-        try:
-            x, t = solver.solve(t)
-        except ValueError, e:
-            raise ParcelModelError("something broke in LSODE")
-            return None, False
-
-        return x, True
-
-    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000):
-        """
-        Wrapper for odespy.odepack.Lsoda
-        """
-        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12)
-        solver.set_initial_condition(y0)
-        solver.set(f_args=args)
-
-        try:
-            x, t = solver.solve(t)
-        except ValueError, e:
-            raise ParcelModelError("something broke in LSODE")
-            return None, False
-
-        return x, True
-
-    def _solve_odeint(f, t, y0, args, console=False, max_steps=1000):
-        """
-        Wrapper for scipy.integrate.odeint
-        """
-        if self.console:
-            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
-                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-
-        else:
-            x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
-                             full_output=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-
-        success = info['message'] == "Integration successful."
-
-        return x, success
-
     def run(self, z_top, dt=None, ts=None, max_steps=1000, solver="odeint"):
 
         P0, T0, S0 = self.P0, self.T0, self.S0
@@ -395,10 +408,10 @@ class ParcelModel(object):
 
         ## Setup/run integrator
         args = (nr, r_drys, Nis, self.V, kappas)
-        x, success = self._solvers[solver](der, t, y0, args, console, max_steps)
+        integrator = ParcelIntegrator.solver(solver)
+        x, success = integrator(der, t, y0, args, self.console, max_steps)
         if not success:
             raise ParcelModelError("Solver '%s' failed; check console output" % solver)
-
 
         heights = t*self.V
         offset = 0
@@ -501,3 +514,4 @@ class ParcelModel(object):
         # Write aerosol data
         for species, data in aerosol_data.iteritems():
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
+
