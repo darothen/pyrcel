@@ -43,8 +43,9 @@ cdef inline double ka(double T, double rho, double r) nogil:
     """Thermal conductivity of air, modified for non-continuum effects
 
     Revise with equation 17.71, Seinfeld and Pandis?"""
-    cdef double denom
-    denom = 1.0 + (Ka/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
+    cdef double denom, ka_cont
+    ka_cont = 1e-3*(4.39 + 0.071*T)
+    denom = 1.0 + (ka_cont/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
     return Ka/denom
 
 @cython.cdivision(True)
@@ -52,7 +53,9 @@ cdef inline double dv(double T, double r) nogil:
     """Diffusivity of water vapor in air, modified for non-continuum effects
 
     Revise with equation 17.62, Seinfeld and Pandis?"""
-    cdef double denom
+    cdef double denom, dv_cont, P
+    P = 1. # atm
+    dv_cont = 1e-4*(0.211/P)*((T/273.)**1.94)
     denom = 1.0 + (Dv/(ac*r))*sqrt((2*PI*Mw)/(R*T))
     return Dv/denom
 
@@ -190,6 +193,8 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
 
     # 1) dP_dt
     cdef double dP_dt = (-g*P*V)/(Rd*Tv)
+    # FIX AT CONSTANT PRESSURE
+    dP_dt = 0.0
 
     # 2) dr_dt
     cdef double G_a, G_b, G
@@ -202,8 +207,11 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
         r_dry = r_drys[i]
         kappa = kappas[i]
 
+        ## Remove size-dependence from G
         G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
+        #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
         G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
+        #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
         G = 1./(G_a + G_b)
 
         delta_S = S - Seq(r, r_dry, T, kappa)

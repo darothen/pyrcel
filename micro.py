@@ -27,14 +27,29 @@ at = 0.96 # thermal accomodation coefficient
 epsilon = 0.622 # molecular weight of water / molecular weight of dry air
 
 ## NOT CORRECTING FOR NON-CONTINUUM EFFECTS
-Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
-ka = lambda T: 419.*(5.69 + 0.017*(T-273.15))*1e-5 # thermal conductivty of air, W/(m K) given T in Kelvin
+#Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
+Dv_T = lambda T, P=1.0 : 1e-4*(0.211/P)*((T/273.)**1.94) # Diffusivity of water vapor in air, m^2/s. T is Kelvin; P is atm, assumed 1
+ka_T = lambda T: 1e-3*(4.39 + 0.071*T) # thermal conductivty of air, W/(m K) given T in Kelvin
 
 ## SNIPPETS:
 #parcel.Tv = (1. + 0.61*parcel.wv)*parcel['T']
 #parcel.rho = parcel.P/(Rd*parcel.Tv)
 
 ## AUXILIARY FUNCTIONS
+def dv(T, r):
+    """Diffusivity of water vapor in air, modified for non-continuum effects
+
+    Revise with equation 17.62, Seinfeld and Pandis?"""
+    denom = 1.0 + (Dv_T(T)/(ac*r))*sqrt((2*np.pi*Mw)/(R*T))
+    return Dv/denom
+
+def ka(T, rho, r):
+    """Thermal conductivity of air, modified for non-continuum effects
+
+    Revise with equation 17.71, Seinfeld and Pandis?"""
+    denom = 1.0 + (ka_T(T)/(at*r*rho*Cp))*sqrt((2*np.pi*Ma)/(R*T))
+    return Ka/denom
+
 def activate_ARG(V, T, P, aerosols):
 
     ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
@@ -42,8 +57,8 @@ def activate_ARG(V, T, P, aerosols):
     gamma = (R*T)/(es(T-273.15)*Mw) + (Mw*(L**2))/(Cp*Ma*T*P)
 
     ## Condensation effects
-    G_a = (rho_w*R*T)/(es(T-273.15)*Dv*Mw)
-    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka(T)*T)
+    G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
+    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
     G = 1./(G_a + G_b)
 
     Smis = []
@@ -93,6 +108,130 @@ def activate_ARG(V, T, P, aerosols):
     plot(u2, erfc(u2), marker='d', color='r', markersize=14)
 '''
 
+def activate_FN2(V, T, P, aerosols, tol=1e-6, max_iters=100):
+    """
+    NS 2003 algorithm + FN 2005 coorections for diffusive growth rate
+    """
+    #aer = aerosols[0]
+
+    A = (4.*Mw*sigma_w(T))/(R*T*rho_w)
+    ## Compute rho_air by assuming air is saturated at given T, P
+    # Petty (3.41)
+    qsat = 0.622*(es(T-273.15)/P)
+    Tv = T*(1.0 + 0.61*qsat)
+    rho_air = P/Rd/Tv # air density
+    print "rho_air", rho_air
+
+    Dp_big = 5e-6
+    Dp_low = np.min([0.207683*(ac**-0.33048), 5.0])*1e-5
+    Dp_B = 2.*Dv_T(T)*np.sqrt(2*np.pi*Mw/R/T)/ac
+    Dp_diff = Dp_big - Dp_low
+    Dv_ave = (Dv_T(T)/Dp_diff)*(Dp_diff - Dp_B*np.log((Dp_big + Dp_B)/(Dp_low+Dp_B)))
+
+    G_a = (rho_w*R*T)/(es(T-273.15)*Dv_ave*Mw)
+    G_b = (L*rho_w)*(L*Mw/R/T - 1.0)/(ka_T(T)*T)
+    G = 4./(G_a + G_b)
+
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+
+    ## Compute sgi of each mode
+    sgis = []
+    for aerosol in aerosols:
+        _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+        sgis.append(sgi)
+    print "--"*20
+
+    def S_integral(Smax):
+        delta = Smax**4 - (16./9.)*(A*A*alpha*V/G)
+        #delta = 1.0 - (16./9.)*alpha*V*(1./G)*((A/(Smax**2))**2)
+
+        if delta > 0:
+            sp_sm_sq = 0.5*(1.0 + np.sqrt(delta))
+            sp_sm = np.sqrt(sp_sm_sq)
+        else:
+            arg = (2e7*A/3.)*Smax**(-0.3824)
+            sp_sm = np.min([arg, 1.0])
+
+        Spart = sp_sm*Smax
+        #print "Spart", Smax, Spart, delta
+
+        I1s, I2s = 0.0, 0.0
+        for aerosol, sgi in zip(aerosols, sgis):
+
+            log_sig = np.log(aerosol.sigma)
+            Ni = aerosol.N*1e6
+
+            upart = 2.*np.log(sgi/Spart)/(3.*np.sqrt(2)*log_sig)
+            umax = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2)*log_sig)
+
+            def I1(Smax):
+                A1 = (Ni/2.)*((G/alpha/V)**0.5)
+                A2 = Smax
+                C1 = erfc(upart)
+                C2 = 0.5*((sgi/Smax)**2)
+                C3a = np.exp(9.*(log_sig**2)/2.)
+                C3b = erfc(upart + 3.*log_sig/np.sqrt(2.))
+                return A1*A2*(C1 - C2*C3a*C3b)
+
+            def I2(Smax):
+                A1 = A*Ni/3./sgi
+                A2 = np.exp(9.*(log_sig**2.)/8.)
+                C1 = erf(upart - 3.*log_sig/(2.*np.sqrt(2.)))
+                C2 = erf(umax - 3.*log_sig/(2.*np.sqrt(2.)))
+                return A1*A2*(C1 - C2)
+
+            beta = 0.5*np.pi*gamma*rho_w*G/alpha/V#/rho_air
+            #beta = 0.5*np.pi*gamma*rho_w/bet2_par/alpha/V/rho_air
+            #print "++", Smax, I1(Smax), I2(Smax)
+
+            I1s += I1(Smax)
+            I2s += I2(Smax)
+
+        return Smax*beta*(I1s + I2s) - 1.0
+
+    x1 = 1e-5
+    y1 = S_integral(x1)
+    x2 = 1.0
+    y2 = S_integral(x2)
+
+    print (x1, y1), (x2, y2)
+
+    print "BISECTION"
+    print "--"*20
+    for i in xrange(max_iters):
+
+        ## Bisection
+        #y1, y2 = S_integral(x1), S_integral(x2)
+        x3 = 0.5*(x1+x2)
+        y3 = S_integral(x3)
+        print "--", x3, y3, "--"
+
+        if np.sign(y1)*np.sign(y3) <= 0.:
+            x2 = x3
+            y2 = y3
+        else:
+            x1 = x3
+            y1 = y3
+
+        if np.abs(x2-x1) < tol*x1: break
+
+        print i, (x1, y1), (x2, y2)
+
+    ## Converged ; return
+    x3 = 0.5*(x1 + x2)
+
+    Smax = x3
+    print "Smax = %f (%f)" % (Smax, 0.0)
+
+    act_fracs = []
+    for aerosol, sgi in zip(aerosols, sgis):
+        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
+        N_act = 0.5*aerosol.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.N)
+
+    return Smax, act_fracs
+
 
 def activate_FN(V, T, P, aerosols, tol=1e-6, max_iters=100):
     """Sketch implementation of Fountoukis and Nenes (2005) parameterization
@@ -103,7 +242,11 @@ def activate_FN(V, T, P, aerosols, tol=1e-6, max_iters=100):
 
     ## Setup constants
     akoh_par = 4.0*Mw*sigma_w(T)/R/T/rho_w
-    rho_air = P*Ma/R/T # air density
+    ## Compute rho_air by assuming air is saturated at given T, P
+    # Petty (3.41)
+    qsat = 0.622*(es(T-273.15)/P)
+    Tv = T*(1.0 + 0.61*qsat)
+    rho_air = P/Rd/Tv # air density
 
     alpha = g*Mw*L/Cp/R/T/T - g*Ma/R/T
     gamma = P*Ma/es(T-273.15)/Mw + Mw*L*L/Cp/R/T/T

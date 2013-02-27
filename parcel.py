@@ -22,6 +22,8 @@ from scipy.integrate import odeint
 from parcel_aux import der, guesses
 from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, act_fraction
 
+from odespy.odepack import Lsode, Lsoda
+
 import os
 
 class AerosolSpecies(object):
@@ -335,9 +337,21 @@ class ParcelModel(object):
 
         ## Setup integrator
         if self.console:
+
+            '''
             x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
                              full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
+            '''
+            solver = Lsode(der, fargs=(nr, r_drys, Nis, self.V, kappas), atol=1e-15, rtol=1e-12)
+            solver.set_initial_condition(y0)
+            solver.set(f_args=[nr, r_drys, Nis, self.V, kappas])
+            try:
+                x, t = solver.solve(t)
+            except ValueError, e:
+                raise ParcelModelError("something broke in LSODE")
+            info = {'message': "Integration successful."}
+
         else:
             x, info = odeint(der, y0, t, args=(nr, r_drys, Nis, self.V, kappas),
                              full_output=1, mxstep=max_steps,
