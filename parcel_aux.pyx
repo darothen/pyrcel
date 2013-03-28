@@ -194,7 +194,7 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     # 1) dP_dt
     cdef double dP_dt = (-g*P*V)/(Rd*Tv)
     # FIX AT CONSTANT PRESSURE
-    dP_dt = 0.0
+    #dP_dt = 0.0
 
     # 2) dr_dt
     cdef double G_a, G_b, G
@@ -244,9 +244,9 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     S_a = (S+1.0)
 
     ## NENES (2001)
-    S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
-    S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
-    dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
+    #S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
+    #S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
+    #dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
 
     ## PRUPPACHER (PK 1997)
     #S_b = dT_dt*0.622*L/(Rd*T**2.)

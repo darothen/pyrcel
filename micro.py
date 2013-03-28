@@ -10,30 +10,27 @@ from scipy.optimize import fminbound, bisect
 from scipy.special import erfc, erf
 
 ## Microphysics constants
-g = 9.81 #: Gravitational constant, m/s**2
-Cp = 1004.0 #: Specific heat of dry air at constant pressure, J/kg
-L = 2.5e6 #: Latent heat of condensation, J/kg
-rho_w = 1e3 #: Density of water, kg/m**3
-Rd = 287.0 #: Gas constant for dry air, J/(kg K)
-R = 8.314 #: Universal gas constant, J/(mol K)
-Mw = 18.0153/1e3 #: Molecular weight of water, kg/mol
+g = 9.81             #: Gravitational constant, m/s**2
+Cp = 1004.0          #: Specific heat of dry air at constant pressure, J/kg
+L = 2.5e6            #: Latent heat of condensation, J/kg
+rho_w = 1e3          #: Density of water, kg/m**3
+Rd = 287.0           #: Gas constant for dry air, J/(kg K)
+R = 8.314            #: Universal gas constant, J/(mol K)
+Mw = 18.0153/1e3     #: Molecular weight of water, kg/mol
 
 # Additional constants from the auxiliary file
-Ma = 28.9/1e3 # Molecular weight of dry air, kg/mol
-#Dv = 3.e-5 # Diffusivity of water vapor in air, m^2/s
-ac = 1.0 # condensation constant
-Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
-at = 0.96 # thermal accomodation coefficient
-epsilon = 0.622 # molecular weight of water / molecular weight of dry air
+Ma = 28.9/1e3        #: Molecular weight of dry air, kg/mol
+#Dv = 3.e-5          #: Diffusivity of water vapor in air, m^2/s
+ac = 1.0             #: condensation constant
+Ka = 2.e-2           #: Thermal conductivity of air, J/m/s/K
+at = 0.96            #: thermal accomodation coefficient
+epsilon = 0.622      #: molecular weight of water / molecular weight of dry air
 
 ## NOT CORRECTING FOR NON-CONTINUUM EFFECTS
 #Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
 Dv_T = lambda T, P=1.0 : 1e-4*(0.211/P)*((T/273.)**1.94) # Diffusivity of water vapor in air, m^2/s. T is Kelvin; P is atm, assumed 1
 ka_T = lambda T: 1e-3*(4.39 + 0.071*T) # thermal conductivty of air, W/(m K) given T in Kelvin
 
-## SNIPPETS:
-#parcel.Tv = (1. + 0.61*parcel.wv)*parcel['T']
-#parcel.rho = parcel.P/(Rd*parcel.Tv)
 
 ## AUXILIARY FUNCTIONS
 def dv(T, r):
@@ -49,6 +46,114 @@ def ka(T, rho, r):
     Revise with equation 17.71, Seinfeld and Pandis?"""
     denom = 1.0 + (ka_T(T)/(at*r*rho*Cp))*sqrt((2*np.pi*Ma)/(R*T))
     return Ka/denom
+
+def activate_new(V, T, P, aerosols, max_iters=30):
+
+    ### Constants/coefficients
+    A = (4.*Mw*sigma_w(T))/(R*T*rho_w)
+    qsat = 0.622*(es(T-273.15)/P)
+    Tv = T*(1.0 + 0.61*qsat)
+    rho_air = P/Rd/Tv # air density
+
+    #Dp_big = 5e-6
+    #Dp_low = np.min([0.207683*(ac**-0.33048), 5.0])*1e-5
+    #Dp_B = 2.*Dv_T(T)*np.sqrt(2*np.pi*Mw/R/T)/ac
+    #Dp_diff = Dp_big - Dp_low
+    #Dv_ave = (Dv_T(T)/Dp_diff)*(Dp_diff - Dp_B*np.log((Dp_big + Dp_B)/(Dp_low+Dp_B)))
+    Dv_ave = Dv_T(T)
+
+    G_a = (rho_w*R*T)/(es(T-273.15)*Dv_ave*Mw)
+    G_b = (L*rho_w)*(L*Mw/R/T - 1.0)/(ka_T(T)*T)
+    G = 1./(G_a + G_b)
+
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+    gamma_star = 4.*np.pi*rho_w*gamma/rho_air
+
+    root2 = np.sqrt(2.)
+
+    def LHS(Smax):
+        return alpha*V/gamma_star/G/Smax
+
+    def RHS(T, Smax, aerosols):
+        ## Compute sgi of each mode
+        sgis = []
+        for aerosol in aerosols:
+            _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+            sgis.append(sgi)
+
+        ## Compute integral for each mode:
+        integrals = []
+        for sgi, aerosol in zip(sgis, aerosols):
+            kappa = aerosol.kappa
+            log_sigma = np.log(aerosol.sigma)
+            Ni = aerosol.N*1e6
+
+            u = lambda Smax, sgi=sgi, log_sigma=log_sigma: (root2/3./log_sigma)*np.log(sgi/Smax)
+
+            u_smax = u(Smax)
+
+            ## Integral 1 -
+            I1_coeff = (Ni/2.)*np.sqrt(G/alpha/V)*Smax
+            I1_left = erfc(u_smax)
+            I1_right = 0.5*((sgi/Smax)**2)*np.exp((9./8.)*(log_sigma**2))* \
+                       erfc(u_smax + (3./2./root2)*log_sigma)
+            I1 = I1_coeff*(I1_left - I1_right)
+
+            #print I1, (I1_coeff, I1_left, I1_right)
+
+            ## Integral 2 -
+            I2_coeff = (Ni*A/3./sgi)*np.exp((9./8.)*(log_sigma**2))
+            I2_arg = (1.0 - erf(u_smax - (3./2./root2)*log_sigma))
+            I2 = I2_coeff*I2_arg
+
+            #print I2, (I2_coeff, I2_arg)
+
+            integrals.append(I1 + I2)
+
+        return np.sum(integrals)
+
+    l = LHS(Smax)
+    r = RHS(T, Smax, aerosols)
+
+    #return LHS(Smax), RHS(T, Smax, aerosols), l-r
+
+    f = lambda x: LHS(x) - RHS(T, x, aerosols)
+
+    x1 = 1e-5
+    y1 = f(x1)
+
+    x2 = 0.5
+    y2 = f(x2)
+
+    print (x1, y1), (x2, y2)
+    print "BISECTION"
+    print "--"*20
+    for i in xrange(max_iters):
+
+        x3 = 0.5*(x1 + x2)
+        y3 = f(x3)
+        if np.sign(y1)*np.sign(y3) <= 0.:
+            x2 = x3
+            y2 = y3
+        else:
+            x1 = x3
+            y1 = y3
+
+        if np.abs(x2-x1) < 1e-6*x1: break
+
+        print i, (x1, y1), (x2, y2)
+
+    x3 = 0.5*(x1 + x2)
+    Smax = x3
+
+    act_fracs = []
+    for aerosol, sgi in zip(aerosols, sgis):
+        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
+        N_act = 0.5*aerosol.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.N)
+
+    return Smax, act_fracs
 
 def activate_ARG(V, T, P, aerosols):
 
@@ -96,17 +201,6 @@ def activate_ARG(V, T, P, aerosols):
         act_fracs.append(N_act/aerosol.N)
 
     return Smax, act_fracs
-
-'''
-    print Smax
-    print "osmotic", N_act, N_act/N
-    print "kappa", N_act2, N_act2/N
-
-    x = np.linspace(-3, 3, 1000)
-    plot(x, erfc(x))
-    plot(u, erfc(u), marker='o', markersize=14)
-    plot(u2, erfc(u2), marker='d', color='r', markersize=14)
-'''
 
 def activate_FN2(V, T, P, aerosols, tol=1e-6, max_iters=100):
     """
@@ -498,6 +592,17 @@ def kohler_crit(T, r_dry, kappa):
                     xtol=1e-10, full_output=True, disp=0)
     r_crit, s_crit = out[:2]
     s_crit *= -1.0
+    return r_crit, s_crit
+
+def kappa_kohler_crit(T, r_dry, kappa):
+    """Calculates the critical radius and supersaturation of an aerosol particle.
+
+    Uses the approximation Seq = A/r - kappa*(r_dry/r)**3.
+    """
+    A = 4.*Mw*sigma_w(T)/R/T/rho_w
+    rd3 = r_dry**3
+    r_crit = np.sqrt(3.*kappa*rd3/A)
+    s_crit = np.sqrt(4.*(A**3)/(27.*kappa*rd3))
     return r_crit, s_crit
 
 def act_fraction(Smax, T, rs, kappa, r_drys, Nis):

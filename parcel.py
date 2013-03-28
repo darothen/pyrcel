@@ -101,7 +101,7 @@ class AerosolSpecies(object):
 
     >>> aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.25, ], 'Nis': [1000.0, ]}, kappa=0.2)
 
-    .. todo:: Expand functionality for MultiModeLognorm distributions
+    .. todo:: Expand functionality for `MultiModeLognorm` distributions
 
     .. warning ::
 
@@ -190,7 +190,7 @@ class ParcelIntegrator(Exception):
         """
         Wrapper for odespy.odepack.Lsode
         """
-        solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12)
+        solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12, nsteps=max_steps)
         solver.set_initial_condition(y0)
         solver.set(f_args=args)
 
@@ -207,7 +207,7 @@ class ParcelIntegrator(Exception):
         """
         Wrapper for odespy.odepack.Lsoda
         """
-        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12)
+        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12, nsteps=max_steps)
         solver.set_initial_condition(y0)
         solver.set(f_args=args)
 
