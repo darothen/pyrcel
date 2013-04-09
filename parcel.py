@@ -111,7 +111,7 @@ class AerosolSpecies(object):
 
     """
 
-    def __init__(self, species, distribution, kappa, bins=None):
+    def __init__(self, species, distribution, kappa, bins=None, r_min=None, r_max=None):
 
         self.species = species # Species molecular formula
         self.kappa = kappa # Kappa hygroscopicity parameter
@@ -133,7 +133,10 @@ class AerosolSpecies(object):
             self.mu = distribution.mu
             self.sigma = distribution.sigma
             self.N = distribution.N
-            lr, rr = np.log10(self.mu/(10.*self.sigma)), np.log10(self.mu*10.*self.sigma)
+            if not r_min and not r_max:
+                lr, rr = np.log10(self.mu/(10.*self.sigma)), np.log10(self.mu*10.*self.sigma)
+            else:
+                lr, rr = np.log10(r_min), np.log10(r_max)
 
             self.rs = np.logspace(lr, rr, num=bins+1)[:]
             mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]

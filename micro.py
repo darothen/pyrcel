@@ -37,15 +37,91 @@ def dv(T, r):
     """Diffusivity of water vapor in air, modified for non-continuum effects
 
     Revise with equation 17.62, Seinfeld and Pandis?"""
-    denom = 1.0 + (Dv_T(T)/(ac*r))*sqrt((2*np.pi*Mw)/(R*T))
-    return Dv/denom
+    denom = 1.0 + (Dv_T(T)/(ac*r))*np.sqrt((2*np.pi*Mw)/(R*T))
+    return Dv_T(T)/denom
 
 def ka(T, rho, r):
     """Thermal conductivity of air, modified for non-continuum effects
 
     Revise with equation 17.71, Seinfeld and Pandis?"""
-    denom = 1.0 + (ka_T(T)/(at*r*rho*Cp))*sqrt((2*np.pi*Ma)/(R*T))
+    denom = 1.0 + (ka_T(T)/(at*r*rho*Cp))*np.sqrt((2*np.pi*Ma)/(R*T))
     return Ka/denom
+
+def activate_ming(V, T, P, aerosol):
+
+    Num = aerosol.N
+
+    RpDry = aerosol.mu*1e-6
+    kappa = aerosol.kappa
+
+    ## pre-algorithm
+    ## subroutine Kohler()... calculate things from Kohler theory, particularly critical
+    ## radii and supersaturations for each bin
+    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in aerosol.r_drys])
+
+    ## subroutine CalcAlphaGamma
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (R*T)/(es(T-273.15)*Mw) + (Mw*(L**2))/(Cp*Ma*T*P)
+
+    ## re-name variables as in Ming scheme
+    Dpc = np.array(r_crits)
+    Dp0 = r_crits/np.sqrt(3.)
+    Sc = np.array(s_crits)+1.0
+    DryDp = aerosol.r_drys*2.
+
+    ## Begin algorithm
+    Smax1 = 1.0
+    Smax2 = 1.1
+
+    iter_count = 1
+    while (Smax2 - Smax1) > 1e-7:
+        print iter_count, Smax2, Smax1
+        Smax = 0.5*(Smax2 + Smax1)
+
+        ## subroutine Grow()
+
+        ## subroutine CalcG()
+        # TODO: implement size-dependent effects on Dv, ka, using Dpc
+        G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
+        G = 1./(G_a + G_b)
+
+        Smax_large = (Smax > Sc) # if(Smax>Sc(count1,count2))
+        WetDp = Dpc[Smax_large]**2. + 1e12*(G/(alpha*V))*np.sqrt((Smax-1.0)**2.5 - (Sc[Smax_large]-1.0)**2.5)
+
+        ## subroutine Activity()
+        # Is this just the Kohler curve?
+        Act = np.ones_like(WetDp)
+        WetDp_large = (WetDp > 1e-5) # if(WetDp(i,j)>1e-5)
+        Act[WetDp_large] = Seq(WetDp[WetDp_large]/2., DryDp[WetDp_large]/2., T, kappa) + 1.0
+
+        ## subroutine Conden()
+
+        ## subroutine CalcG()
+        # TODO: implement size-dependent effects on Dv, ka, using WetDp
+        # note - before the above TODO is implemented, this is a redundant calc and should be skipped
+        #G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
+        #G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
+        #G = 1./(G_a + G_b)
+
+        WetDp_large = (WetDp > Dpc) # (WetDp(count1,count2)>Dpc(count1,count2))
+        CondenRate = np.sum((np.pi/2.)*1e3*G*(WetDp[WetDp_large]*1e-6)*Num[WetDp_large]*1e6*
+                             (Smax-Act[WetDp_large]))
+        DropletNum = np.sum(Num[WetDp_large])
+        ActDp = 0.0
+        for i in xrange(1, len(WetDp)):
+            if (WetDp[i] > Dpc[i]) and (WetDp[i-1] < Dpc[i]):
+                ActDp = DryDp[i]
+
+        ## Iteration logic
+        if CondenRate < (alpha*V/gamma):
+            Smax1 = Smax
+        else:
+            Smax2 = Smax
+
+        iter_count += 1
+
+    return Smax, None
 
 def activate_new(V, T, P, aerosols, max_iters=30):
 
@@ -214,7 +290,7 @@ def activate_FN2(V, T, P, aerosols, tol=1e-6, max_iters=100):
     qsat = 0.622*(es(T-273.15)/P)
     Tv = T*(1.0 + 0.61*qsat)
     rho_air = P/Rd/Tv # air density
-    print "rho_air", rho_air
+    #print "rho_air", rho_air
 
     Dp_big = 5e-6
     Dp_low = np.min([0.207683*(ac**-0.33048), 5.0])*1e-5
@@ -234,7 +310,7 @@ def activate_FN2(V, T, P, aerosols, tol=1e-6, max_iters=100):
     for aerosol in aerosols:
         _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
         sgis.append(sgi)
-    print "--"*20
+    #print "--"*20
 
     def S_integral(Smax):
         delta = Smax**4 - (16./9.)*(A*A*alpha*V/G)
@@ -289,17 +365,17 @@ def activate_FN2(V, T, P, aerosols, tol=1e-6, max_iters=100):
     x2 = 1.0
     y2 = S_integral(x2)
 
-    print (x1, y1), (x2, y2)
+    #print (x1, y1), (x2, y2)
 
-    print "BISECTION"
-    print "--"*20
+    #print "BISECTION"
+    #print "--"*20
     for i in xrange(max_iters):
 
         ## Bisection
         #y1, y2 = S_integral(x1), S_integral(x2)
         x3 = 0.5*(x1+x2)
         y3 = S_integral(x3)
-        print "--", x3, y3, "--"
+        #print "--", x3, y3, "--"
 
         if np.sign(y1)*np.sign(y3) <= 0.:
             x2 = x3
@@ -310,13 +386,13 @@ def activate_FN2(V, T, P, aerosols, tol=1e-6, max_iters=100):
 
         if np.abs(x2-x1) < tol*x1: break
 
-        print i, (x1, y1), (x2, y2)
+        #print i, (x1, y1), (x2, y2)
 
     ## Converged ; return
     x3 = 0.5*(x1 + x2)
 
     Smax = x3
-    print "Smax = %f (%f)" % (Smax, 0.0)
+    #print "Smax = %f (%f)" % (Smax, 0.0)
 
     act_fracs = []
     for aerosol, sgi in zip(aerosols, sgis):
@@ -508,7 +584,7 @@ def Seq(r, r_dry, T, kappa, neg=False):
     This method has been extended to supply the *negative* of the supersaturation if
     specified using the argument ``neg``; this is useful when attempting to numerically
     estimate the particle's critical radius, as done in :func:`kohler_crit`. Otherwise,
-    this method will return the supersaturation as a decimal with resepct to 1.0,
+    this method will return the supersaturation as a decimal with respect to 1.0,
 
     .. math::
         S_\\text{eq} = S - 1.0
@@ -587,7 +663,6 @@ def kohler_crit(T, r_dry, kappa):
     :returns: s_crit - :func:`Seq` evaluated at ``r_crit``
 
     """
-    '''Numerically find the critical radius predicted by kappa Kohler theory'''
     out = fminbound(Seq, r_dry, r_dry*1e4, args=(r_dry, T, kappa, True),
                     xtol=1e-10, full_output=True, disp=0)
     r_crit, s_crit = out[:2]
