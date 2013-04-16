@@ -13,8 +13,10 @@ __docformat__ = 'reStructuredText'
 import pandas
 from lognorm import Lognorm, MultiModeLognorm
 
-from pylab import *
-ion()
+#from pylab import *
+#ion()
+
+import numpy as np
 
 from scipy.optimize import fsolve, bisect
 from scipy.integrate import odeint

@@ -13,7 +13,7 @@ molws = [0.132, ] # kg/mol
 ionns = [3., ]
 Ns = [200., ] # number concentrations 1/cm^3
 dms = [0.02, ] # mean diameter, microns
-sigs = [2.5, ]
+sigs = [2.0, ]
 
 
 if __name__ == "__main__":
@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     for rho, molw, ion, N, dm, sig in zip(densities, molws, ionns, Ns, dms, sigs):
         aerosol = AerosolSpecies('for_ming',
-                                 Lognorm(mu=dm/2., N=N, sigma=sig), kappa=0.1, bins=n_bins)
+                                 Lognorm(mu=dm/2., N=N, sigma=sig), kappa=0.71, bins=n_bins)
         print aerosol
     dry_dps = 2.e6*aerosol.r_drys
     masses = (np.pi/6.)*rho*((dry_dps*1e-6)**3)*aerosol.Nis
