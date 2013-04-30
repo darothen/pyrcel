@@ -50,6 +50,84 @@ def eval_legendre(deg, x):
     poly =  np.poly1d(roots, r=True)
     return poly(x)
 
+def pce_deg1(V, T, P, aerosol):
+
+    brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
+
+    As = array([ 0.00022826, -0.00051625, -0.00020289, -0.00039829, -0.0001025 ,
+       -0.0001638 ])
+
+    def map_to_norm(x, param):
+        prior, args = brackets[param][0], brackets[param][1:]
+        if prior == "lognormal_n": args = map(np.log, args)
+        inv_func = inv_funcs[prior]
+        return inv_func(x, *args)
+
+    mu = map_to_norm(aerosol.mu, 'mu')
+    N = map_to_norm(aerosol.N, 'N')
+    V = map_to_norm(V, 'V')
+    sigma = map_to_norm(aerosol.sigma, 'sigma')
+    kappa = map_to_norm(aerosol.kappa, 'kappa')
+
+    V_1 = eval_hermite(1, V)
+    N_1 = eval_hermite(1, N)
+    kappa_1 = eval_hermite(1, kappa)
+    mu_1 = eval_hermite(1, mu)
+    sigma_1 = eval_hermite(1, sigma)
+
+    Smax = As.dot(np.array([1.0, mu_1, N_1, V_1, kappa_1, sigma_1, ]))
+
+    _, S_mode_crit = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
+    N_act = 0.5*aerosol.N*erfc(ui)
+    act_frac = N_act/aerosol.N
+
+    return Smax, act_frac
+
+def pce_deg2(V, T, P, aerosol):
+
+    brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
+
+    As = array([  1.14326819e-03,  -7.17119470e-04,  -2.87207700e-04,
+        -6.49925186e-04,  -1.32394919e-04,  -2.03550833e-04,
+         4.19256128e-04,   1.95758520e-04,   4.28430253e-04,
+         5.43726035e-05,   4.01075063e-05,   1.78061247e-04,
+         6.89565065e-04,   1.06794441e-04,   2.34925303e-04,
+         5.96974401e-04,   9.09500909e-05,   7.94986009e-05,
+         1.49255164e-04,   1.22341600e-04,   5.20229943e-05])
+
+    def map_to_norm(x, param):
+        prior, args = brackets[param][0], brackets[param][1:]
+        if prior == "lognormal_n": args = map(np.log, args)
+        inv_func = inv_funcs[prior]
+        return inv_func(x, *args)
+
+    mu = map_to_norm(aerosol.mu, 'mu')
+    N = map_to_norm(aerosol.N, 'N')
+    V = map_to_norm(V, 'V')
+    sigma = map_to_norm(aerosol.sigma, 'sigma')
+    kappa = map_to_norm(aerosol.kappa, 'kappa')
+
+    V_1 = eval_hermite(1, V)
+    V_2 = eval_hermite(2, V)
+    N_1 = eval_hermite(1, N)
+    kappa_2 = eval_hermite(2, kappa)
+    N_2 = eval_hermite(2, N)
+    sigma_2 = eval_hermite(2, sigma)
+    mu_2 = eval_hermite(2, mu)
+    kappa_1 = eval_hermite(1, kappa)
+    mu_1 = eval_hermite(1, mu)
+    sigma_1 = eval_hermite(1, sigma)
+
+    Smax = As.dot(np.array([1.0, mu_1, N_1, V_1, kappa_1, sigma_1, mu_2, N_2, V_2, kappa_2, sigma_2, mu_1*N_1, mu_1*V_1, mu_1*kappa_1, mu_1*sigma_1, N_1*V_1, N_1*kappa_1, N_1*sigma_1, V_1*kappa_1, V_1*sigma_1, kappa_1*sigma_1]))
+
+    _, S_mode_crit = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
+    N_act = 0.5*aerosol.N*erfc(ui)
+    act_frac = N_act/aerosol.N
+
+    return Smax, act_frac
+
 def pce_deg3(V, T, P, aerosol):
 
     brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
@@ -199,3 +277,63 @@ def pce_deg4(V, T, P, aerosol):
     act_frac = N_act/aerosol.N
 
     return Smax, act_frac
+
+def MARS_param(V, T, P, aerosol):
+
+    N = aerosol.N
+    mu = aerosol.mu
+    sigma = aerosol.sigma
+    kappa = aerosol.kappa
+
+    h = lambda x: np.max([0, x])
+
+    retval = 0.000800009 + \
+            h(mu-0.0579383)*-0.00594626 + \
+            h(0.0579383-mu)*0.054127      + \
+            h(N-893.673)*-1.34729e-07  + \
+            h(893.673-N)*1.26029e-06   + \
+            h(sigma-1.57034)*h(0.0579383-mu)*-0.0134238    + \
+            h(1.57034-sigma)*h(0.0579383-mu)*0.0580031     + \
+            h(V-0.687964)*h(0.0579383-mu)*0.0106313     + \
+            h(0.687964-V)*h(0.0579383-mu)*-0.0427569    + \
+            h(V-1.16618)*h(893.673-N)*-6.66641e-07  + \
+            h(1.16618-V)*h(893.673-N)*-7.5702e-07   + \
+            h(kappa-0.396568)*-0.000168919  + \
+            h(0.396568-kappa)*0.00188196    + \
+            h(sigma-2.24391)*-0.000482217  + \
+            h(2.24391-sigma)*0.000439122   + \
+            h(N-919.342)*h(mu-0.0579383)*-2.3488e-06   + \
+            h(919.342-N)*h(mu-0.0579383)*-4.10455e-05  + \
+            h(mu-0.0171867)*h(0.396568-kappa)*-0.00726007   + \
+            h(0.0171867-mu)*h(0.396568-kappa)*0.470438      + \
+            h(V-0.373096)*0.000195676   + \
+            h(0.373096-V)*-0.000635335  + \
+            h(mu-0.140341)*h(2.24391-sigma)*-0.00113277+ \
+            h(0.140341-mu)*h(2.24391-sigma)*0.0086391+ \
+            h(N-3308.2)*h(V-0.373096)*-1.68353e-08  + \
+            h(3308.2-N)*h(V-0.373096)*6.78315e-07        + \
+            h(1.57551-sigma)*h(0.0171867-mu)*h(0.396568-kappa)*14.5272       + \
+            h(mu-0.125655)*h(V-0.373096)*-0.000852333  + \
+            h(0.125655-mu)*h(V-0.373096)*0.00425788    + \
+            h(N-274.315)*h(3308.2-N)*h(V-0.373096)*-9.03331e-11  + \
+            h(274.315-N)*h(3308.2-N)*h(V-0.373096)*4.22941e-09   + \
+            h(mu-0.0307511)*h(N-893.673)*2.62773e-06   + \
+            h(0.0307511-mu)*h(N-893.673)*7.34263e-06   + \
+            h(kappa-0.213236)*h(3308.2-N)*h(V-0.373096)*-2.30155e-07  + \
+            h(0.213236-kappa)*h(3308.2-N)*h(V-0.373096)*1.62512e-06   + \
+            h(kappa-0.23752)*h(0.140341-mu)*h(2.24391-sigma)*-0.00640169   + \
+            h(0.23752-kappa)*h(0.140341-mu)*h(2.24391-sigma)*0.0447306     + \
+            h(mu-0.0166662)*h(893.673-N)*3.50406e-05   + \
+            h(0.0166662-mu)*h(893.673-N)*0.000776855   + \
+            h(sigma-2.0951)*h(mu-0.0307511)*h(N-893.673)*4.12976e-07   + \
+            h(2.0951-sigma)*h(mu-0.0307511)*h(N-893.673)*-1.72103e-07  + \
+            h(mu-0.0552353)*h(3308.2-N)*h(V-0.373096)*-2.0652e-06   + \
+            h(0.0552353-mu)*h(3308.2-N)*h(V-0.373096)*-5.05412e-06  + \
+            h(N-4275.75)*h(sigma-1.57034)*h(0.0579383-mu)*-9.59983e-07  + \
+            h(4275.75-N)*h(sigma-1.57034)*h(0.0579383-mu)*4.8373e-06    + \
+            h(mu-0.137268)*h(mu-0.0579383)*0.0212281     + \
+            h(0.137268-mu)*h(mu-0.0579383)*-0.0802494    + \
+            h(kappa-0.696631)*h(0.125655-mu)*h(V-0.373096)* -0.00223781   + \
+            h(0.696631-kappa)*h(0.125655-mu)*h(V-0.373096)*0.00765882
+
+    return retval, None
