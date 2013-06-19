@@ -9,14 +9,11 @@
 from scipy.optimize import fminbound
 import numpy as np
 
-from numba import jit, float_, int32, int64
-
 ## Import constants from `micro` module
 from micro import Mw, Ma, R, rho_w, Rd, g, Dv, ac, Ka, at, L, Cp
 from micro import sigma_w, ka, dv, ka_T, Dv_T, es, Seq
 
 ## DERIVATIVE
-@jit(float_[:](float_[:], float_, int32, float_[:], float_[:], float_, float_[:]))
 def der(y, t, nr, r_drys, Nis, V, kappas):
     """Time-derivatives of variables tracked by the parcel model.
 
