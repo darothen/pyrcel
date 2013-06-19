@@ -21,7 +21,9 @@ import numpy as np
 from scipy.optimize import fsolve, bisect
 from scipy.integrate import odeint
 
-from parcel_aux import der, guesses
+#from parcel_aux import der
+from parcel_aux_port import der
+
 from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, act_fraction
 
 ## Check if the odespy module is available

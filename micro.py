@@ -27,7 +27,7 @@ at = 0.96            #: thermal accomodation coefficient
 epsilon = 0.622      #: molecular weight of water / molecular weight of dry air
 
 ## NOT CORRECTING FOR NON-CONTINUUM EFFECTS
-#Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
+Dv = 0.3/1e4 # Diffusivity of water vapor in air, m^2/s
 Dv_T = lambda T, P=1.0 : 1e-4*(0.211/P)*((T/273.)**1.94) # Diffusivity of water vapor in air, m^2/s. T is Kelvin; P is atm, assumed 1
 ka_T = lambda T: 1e-3*(4.39 + 0.071*T) # thermal conductivty of air, W/(m K) given T in Kelvin
 
