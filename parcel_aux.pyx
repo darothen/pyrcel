@@ -34,12 +34,12 @@ cdef double Cp = 1004.0 # Specific heat of dry air at constant pressure, J/kg
 cdef double PI = pi # Pi, constant
 
 ## AUXILIARY FUNCTIONS
-cdef inline double sigma_w(double T) nogil:
+cdef inline double sigma_w(double T):
     """Surface tension of water"""
     return 0.0761 - (1.55e-4)*(T-273.15) # surface tension of water, J/m^2 given T in Kelvin
 
 @cython.cdivision(True)
-cdef inline double ka(double T, double rho, double r) nogil:
+cdef inline double ka(double T, double rho, double r):
     """Thermal conductivity of air, modified for non-continuum effects
 
     Revise with equation 17.71, Seinfeld and Pandis?"""
@@ -49,7 +49,7 @@ cdef inline double ka(double T, double rho, double r) nogil:
     return Ka/denom
 
 @cython.cdivision(True)
-cdef inline double dv(double T, double r) nogil:
+cdef inline double dv(double T, double r):
     """Diffusivity of water vapor in air, modified for non-continuum effects
 
     Revise with equation 17.62, Seinfeld and Pandis?"""
@@ -66,7 +66,7 @@ cdef inline double es(double T):
     return 611.2*exp(17.67*T/(T+243.5))
 
 @cython.cdivision(True)
-cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
+cdef double Seq(double r, double r_dry, double T, double kappa):
     """See :func:`parcel_model.micro.Seq` for full documentation.
     """
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
@@ -109,7 +109,7 @@ cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
         ki = kappas[i]
         r_range = np.arange(rdi+rdi/1000., rdi*10., rdi/1000.)
         ss = np.empty(dtype='d', shape=(len(r_range)))
-        for j in prange(r_range.shape[0], nogil=True):
+        for j in range(r_range.shape[0]):
             ss[j] = Seq(r_range[j], rdi, T0, ki)
         idx_min = np.argmin(np.abs(ss - S0))
         guesses[i] = r_range[idx_min]
@@ -200,33 +200,39 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double G_a, G_b, G
     cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr))
     cdef unsigned int i
-    cdef double r, r_dry, delta_S, kappa
+    cdef double r, r_dry, delta_S, kappa, dr_dt, Ni
+    cdef double dwc_dt = 0.0
 
-    for i in prange(nr, nogil=True):
+    for i in range(nr):
         r = rs[i]
         r_dry = r_drys[i]
         kappa = kappas[i]
+        Ni = Nis[i]
 
         ## Remove size-dependence from G
-        G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
         #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
-        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
         #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
+
+        G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
         G = 1./(G_a + G_b)
 
         delta_S = S - Seq(r, r_dry, T, kappa)
 
-        drs_dt[i] = (G/r)*delta_S
+        #drs_dt[i] = (G/r)*delta_S
+        dr_dt = (G/r)*delta_S
 
-    # 3) dwc_dt
-    cdef double dwc_dt = 0.0
-    cdef double Ni, dr_dt
-
-    for i in range(nr):
-        Ni = Nis[i]
-        r = rs[i]
-        dr_dt = drs_dt[i]
         dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
+        drs_dt[i] = dr_dt
+    # # 3) dwc_dt
+    # cdef double dwc_dt = 0.0
+    # cdef double Ni, dr_dt
+
+    # for i in range(nr):
+    #     Ni = Nis[i]
+    #     r = rs[i]
+    #     dr_dt = drs_dt[i]
+    #     dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
     dwc_dt = (4.*PI*rho_w/rho_air)*dwc_dt
 
     # 4) dwv_dt
