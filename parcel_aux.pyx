@@ -1,183 +1,116 @@
-# cython: embedsignature:True
-# cython: profile=True
-# (adds doc-strings accessible by Sphinx)
+#cython: embedsignature:True
+#cython: profile=True
+#cython: boundscheck=False
+#cython: cdivision=True
+# (embedsignature adds doc-strings accessible by Sphinx)
 """
 .. module:: parcel
-    :synopsis: Parcel model performance functions.
+    :synopsis: Parcel model derivative calculations in Cython for speedup.
 
 .. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
 
 """
 
-from cython.parallel import prange
-from scipy.optimize import fminbound
+from cython.parallel cimport prange, parallel
 from libc.math cimport exp, sqrt
-from math import pi
 
 import numpy as np
 cimport numpy as np
 cimport cython
+cimport openmp
 
-## Import constants from nenes_parcel
-cdef double Mw = 18.0153/1e3 # Molecular weight of water, kg/mol
-cdef double Ma = 28.9/1e3 # Molecular weight of dry air, kg/mol
-cdef double R = 8.314 # Universal gas constant, J/(mol K)
-cdef double rho_w = 1e3 # Density of water, kg/m**3
-cdef double Rd = 287.0 # Gas constant for dry air, J/(kg K)
-cdef double g = 9.81 # Gravitational constant, m/s**2
-cdef double Dv = 3.e-5 # Diffusivity of water vapor in air, m^2/s
-cdef double ac = 1.0 # condensation constant
-cdef double Ka = 2.e-2 # Thermal conductivity of air, J/m/s/K
-cdef double at = 0.96 # thermal accomodation coefficient
-cdef double L = 2.5e6 # Latent heat of condensation, J/kg
-cdef double Cp = 1004.0 # Specific heat of dry air at constant pressure, J/kg
-cdef double PI = pi # Pi, constant
+## Thermodynamic/chemistry constants
+cdef:
+    double Mw = 18.0153/1e3 #: Molecular weight of water, kg/mol
+    double Ma = 28.9/1e3    #: Molecular weight of dry air, kg/mol
+    double R = 8.314        #: Universal gas constant, J/(mol K)
+    double rho_w = 1e3      #: Density of water, kg/m**3
+    double Rd = 287.0       #: Gas constant for dry air, J/(kg K)
+    double g = 9.81         #: Gravitational constant, m/s**2
+    double Dv = 3.e-5       #: Diffusivity of water vapor in air, m^2/s
+    double ac = 1.0         #: Condensation Constant
+    double Ka = 2.e-2       #: Thermal conductivity of air, J/m/s/K
+    double at = 0.96        #: thermal accomodation coefficient
+    double L = 2.5e6        #: Latent heat of condensation, J/kg
+    double Cp = 1004.0      #: Specific heat of dry air at constant pressure, J/kg
+    double PI = 3.14159265358979323846264338328 # Pi, constant
 
-## AUXILIARY FUNCTIONS
-cdef inline double sigma_w(double T):
-    """Surface tension of water"""
-    return 0.0761 - (1.55e-4)*(T-273.15) # surface tension of water, J/m^2 given T in Kelvin
+## Auxiliary, single-value calculations with GIL released for derivative
+## calculations
+cdef inline double sigma_w(double T) nogil:
+    """See :func:`parcel_model.micro.sigma_w` for full documentation
+    """
+    return 0.0761 - (1.55e-4)*(T-273.15)
 
-@cython.cdivision(True)
-cdef inline double ka(double T, double rho, double r):
-    """Thermal conductivity of air, modified for non-continuum effects
-
-    Revise with equation 17.71, Seinfeld and Pandis?"""
+cdef inline double ka(double T, double r, double rho) nogil:
+    """See :func:`parcel_model.micro.ka` for full documentation
+    """
     cdef double denom, ka_cont
     ka_cont = 1e-3*(4.39 + 0.071*T)
     denom = 1.0 + (ka_cont/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
-    return Ka/denom
+    return ka_cont/denom
 
-@cython.cdivision(True)
-cdef inline double dv(double T, double r):
-    """Diffusivity of water vapor in air, modified for non-continuum effects
+cdef inline double dv(double T, double r, double P) nogil:
+    """See :func:`parcel_model.micro.dv` for full documentation
+    """
+    cdef double denom, dv_cont, P_atm
+    P_atm = P*1.01325e-5 # Pa -> atm
+    dv_cont = 1e-4*(0.211/P_atm)*((T/273.)**1.94)
+    denom = 1.0 + (dv_cont/(ac*r))*sqrt((2*PI*Mw)/(R*T))
+    return dv_cont/denom
 
-    Revise with equation 17.62, Seinfeld and Pandis?"""
-    cdef double denom, dv_cont, P
-    P = 1. # atm
-    dv_cont = 1e-4*(0.211/P)*((T/273.)**1.94)
-    denom = 1.0 + (Dv/(ac*r))*sqrt((2*PI*Mw)/(R*T))
-    return Dv/denom
-
-@cython.cdivision(True)
 cdef inline double es(double T):
-    """Returns saturation vapor pressure (Pascal) at temperature T (Celsius)
-    Formula 2.17 in Rogers&Yau"""
+    """See :func:`parcel_model.micro.es` for full documentation
+    """
     return 611.2*exp(17.67*T/(T+243.5))
 
-@cython.cdivision(True)
-cdef double Seq(double r, double r_dry, double T, double kappa):
+cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     """See :func:`parcel_model.micro.Seq` for full documentation.
     """
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    cdef double B
-    if kappa == 0.0:
-        B = 1.0
-    else:
+    cdef double B = 1.0
+    if kappa > 0.0:
         B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
     cdef double returnval = exp(A)*B - 1.0
     return returnval
 
-@cython.cdivision(True)
-cpdef double Seq_gil(double r, double r_dry, double T, double kappa):
-    """Header of :func:`parcel_model.micro.Seq` ported to Cython and GIL-released.
-    """
-    return Seq(r, r_dry, T, kappa)
-
-### GUESSING FUNCTION
-@cython.boundscheck(False)
-cpdef guesses(double T0, double S0, np.ndarray[double, ndim=1] r_drys,
-              np.ndarray[double, ndim=1] kappas):
-    """
-    - DEPRECATED -
-    As of 2/21/2013, a more accurate bisection method is used to compute the equilibrium
-    wet radii for inactivate aerosols, and this routine is no longer necessary.
-
-    Given a parcel's temperature and supersaturation as well as a size distribution
-    of aerosols and their kappa parameters, computes seed guesses for determining
-    the equilibrium wet radii of the inactivated aerosols or, when possible, the exact
-    equilibrium solution.
-    """
-    cdef unsigned int nr = r_drys.shape[0]
-    cdef np.ndarray[double, ndim=1] guesses = np.empty(dtype='d', shape=(nr))
-
-    cdef np.ndarray[double, ndim=1] r_range, ss
-    cdef double ri, rdi, ki
-    cdef unsigned int i, j, idx_min
-    for i in xrange(nr):
-        rdi = r_drys[i]
-        ki = kappas[i]
-        r_range = np.arange(rdi+rdi/1000., rdi*10., rdi/1000.)
-        ss = np.empty(dtype='d', shape=(len(r_range)))
-        for j in range(r_range.shape[0]):
-            ss[j] = Seq(r_range[j], rdi, T0, ki)
-        idx_min = np.argmin(np.abs(ss - S0))
-        guesses[i] = r_range[idx_min]
-
-    return guesses
-
-## DERIVATIVE
+## RHS Derivative callback function
 def der(np.ndarray[double, ndim=1] y, double t,
-       int nr, np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] Nis,
-       double V, np.ndarray[double, ndim=1] kappas):
-    """Time-derivatives of variables tracked by the parcel model.
+        int nr, np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] Nis,
+        double V, np.ndarray[double, ndim=1] kappas):
+    """ Calculates the instantaneous time-derivate of the parcel model system.
 
-    :param y:
-        Vector representing the current state of the parcel model system,
-            * P - pressure (Pa)
-            * T - temperature (K)
-            * wv - water vapor mass mixing ratio (kg/kg)
-            * wc - droplet liquid water mass mixing ratio (kg/kg)
-            * S - parcel supersaturation
-            * rs - droplet radii (m)
-                -- the final *nr* elements of the state vector `y`
-    :type y: np.ndarray
+    Given a current state vector ``y`` of the parcel model, computes the tendency
+    of each term including thermodynamic (pressure, temperature, etc) and aerosol
+    terms. The basic aerosol properties used in the model must be passed along
+    with the state vector (i.e. if being used as the callback function in an ODE
+    solver).
 
-    :param t:
-        Current time-step at which derivatives are being computed
-    :type t: float
+    Args:
+        y: NumPy array containing the current state of the parcel model system,
+            * y[0] = pressure, Pa
+            * y[1] = temperature, K
+            * y[2] = water vapor mass mixing ratio, kg/kg
+            * y[3] = droplet liquid water mass mixing ratio, kg/kg
+            * y[3] = parcel supersaturation
+            * y[nr:] = aerosol bin sizes (radii), m
+        t: Current decimal model time
+        nr: Integer number of aerosol radii being tracked
+        r_drys: NumPy array with original aerosol dry radii, m
+        Nis: NumPy array with aerosol number concentrations, m**-3
+        V: Updraft velocity, m/s
+        kappas: NumPy array containing all aerosol hygroscopicities
 
-    :param nr:
-        Total number of aerosol radii (across all species) being tracked within
-        the parcel model and in the state vector `y`
-    :type nr: int
+    Returns:
+        A NumPy array with the same shape and term order as y, but containing
+            all the computed tendencies at this time-step.
 
-    :param r_drys:
-        Dry radii (m) of all the wetted aerosol being tracked, concatenated across all
-        species into a single array of length `nr`. Should correspond to the order in
-        which the wetted radii appear in `y`
-    :type r_drys: np.ndarray
+    .. note:: This calculation has been arranged to use a parallelized (via
+        OpenMP) for-loop when possible. Setting the environmental variable
+        **OMP_NUM_THREADS** to an integer greater than 1 will yield
+        multi-threaded computations, but could invoke race conditions and cause
+        slow-down if too many threads are specified.
 
-    :param Nis:
-        Number concentrations (m**-3) of the wetted aerosols being tracked,
-        concatenated across all species into a single array of length `nr`
-    :type Nis: np.ndarray
-
-    :param V:
-        Updraft velocity (m)
-    :type V: float
-
-    :param kappas:
-        Aerosol hygroscopicities, concatenated across all species into a single
-        array of length `nr`
-    :type kappas: np.ndarray
-
-    :returns:
-        derivatives of all variables in state vector `y`, in their original order
-
-    """
-
-    return _der(t, y, nr, r_drys, Nis, V, kappas)
-
-@cython.cdivision(True)
-@cython.boundscheck(False)
-cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
-                                     int nr, np.ndarray[double, ndim=1] r_drys,
-                                     np.ndarray[double, ndim=1] Nis, double V,
-                                     np.ndarray[double, ndim=1] kappas):
-    """Private function for computing the derivatives used to integrate
-    the parcel model forward in time. See :func:`parcel_model.parcel_aux.der`
-    for complete documentation.
     """
     cdef double P = y[0]
     cdef double T = y[1]
@@ -186,68 +119,62 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     cdef double S = y[4]
     cdef np.ndarray[double, ndim=1] rs = y[5:]
 
-    cdef double pv_sat = es(T-273.15) # saturation vapor pressure
+    cdef double T_c = T-273.15 # convert temperature to Celsius
+    cdef double pv_sat = es(T_c) # saturation vapor pressure
     cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
     cdef double Tv = (1.+0.61*wv)*T
     cdef double rho_air = P/(Rd*Tv)
 
-    # 1) dP_dt
-    cdef double dP_dt = (-g*P*V)/(Rd*Tv)
-    # FIX AT CONSTANT PRESSURE
-    #dP_dt = 0.0
+    ## Begin computing tendencies
 
-    # 2) dr_dt
-    cdef double G_a, G_b, G
+    cdef double dP_dt = (-g*P*V)/(Rd*Tv)
+
     cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr))
-    cdef unsigned int i
-    cdef double r, r_dry, delta_S, kappa, dr_dt, Ni
+    cdef int i
     cdef double dwc_dt = 0.0
 
-    for i in range(nr):
+    cdef: # variables set in parallel loop
+        double G_a, G_b, G
+        double r, r_dry, delta_S, kappa, dr_dt, Ni
+        double dv_r, ka_r, P_atm, A, B, Seq_r
+
+    for i in prange(nr, nogil=True, schedule='static'):#, num_threads=40):
         r = rs[i]
         r_dry = r_drys[i]
         kappa = kappas[i]
         Ni = Nis[i]
 
-        ## Remove size-dependence from G
-        #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
-        #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
+        ## Non-continuum diffusivity/thermal conductivity of air near
+        ## near particle
+        dv_r = dv(T, r, P)
+        ka_r = ka(T, r, rho_air)
 
-        G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
-        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
+        ## Condensation coefficient
+        G_a = (rho_w*R*T)/(pv_sat*dv_r*Mw)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka_r*T)
         G = 1./(G_a + G_b)
 
-        delta_S = S - Seq(r, r_dry, T, kappa)
+        ## Difference between ambient and particle equilibrium supersaturation
+        Seq_r = Seq(r, r_dry, T, kappa)
+        delta_S = S - Seq_r
 
-        #drs_dt[i] = (G/r)*delta_S
+        ## Size and liquid water tendencies
         dr_dt = (G/r)*delta_S
-
-        dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
+        dwc_dt += Ni*(r**2)*dr_dt # Contribution to liq. water tendency due to growth
         drs_dt[i] = dr_dt
-    # # 3) dwc_dt
-    # cdef double dwc_dt = 0.0
-    # cdef double Ni, dr_dt
+    dwc_dt *= (4.*PI*rho_w/rho_air) # Hydrated aerosol size -> water mass
 
-    # for i in range(nr):
-    #     Ni = Nis[i]
-    #     r = rs[i]
-    #     dr_dt = drs_dt[i]
-    #     dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
-    dwc_dt = (4.*PI*rho_w/rho_air)*dwc_dt
-
-    # 4) dwv_dt
     cdef double dwv_dt
     dwv_dt = -dwc_dt
 
-    # 5) dT_dt
     cdef double dT_dt
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
-    # 6) dS_dt
+    ''' Alternative methods for calculation supersaturation tendency
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
-    cdef double S_a, S_b, S_c, dS_dt
-    cdef double S_b_old, S_c_old, dS_dt_old
-    S_a = (S+1.0)
+    #cdef double S_a, S_b, S_c, dS_dt
+    #cdef double S_b_old, S_c_old, dS_dt_old
+    #S_a = (S+1.0)
 
     ## NENES (2001)
     #S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
@@ -263,14 +190,13 @@ cdef np.ndarray[double, ndim=1] _der(double t, np.ndarray[double, ndim=1] y,
     #S_b = L*Mw*dT_dt/(R*T**2.)
     #S_c = V*g*Ma/(R*T)
     #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
+    '''
 
     ## GHAN (2011)
-    cdef double alpha, gamma
+    cdef double alpha, gamma, dS_dt
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+    gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
-
-    #print t, dS_dt, dS_dt_old
 
     cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
     x[0] = dP_dt
