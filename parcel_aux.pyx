@@ -33,7 +33,7 @@ cdef:
     double at = 0.96        #: thermal accomodation coefficient
     double L = 2.5e6        #: Latent heat of condensation, J/kg
     double Cp = 1004.0      #: Specific heat of dry air at constant pressure, J/kg
-    double PI = 3.14159265358979323846264338328 # Pi, constant
+    double PI = 3.14159265358979323846264338328 #: Pi, constant
 
 ## Auxiliary, single-value calculations with GIL released for derivative
 ## calculations

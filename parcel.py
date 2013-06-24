@@ -1,257 +1,80 @@
-"""Cloud Parcel Model based on Nenes et al, 2001; implemented by
-Daniel Rothenberg (darothen@mit.edu) as part of research undertaken for the
-General examination in the Program in Atmospheres, Oceans, and Climate
+"""Adiabatic Cloud Parcel Model based on *Nenes et al, 2001* and implemented by
+Daniel Rothenberg (darothen@mit.edu). The core logic to initialize and run the
+model is contained in this script.
 
 .. module:: parcel
-    :synopsis: Parcel model setup and driver.
+    :synopsis: Parcel model main script.
 
 .. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
 
 """
-
 __docformat__ = 'reStructuredText'
-import pandas
-from lognorm import Lognorm, MultiModeLognorm
-
-#from pylab import *
-#ion()
-
-import numpy as np
-
-from scipy.optimize import fsolve, bisect
-from scipy.integrate import odeint
-
-from parcel_aux import der
-#from parcel_aux_port import der
-
-from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, act_fraction
-
-## Check if the odespy module is available
-try:
-    from odespy.odepack import Lsode, Lsoda
-except ImportError:
-    pass
 
 import os
 
-class AerosolSpecies(object):
-    """Container class for organizing and passing around important details about
-    aerosol species present in the parcel model.
+import numpy as np
+from scipy.optimize import bisect
+import pandas
 
-    To allow flexibility with how aerosols are defined in the model, this class is
-    meant to act as a wrapper to contain metadata about aerosols (their species name, etc),
-    their chemical composition (particle mass, hygroscopicity, etc), and the particular
-    size distribution chosen for the initial dry aerosol. Because the latter could be very
-    diverse - for instance, it might be desired to have a monodisperse aerosol population,
-    or a bin representation of a canonical size distribution - the core of this class
-    is designed to take those representations and homogenize them for use in the model.
-
-    An :class:`AerosolSpecies` instance has the following attributes:
-
-    .. attribute :: species
-
-        A string representing a name for the particular aerosol species. This is purely
-        metadata and doesn't serve any function in the parcel model except for tagging
-        aerosols, so this can be set to anything.
-
-    .. attribute :: kappa
-
-        The hygroscopicity parameter :math:`\kappa` of the aerosol species used in
-        :math:`\kappa`-Kohler theory. This should be a `float`, and is non-dimensional.
-
-    .. attribute :: nr
-
-        The number of bins in the size distribution. Can be 1, for a monodisperse aerosol.
-
-    .. attribute :: r_drys
-
-        A :mod:`numpy` array instance containing the representative dry radii for each bin
-        in the aerosol size distribution. Has length equal to `nr`, and units (m).
-
-    .. attribute :: rs
-
-        A :mod:`numpy` array instance containing the edge of each bin in the aerosol size
-        distribution. Has length equal to `nr + 1` and units (cm).
-
-    .. attribute :: Nis
-
-        A :mod:`numpy` array instance of length `nr` with the number concentration in
-        (m**-3) of each aerosol size bin.
-
-    .. attribute :: N
-
-        The total aerosol species number concentration in (m**-3)
-
-    To construct an :class:`AerosolSpecies`, only the metadata (`species` and `kappa`) and
-    the size distribution needs to be specified. The size distribution (`distribution`) can be
-    an instance of :class:`parcel_model.lognorm.Lognorm`, as long as an extra parameter `bins`,
-    which is an `int` representing how many bins into which the distribution should be divided,
-    is also passed to the constructor. In this case, the constructor will figure out how to slice
-    the size distribution to calculate all the aerosol dry radii and their number concentrations.
-
-    Alternatively, a :class:`dict` can be passed as `distribution` where that slicing has
-    already occurred. In this case, `distribution` must have 2 keys: *r_drys* and *Nis*. Each
-    of the values stored to those keys should fit the attribute descriptors above (although
-    they don't need to be :mod:`numpy` arrays - they can be any iterable.)
-
-    :Example:
-
-    Constructing sulfate aerosol with a specified lognormal distribution -
-
-    >>> aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.05, sigma=2.0, N=300.),
-    >>>                           bins=200, kappa=0.6)
-
-    Constructing a monodisperse sodium chloride distribution -
-
-    >>> aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.25, ], 'Nis': [1000.0, ]}, kappa=0.2)
-
-    .. todo:: Expand functionality for `MultiModeLognorm` distributions
-
-    .. warning ::
-
-        Throws a :class:`ValueError` if an unknown type of `distribution` is passed to the
-        constructor, or if `bins` isn't present when `distribution` is an instance of
-        :class:`parcel_model.lognorm.Lognorm`
-
-    """
-
-    def __init__(self, species, distribution, kappa, bins=None, r_min=None, r_max=None):
-
-        self.species = species # Species molecular formula
-        self.kappa = kappa # Kappa hygroscopicity parameter
-        self.bins = bins # Number of bins for discretizing the size distribution
-
-        ## Handle the size distribution passed to the constructor
-        self.distribution = distribution
-        if isinstance(distribution, dict):
-            self.r_drys = np.array(distribution['r_drys'])*1e-6
-            self.rs = np.array([self.r_drys[0]*0.9, self.r_drys[0]*1.1, ])*1e6
-            self.Nis = np.array(distribution['Nis'])
-            self.N = np.sum(self.Nis)
-
-        elif isinstance(distribution, Lognorm):
-            # Check for missing keyword argument
-            if bins is None:
-                raise ValueError("Need to specify `bins` argument if passing a Lognorm distribution")
-
-            self.mu = distribution.mu
-            self.sigma = distribution.sigma
-            self.N = distribution.N
-            if not r_min and not r_max:
-                lr, rr = np.log10(self.mu/(10.*self.sigma)), np.log10(self.mu*10.*self.sigma)
-            else:
-                lr, rr = np.log10(r_min), np.log10(r_max)
-
-            self.rs = np.logspace(lr, rr, num=bins+1)[:]
-            mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
-            self.Nis = np.array([0.5*(b-a)*(distribution.pdf(a) + distribution.pdf(b)) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
-            self.r_drys = mids*1e-6
-
-        else:
-            raise ValueError("Could not work with size distribution of type %r" % type(distribution))
-
-        ## Correct to SI units
-        # Nis: cm**-3 -> m**-3
-        self.Nis *= 1e6
-        self.nr = len(self.r_drys)
-
-    def __repr__(self):
-        return "%s - %r" % (self.species, self.distribution)
-
-    def summary_str(self):
-        summary_dict = { "species": self.species, "mu": self.mu, "sigma": self.sigma, "N": self.N,
-                         "kappa": self.kappa, "bins": self.bins }
-        return str(summary_dict)
-
-    @staticmethod
-    def from_summary_str(summary_str):
-        import ast
-        summary_dict = ast.literal_eval(summary_str)
-        dist = Lognorm(mu=summary_dict['mu'], sigma=summary_dict['sigma'], N=summary_dict['N'])
-        aerosol = AerosolSpecies(summary_dict['species'], dist, summary_dict['kappa'], summary_dict['bins'])
-        return aerosol
+## Parcel model imports
+from aerosol import AerosolSpecies
+from integrator import Integrator
+from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit, act_fraction
+from parcel_aux import der
 
 class ParcelModelError(Exception):
+    """Custom exception to throw during parcel model execution.
+    """
     def __init__(self, error_str):
         self.error_str = error_str
     def __str__(self):
         return repr(self.error_str)
 
-class ParcelIntegrator(Exception):
-    """
-    Container class for the various integrators to use in the parcel model
-    """
-
-    @staticmethod
-    def solver(method):
-        solvers = {
-            'odeint': ParcelIntegrator._solve_odeint,
-            'lsoda': ParcelIntegrator._solve_lsoda,
-            'lsode': ParcelIntegrator._solve_lsode,
-        }
-
-        return solvers[method]
-
-    @staticmethod
-    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000):
-        """
-        Wrapper for odespy.odepack.Lsode
-        """
-        solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12, nsteps=max_steps)
-        solver.set_initial_condition(y0)
-        solver.set(f_args=args)
-
-        try:
-            x, t = solver.solve(t)
-        except ValueError, e:
-            raise ParcelModelError("something broke in LSODE")
-            return None, False
-
-        return x, True
-
-    @staticmethod
-    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000):
-        """
-        Wrapper for odespy.odepack.Lsoda
-        """
-        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12, nsteps=max_steps)
-        solver.set_initial_condition(y0)
-        solver.set(f_args=args)
-
-        try:
-            x, t = solver.solve(t)
-        except ValueError, e:
-            raise ParcelModelError("something broke in LSODE")
-            return None, False
-
-        return x, True
-
-    @staticmethod
-    def _solve_odeint(f, t, y0, args, console=False, max_steps=1000):
-        """
-        Wrapper for scipy.integrate.odeint
-        """
-        if console:
-            x, info = odeint(der, y0, t, args=args,
-                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-
-        else:
-            x, info = odeint(der, y0, t, args=args,
-                             full_output=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-
-        success = info['message'] == "Integration successful."
-
-        return x, success
-
 class ParcelModel(object):
-    """Container class to set-up and run the parcel model.
+    """Implementation of the logic for setting up and running the parcel model.
 
-    (full description of parcel model)
+    The parcel model has been implemented in an object-oriented format to facilitate
+    easy extensibility to different aerosol and meteorological conditions. A
+    typical use case would involve specifying the initial conditions such as::
 
+        P0 = 80000.
+        T0 = 283.15
+        S0 = 0.0
+        V = 1.0
+        aerosol1 = AerosolSpecies('sulfate', Lognorm(mu=0.025, sigma=1.3, N=2000.),
+                          bins=200, kappa=0.54)
+        initial_aerosols = [aerosol1, ]
+        z_top = 50.
+        dt = 0.01
+
+    which initializes the model with typical conditions at the top of the boundary
+    layer (800 hPa, 283.15 K, 100% Relative Humidity, 1 m/s updraft), and a simple
+    sulfate aerosol distribution which will be discretized into 200 size bins to
+    track. Furthermore the model was specified to simulate the updraft for 50
+    meters (``z_top``) and use a time-discretization of 0.01 seconds. This
+    timestep is used in the model output -- the actual ODE solver will generally
+    calculate the trace of the model at many more times.
+
+    Running the model and saving the output can be accomplished by invoking::
+
+        pm = ParcelModel(initial_aerosols, V, T0, S0, P0)
+        parcel, aerosols = pm.run(z_top, dt)
+
+    This will yield ``parcel``, a Pandas DataFrame containing the meteorological
+    conditions in the parcel, and ``aerosols``, a dictionary of DataFrames
+    for each species in ``initial_aerosols`` with the appropriately tracked size
+    bins and their evolution over time.
+
+    Attributes:
+        aerosols: A list of AerosolSpecies objects representing the particle
+            distributions to be simulated in the parcel model run.
+        V: Parcel updraft speed, m/s
+        T0: Parcel initial temperature, K
+        S0: Parcel initial supersaturation
+        P0: Parcel initial pressure, Pa
+        console: Flag indicating whether the model should print diagnostic
+            output to the console while it runs.
     """
-
 
     def __init__(self, aerosols, V, T0, S0, P0, console=False):
         """
@@ -266,48 +89,43 @@ class ParcelModel(object):
 
         self.console = console
 
-    def _setup_run(self, P0, T0, S0):
+    def _setup_run(self):
         """Setup the initial parcel state for the run, given the initial
         temperature (K), pressure (Pa), and supersaturation.
 
         Based on the aerosol population which has been stored in the model, this
         method will finish initializing the model. This has three major parts:
 
-        1. Concatenate the aerosol population information (their dry radii, hygroscopicities,
-            etc) into single arrays which can be placed into the state vector for forward
-            integration.
-        2. Given the initial ambient water vapor concentration (computed from the temperature,
-            pressure, and supersaturation), determine how much water must already be coated
-            on the aerosol particles in order for their size to be in equilibrium.
+        1. Concatenate the aerosol population information (their dry radii, hygroscopicities, etc) into single arrays which can be placed into the
+            state vector for forward integration.
+        2. Given the initial ambient water vapor concentration (computed from the
+            temperature, pressure, and supersaturation), determine how much water
+            must already be coated on the aerosol particles in order for their
+            size to be in equilibrium.
         3. Set-up the state vector with these initial conditions.
 
-        Once the state vector has been set-up, it will return that vector as well as the
-        aerosol information arrays so that they can be used in the model run. The `ParcelModel`
-        instance itself does not save that information for future runs; this method is invoked
-        on every single run of the parcel model.
+        Once the state vector has been set up, it will return that vector as well
+            as the aerosol information arrays so that they can be used in the model
+            run. The ``ParcelModel`` instance itself does not save that information
+            for future runs; this method is invoked on every single run of the
+            parcel model.
 
-        :param P0:
-            Parcel initial pressure (Pa)
-        :type P0: float
+        Returns:
+            A dictionary containing the named arrays:
 
-        :param T0:
-            Parcel initial temperature (K)
-        :type T0: float
+                * **r_drys** - an array with all the aerosol dry radii concatenated
+                    together
+                * **kappas** - an array with all the aerosol hygroscopicities
+                    concatenated together
+                * **Nis** - an array with all the aerosol number concentrations
+                    for each dry radii concatenated together
+                * **y0** - the initial state vector used in the parcel model run
 
-        :param S0:
-            Parcel initial supersaturation (decimal with respect to 1.0)
-        :type S0: float
-
-        :returns:
-            A dictionary containinng the following arrays:
-
-            * **r_drys** - an array with all the aerosol dry radii concatenated together
-            * **kappas** - an array with all the aerosol hygroscopicities concatenated together
-            * **Nis** - an array with all the aerosol number concentrations for each dry radii
-              concatenated together
-            * **y0** - the initial state vector used in the parcel model run
-
+        Raises:
+            ParcelModelError: An equilibrium droplet size distribution could
+                not be calculated.
         """
+        T0, S0, P0 = self.T0, self.S0, self.P0
         out = dict()
 
         ## 1) Setup aerosols
@@ -340,8 +158,8 @@ class ParcelModel(object):
         wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
-        # wrapper function for quickly computing deviation from chosen equilibrium supersaturation given
-        # current size and dry size
+        # wrapper function for quickly computing deviation from chosen
+        # equilibrium supersaturation given current size and dry size
         f = lambda r, r_dry, kappa: (Seq(r, r_dry, T0, kappa) - S0)
         ## Compute the equilibrium wet particle radii
         r0s = []
@@ -364,7 +182,6 @@ class ParcelModel(object):
             if r < 0:
                 if self.console: print "Found bad r", r, r_dry, sp
                 raised = True
-            #if np.abs(ss-S0)/S0 > 0.02:
             if np.abs(ss-S0) > 1e-10:
                 if self.console: print "Found S discrepancy", ss, S0, r_dry
                 raised = True
@@ -375,7 +192,7 @@ class ParcelModel(object):
         # c) compute equilibrium droplet water content
         wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
 
-        # d) concat into initial conditions arrays
+        # d) concatenate into initial conditions arrays
         y0 = [P0, T0, wv0, wc0, S0]
         if self.console:
             print "PARCEL INITIAL CONDITIONS"
@@ -389,10 +206,51 @@ class ParcelModel(object):
         return out
 
     def run(self, z_top, dt=None, ts=None, max_steps=1000, solver="odeint"):
+        """Run the parcel model.
 
-        P0, T0, S0 = self.P0, self.T0, self.S0
+        After initializing the parcel model, it can be immediately run by
+        calling this function. Before the model is integrated, a routine
+        ``_setup_run()`` is performed to equilibrate the initial aerosol
+        population to the ambient meteorology. Then, the initial conditions are
+        passed to a user-specified solver which integrates the system forward
+        in time. By default, the integrator wraps ODEPACK's LSODA routine through
+        SciPy's ``odeint`` method, but extensions to use other solvers can be
+        written easily (for instance, two methods from ``odespy`` are given
+        below).
 
-        setup_results = self._setup_run(P0, T0, S0)
+        The user can specify the timesteps to evaluate the trace of the parcel
+        in one of two ways:
+
+            #. Setting ``dt`` will automatically specify a timestep to use and
+                the model will use it to automatically populate the array to
+                pass to the solver.
+            #. Otherwise, the user can specify ``ts`` as a list or array of the
+                timesteps where the model should be evaluated.
+
+        Args:
+            z_top: Vertical extent to which the model should be integrated.
+            dt: Timestep intervals to report model output.
+            ts: Pre-computed array of timestamps where output is requested.
+            max_steps: Maximum number of steps allowed by solver to achieve
+                tolerance during integration.
+            solver: A string indicating which solver to use:
+                * ``"odeint"``: LSODA implementation from ODEPACK via
+                    SciPy's ``integrate`` module
+                * ``"lsoda"``: LSODA implementation from ODEPACK via odespy
+                * ``"lsode"``: LSODE implementation from ODEPACK via odespy
+
+        Returns:
+            A tuple whose first element is a DataFrame containing the profiles
+            of the meteorological quantities tracked in the parcel model, and
+            whose second element is a dictionary of DataFrames corresponding to
+            each aerosol species and their droplet sizes.
+
+        Raises:
+            ParcelModelError: The parcel model failed to complete successfully.
+
+        """
+        setup_results = self._setup_run()
+
         y0 = setup_results['y0']
         r_drys = setup_results['r_drys']
         kappas = setup_results['kappas']
@@ -415,7 +273,7 @@ class ParcelModel(object):
 
         ## Setup/run integrator
         args = (nr, r_drys, Nis, self.V, kappas)
-        integrator = ParcelIntegrator.solver(solver)
+        integrator = Integrator.solver(solver)
         x, success = integrator(der, t, y0, args, self.console, max_steps)
         if not success:
             raise ParcelModelError("Solver '%s' failed; check console output" % solver)
@@ -425,7 +283,7 @@ class ParcelModel(object):
         if len(heights) > x.shape[0]:
             offset = 1
 
-        df1 = pandas.DataFrame( {'P':x[:,0], 'T':x[:,1], 'wv':x[:,2],
+        parcel = pandas.DataFrame( {'P':x[:,0], 'T':x[:,1], 'wv':x[:,2],
                                 'wc':x[:,3], 'S':x[:,4]} , index=heights[offset:])
 
         aerosol_dfs = {}
@@ -442,9 +300,11 @@ class ParcelModel(object):
             aerosol_dfs[species] = pandas.DataFrame( radii_dict, index=heights[offset:])
             species_shift += nr
 
-        return df1, aerosol_dfs
+        return parcel, aerosol_dfs
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
+        """Write a quick and dirty summary of given parcel model output.
+        """
         ## Check if parent dir of out_filename exists, and if not,
         ## create it
         out_dir = os.path.dirname(out_filename)
@@ -490,28 +350,23 @@ class ParcelModel(object):
             out_file.write("Total activated fraction = %f (%3.2f/%3.2f)\n" % (total_act_frac, total_activated, total_number))
 
     @staticmethod
-    def write_to_hdf(name, parcel_data, aerosol_data, store_loc, meta=None):
-        pass
-
-    @staticmethod
-    def retrieve_from_hdf(store_loc, run_name):
-        pass
-
-    @staticmethod
     def write_csv(parcel_data, aerosol_data, output_dir=None):
         """Write output to CSV files.
 
-        Utilize pandas fast output procedures to write the model run output to a set of CSV files.
+        Utilize pandas fast output procedures to write the model run output to a
+        set of CSV files. Written as a static method so that any prior saved
+        parcel model output can be saved to disk in batch, even after its
+        associated model has been destroyed.
 
-        :param parcel_data:
-            pandas DataFrame of the parcel thermodynamic properties
-        :type parcel_data: pandas.DataFrame
+        Args:
+            parcel_data: Pandas DataFrame of the parcel thermodynamic profile
 
-        :param aerosol_data:
-            dictionary of pandas DataFrames with the aerosol radii at each model step
-        :type aerosol_data: dictionary
+            aerosol_data: dictionary of pandas DataFrames with the aerosol radii
+                at each model step
+            output_dir: String to location where output should be saved; if not
+                provided then the model will save to the current path.
+
         """
-
         if not output_dir:
             output_dir = os.getcwd()
 
@@ -522,3 +377,13 @@ class ParcelModel(object):
         for species, data in aerosol_data.iteritems():
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
+    '''
+    TODO: Implement this functionality
+    @staticmethod
+    def write_to_hdf(name, parcel_data, aerosol_data, store_loc, meta=None):
+        pass
+
+    @staticmethod
+    def retrieve_from_hdf(store_loc, run_name):
+        pass
+    '''
