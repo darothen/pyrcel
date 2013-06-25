@@ -362,7 +362,7 @@ class ParcelModel(object):
         parcel model output can be saved to disk in batch, even after its
         associated model has been destroyed.
 
-        **Args((:
+        **Args:
             * *parcel_data* -- Pandas DataFrame of the parcel thermodynamic profile
             * *aerosol_data* -- dictionary of pandas DataFrames with the aerosol radii \
                 at each model step
@@ -392,13 +392,16 @@ class ParcelModel(object):
     '''
 
 def der(y, t, nr, r_drys, Nis, V, kappas):
-    """ Calculates the instantaneous time-derivate of the parcel model system.
+    """Calculates the instantaneous time-derivate of the parcel model system.
 
     Given a current state vector ``y`` of the parcel model, computes the tendency
     of each term including thermodynamic (pressure, temperature, etc) and aerosol
     terms. The basic aerosol properties used in the model must be passed along
     with the state vector (i.e. if being used as the callback function in an ODE
     solver).
+
+    This function is implemented in NumPy and Python, and is likely *very* slow
+    compared to the available Cython version.
 
     **Args**:
         * *y* -- NumPy array containing the current state of the parcel model system,
@@ -445,7 +448,7 @@ def der(y, t, nr, r_drys, Nis, V, kappas):
         r_dry = r_drys[i]
         kappa = kappas[i]
 
-        G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
+        G_a = (rho_w*R*T)/(pv_sat*dv(T, r, P)*Mw)
         G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
         G = 1./(G_a + G_b)
 
@@ -472,24 +475,6 @@ def der(y, t, nr, r_drys, Nis, V, kappas):
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
     # 6) Supersaturation
-    dS_dt = 0.
-    ## NENES (2001) eq 9.
-    #S_a = (S+1.0)
-    #S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
-    #S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
-    #dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
-
-    ## PRUPPACHER (PK 1997) eq 12.28
-    #S_a = (S+1.0)
-    #S_b = dT_dt*0.622*L/(Rd*T**2.)
-    #S_c = g*V/(Rd*T)
-    #dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
-
-    ## SEINFELD (SP 1998)
-    #S_a = (S+1.0)
-    #S_b = L*Mw*dT_dt/(R*T**2.)
-    #S_c = V*g*Ma/(R*T)
-    #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
 
     ## GHAN (2011) - prefer to use this!
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
