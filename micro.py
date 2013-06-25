@@ -27,6 +27,22 @@ epsilon = 0.622      #: molecular weight of water / molecular weight of dry air
 ##########################
 ## THERMODYNAMIC FUNCTIONS
 
+def dv_cont(T, P):
+    """Diffusivity of water vapor in air, neglectiving non-continuum effects.
+
+    See :func:`dv` for equation.
+
+    **Args**:
+        * *T* -- ambient temperature of air surrounding droplets, K
+        * *P* -- ambient pressure of surrouding air, Pa
+
+    **Returns**:
+        :math:`D_v(T, P)` in m^2/s
+
+    """
+    P_atm = P*1.01325e-5 # Pa -> atm
+    return 1e-4*(0.211/P_atm)*((T/273.)**1.94)
+
 def dv(T, r, P):
     """Diffusivity of water vapor in air, modified for non-continuum effects.
 
@@ -58,8 +74,9 @@ def dv(T, r, P):
         :math:`D'_v(T, r, P)` in m^2/s
 
     """
-    P_atm = P*1.01325e-5 # Pa -> atm
-    dv_t = 1e-4*(0.211/P_atm)*((T/273.)**1.94)
+    #P_atm = P*1.01325e-5 # Pa -> atm
+    #dv_t = 1e-4*(0.211/P_atm)*((T/273.)**1.94)
+    dv_t = dv_cont(T, P)
     denom = 1.0 + (dv_t/(ac*r))*np.sqrt((2.*np.pi*Mw)/(R*T))
     return dv_t/denom
 
@@ -84,6 +101,20 @@ def es(T_c):
 
     """
     return 611.2*np.exp(17.67*T_c/(T_c+243.5))
+
+def ka_cont(T):
+    """Thermal conductivity of air, neglecting non-continuum effects.
+
+    See :func:`ka` for equation.
+
+    **Args**:
+        * *T* -- ambient air temperature surrounding droplet, K
+
+    **Returns**:
+        :math:`k_a(T)` in J/m/s/K
+
+    """
+    return 1e-3*(4.39 + 0.071*T)
 
 def ka(T, rho, r):
     """Thermal conductivity of air, modified for non-continuum effects.
@@ -113,7 +144,7 @@ def ka(T, rho, r):
         :math:`k'_a(T, \\rho, r_p)` in J/m/s/K
 
     """
-    ka_t = 1e-3*(4.39 + 0.071*T)
+    ka_t = ka_cont(T)
     denom = 1.0 + (ka_t/(at*r*rho*Cp))*np.sqrt((2.*np.pi*Ma)/(R*T))
     return ka_t/denom
 

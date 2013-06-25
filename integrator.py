@@ -27,9 +27,9 @@ class Integrator(object):
         """Maps a solver name to a function.
         """
         solvers = {
-            'odeint': ParcelIntegrator._solve_odeint,
-            'lsoda': ParcelIntegrator._solve_lsoda,
-            'lsode': ParcelIntegrator._solve_lsode,
+            'odeint': Integrator._solve_odeint,
+            'lsoda': Integrator._solve_lsoda,
+            'lsode': Integrator._solve_lsode,
         }
 
         return solvers[method]
@@ -71,12 +71,12 @@ class Integrator(object):
         """Wrapper for scipy.integrate.odeint
         """
         if console:
-            x, info = odeint(der, y0, t, args=args,
+            x, info = odeint(f, y0, t, args=args,
                              full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
 
         else:
-            x, info = odeint(der, y0, t, args=args,
+            x, info = odeint(f, y0, t, args=args,
                              full_output=1, mxstep=max_steps,
                              mxhnil=0, atol=1e-15, rtol=1e-12)
 

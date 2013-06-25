@@ -7,7 +7,9 @@
 """
 
 import numpy as numpy
-from scipy.special import erfc erf
+from scipy.special import erfc, erf
+
+from micro import *
 
 def act_fraction(Smax, T, rs, kappa, r_drys, Nis):
     """Calculates the equilibrium activated fraction given the details of a population
@@ -153,8 +155,8 @@ def arg2000(V, T, P, aerosols):
     gamma = (R*T)/(es(T-273.15)*Mw) + (Mw*(L**2))/(Cp*Ma*T*P)
 
     ## Condensation effects
-    G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
-    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
+    G_a = (rho_w*R*T)/(es(T-273.15)*dv_cont(T, P)*Mw)
+    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_cont(T)*T)
     G = 1./(G_a + G_b)
 
     Smis = []
@@ -210,12 +212,12 @@ def fn2005(V, T, P, aerosols, tol=1e-6, max_iters=100):
 
     Dp_big = 5e-6
     Dp_low = np.min([0.207683*(ac**-0.33048), 5.0])*1e-5
-    Dp_B = 2.*Dv_T(T)*np.sqrt(2*np.pi*Mw/R/T)/ac
+    Dp_B = 2.*dv_cont(T, P)*np.sqrt(2*np.pi*Mw/R/T)/ac
     Dp_diff = Dp_big - Dp_low
-    Dv_ave = (Dv_T(T)/Dp_diff)*(Dp_diff - Dp_B*np.log((Dp_big + Dp_B)/(Dp_low+Dp_B)))
+    Dv_ave = (dv_cont(T, P)/Dp_diff)*(Dp_diff - Dp_B*np.log((Dp_big + Dp_B)/(Dp_low+Dp_B)))
 
     G_a = (rho_w*R*T)/(es(T-273.15)*Dv_ave*Mw)
-    G_b = (L*rho_w)*(L*Mw/R/T - 1.0)/(ka_T(T)*T)
+    G_b = (L*rho_w)*(L*Mw/R/T - 1.0)/(ka_cont(T)*T)
     G = 4./(G_a + G_b)
 
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)

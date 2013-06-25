@@ -86,22 +86,22 @@ def der(np.ndarray[double, ndim=1] y, double t,
     with the state vector (i.e. if being used as the callback function in an ODE
     solver).
 
-    Args:
-        y: NumPy array containing the current state of the parcel model system,
+    **Args**:
+        * *y* -- NumPy array containing the current state of the parcel model system,
             * y[0] = pressure, Pa
             * y[1] = temperature, K
             * y[2] = water vapor mass mixing ratio, kg/kg
             * y[3] = droplet liquid water mass mixing ratio, kg/kg
             * y[3] = parcel supersaturation
             * y[nr:] = aerosol bin sizes (radii), m
-        t: Current decimal model time
-        nr: Integer number of aerosol radii being tracked
-        r_drys: NumPy array with original aerosol dry radii, m
-        Nis: NumPy array with aerosol number concentrations, m**-3
-        V: Updraft velocity, m/s
-        kappas: NumPy array containing all aerosol hygroscopicities
+        * *t* -- Current decimal model time
+        * *nr* -- Integer number of aerosol radii being tracked
+        * *r_drys* -- NumPy array with original aerosol dry radii, m
+        * *Nis* -- NumPy array with aerosol number concentrations, m**-3
+        * *V* -- Updraft velocity, m/s
+        * *kappas* -- NumPy array containing all aerosol hygroscopicities
 
-    Returns:
+    **Returns**:
         A NumPy array with the same shape and term order as y, but containing
             all the computed tendencies at this time-step.
 

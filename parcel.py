@@ -19,7 +19,7 @@ import pandas
 ## Parcel model imports
 from aerosol import AerosolSpecies
 from integrator import Integrator
-from micro import Seq, es, rho_w, Mw, sigma_w, R, kohler_crit
+from micro import *
 from parcel_aux import der
 
 class ParcelModelError(Exception):
@@ -269,9 +269,15 @@ class ParcelModel(object):
             t = ts[:]
 
         ## Setup/run integrator
+        try:
+            from parcel_aux import der as der_fcn
+        except ImportError:
+            print "Could not load Cython derivative; using Python version."
+            from parcel import der as der_fcn
+
         args = (nr, r_drys, Nis, self.V, kappas)
         integrator = Integrator.solver(solver)
-        x, success = integrator(der, t, y0, args, self.console, max_steps)
+        x, success = integrator(der_fcn, t, y0, args, self.console, max_steps)
         if not success:
             raise ParcelModelError("Solver '%s' failed; check console output" % solver)
 
@@ -384,3 +390,124 @@ class ParcelModel(object):
     def retrieve_from_hdf(store_loc, run_name):
         pass
     '''
+
+def der(y, t, nr, r_drys, Nis, V, kappas):
+    """ Calculates the instantaneous time-derivate of the parcel model system.
+
+    Given a current state vector ``y`` of the parcel model, computes the tendency
+    of each term including thermodynamic (pressure, temperature, etc) and aerosol
+    terms. The basic aerosol properties used in the model must be passed along
+    with the state vector (i.e. if being used as the callback function in an ODE
+    solver).
+
+    **Args**:
+        * *y* -- NumPy array containing the current state of the parcel model system,
+            * y[0] = pressure, Pa
+            * y[1] = temperature, K
+            * y[2] = water vapor mass mixing ratio, kg/kg
+            * y[3] = droplet liquid water mass mixing ratio, kg/kg
+            * y[3] = parcel supersaturation
+            * y[nr:] = aerosol bin sizes (radii), m
+        * *t* -- Current decimal model time
+        * *nr* -- Integer number of aerosol radii being tracked
+        * *r_drys* -- NumPy array with original aerosol dry radii, m
+        * *Nis* -- NumPy array with aerosol number concentrations, m**-3
+        * *V* -- Updraft velocity, m/s
+        * *kappas* -- NumPy array containing all aerosol hygroscopicities
+
+    **Returns**:
+        A NumPy array with the same shape and term order as y, but containing
+            all the computed tendencies at this time-step.
+
+    """
+    P = y[0]
+    T = y[1]
+    wv = y[2]
+    wc = y[3]
+    S = y[4]
+    #P, T, wv, wc, S = y[:5]
+    rs = np.array(y[5:])
+
+    pv_sat = es(T-273.15) # saturation vapor pressure
+    #wv_sat = wv/(S+1.) # saturation mixing ratio
+    Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
+    rho_air = P/(Rd*Tv) # current air density accounting for humidity
+
+    ## Calculate tendency terms
+    # 1) Pressure
+    dP_dt = (-g*P*V)/(Rd*Tv)
+
+    # 2/3) Wet particle growth rates and droplet liquid water
+    drs_dt = np.zeros(shape=(nr, ))
+    dwc_dt = 0.
+    for i in range(nr):
+        r = rs[i]
+        r_dry = r_drys[i]
+        kappa = kappas[i]
+
+        G_a = (rho_w*R*T)/(pv_sat*dv(T, r)*Mw)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
+        G = 1./(G_a + G_b)
+
+        ## Remove size-dependence from G
+        #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
+        #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
+
+        delta_S = S - Seq(r, r_dry, T, kappa, 1.0)
+
+        dr_dt = (G/r)*delta_S
+
+        ## ---
+
+        Ni = Nis[i]
+        dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
+        drs_dt[i] = dr_dt
+    dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
+
+    # 4) Water vapor content
+    dwv_dt = -dwc_dt
+
+    # 5) Temperature
+    dT_dt = 0.
+    dT_dt = -g*V/Cp - L*dwv_dt/Cp
+
+    # 6) Supersaturation
+    dS_dt = 0.
+    ## NENES (2001) eq 9.
+    #S_a = (S+1.0)
+    #S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
+    #S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
+    #dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
+
+    ## PRUPPACHER (PK 1997) eq 12.28
+    #S_a = (S+1.0)
+    #S_b = dT_dt*0.622*L/(Rd*T**2.)
+    #S_c = g*V/(Rd*T)
+    #dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
+
+    ## SEINFELD (SP 1998)
+    #S_a = (S+1.0)
+    #S_b = L*Mw*dT_dt/(R*T**2.)
+    #S_c = V*g*Ma/(R*T)
+    #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
+
+    ## GHAN (2011) - prefer to use this!
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+    dS_dt = alpha*V - gamma*dwc_dt
+
+    ## Repackage tendencies for feedback to numerical solver
+    x = np.zeros(shape=(nr+5, ))
+    x[0] = dP_dt
+    x[1] = dT_dt
+    x[2] = dwv_dt
+    x[3] = dwc_dt
+    x[4] = dS_dt
+    x[5:] = drs_dt[:]
+
+    ## Kill off unused variables to get rid of numba warnings
+    extra = 0.*t*wc
+    if extra > 1e6:
+        print "used"
+
+    return x
