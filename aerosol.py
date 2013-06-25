@@ -25,23 +25,17 @@ class AerosolSpecies(object):
 
     An :class:`AerosolSpecies` instance has the following attributes:
 
-    Attributes:
-        species: A string representing a name for the particular aerosol species. This is purely metadata and doesn't serve any function in the parcel model except for tagging aerosols.
-        kappa: The hygroscopicity parameter :math:`\kappa` of the aerosol species used in
-            :math:`\kappa`-Kohler theory. This should be a `float`, and is
-                non-dimensional.
-        nr: The number of bins in the size distribution. Can be 1, for a monodisperse
-            aerosol.
-        r_drys: A :mod:`numpy` array instance containing the representative dry radii
-            for each bin in the aerosol size distribution. Has length equal to `nr`, and
-            units (m).
-        rs: :mod:`numpy` array instance containing the edge of each bin in the aerosol
-            size distribution. Has length equal to `nr + 1` and units (cm).
-        Nis: A :mod:`numpy` array instance of length `nr` with the number concentration
-            in (m**-3) of each aerosol size bin.
-        N: The total aerosol species number concentration in (m**-3)
-        r_min: The minimum radius of aerosol in the distribution (optional)
-        r_max: The maximum radius of aerosol in the distribution (optional)
+    **Attributes**:
+        * *species* -- A string representing a name for the particular aerosol species. This is purely metadata and doesn't serve any function in the parcel model except for tagging aerosols.
+        * *kappa* -- The hygroscopicity parameter :math:`\kappa` of the aerosol species used in
+            :math:`\kappa`-Kohler theory. This should be a `float`, and is non-dimensional.
+        * *nr* -- The number of bins in the size distribution. Can be 1, for a monodisperse aerosol.
+        * *r_drys* -- A :mod:`numpy` array instance containing the representative dry radii for each bin in the aerosol size distribution. Has length equal to `nr`, and units (m).
+        * *rs* -- :mod:`numpy` array instance containing the edge of each bin in the aerosol size distribution. Has length equal to `nr + 1` and units (cm).
+        * *Nis* -- A :mod:`numpy` array instance of length `nr` with the number concentration in (m**-3) of each aerosol size bin.
+        * *N* -- The total aerosol species number concentration in (m**-3)
+        * *r_min* -- The minimum radius of aerosol in the distribution (optional)
+        * *r_max* -- The maximum radius of aerosol in the distribution (optional)
 
     To construct an :class:`AerosolSpecies`, only the metadata (`species` and `kappa`)
     and the size distribution needs to be specified. The size distribution
