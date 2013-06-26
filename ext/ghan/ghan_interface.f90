@@ -6,10 +6,10 @@
 
 ! Compilation -
 ! gfortran -c subgrid_mod.f90 -o subgrid_mod.o -ffixed-form
-! gfortran -c ghan_act.f90 -o ghan_act.o
-! f2py -c subgrid_mod.o -m ghan_act ghan_act.f90
+! gfortran -c ghan_interface.f90 -o ghan_interface.o
+! f2py -c subgrid_mod.o -m ghan_interface ghan_interface.f90
 
-subroutine activation(tair, pres, wbar, explicit, &
+subroutine ghan_model(tair, pres, wbar, explicit, &
                       nmode, na, sig, rhodry_in, hygro_in, rad, &
                       fn, smax)
 
@@ -112,4 +112,4 @@ subroutine activation(tair, pres, wbar, explicit, &
 
     return
 
-end subroutine activation
+end subroutine ghan_model
