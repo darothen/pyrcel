@@ -1,5 +1,5 @@
 #cython: embedsignature:True
-#cython: profile=True
+#cython: profile=False
 #cython: boundscheck=False
 #cython: cdivision=True
 # (embedsignature adds doc-strings accessible by Sphinx)

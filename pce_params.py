@@ -41,15 +41,30 @@ inv_funcs = {
     "lognormal_n": lognorm_to_norm,
 }
 
-def eval_hermite(deg, x):
+def eval_hermite(deg, x, analytic=True):
+    if analytic: # Use pre-computed polynomials
+        if deg == 0:
+            return 1.
+        elif deg == 1.:
+            return x
+        elif deg == 2:
+            return x*x - 1.
+        elif deg == 3:
+            return x*x*x - 3.*x
+        elif deg == 4:
+            return x*x*x*x - 6.*x*x + 3.
+
+    # If not returned, assume we should make the call to the numerical orthogonalizer
     roots = hermite_e.hermegauss(deg)[0] if deg > 1 else np.array([0, ])
     poly =  np.poly1d(roots, r=True)
     return poly(x)
+
 def eval_legendre(deg, x):
     roots = legendre.leggauss(deg)[0] if deg > 1 else np.array([0, ])
     poly =  np.poly1d(roots, r=True)
     return poly(x)
 
+@profile
 def pce_deg1(V, T, P, aerosol):
 
     brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
@@ -84,6 +99,7 @@ def pce_deg1(V, T, P, aerosol):
 
     return Smax, act_frac
 
+@profile
 def pce_deg2(V, T, P, aerosol):
 
     brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
