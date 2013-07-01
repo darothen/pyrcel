@@ -1,5 +1,5 @@
 #cython: embedsignature:True
-#cython: profile=True
+#cython: profile=False
 #cython: boundscheck=False
 #cython: cdivision=True
 # (embedsignature adds doc-strings accessible by Sphinx)
@@ -75,9 +75,8 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     return returnval
 
 ## RHS Derivative callback function
-def der(np.ndarray[double, ndim=1] y, double t,
-        int nr, np.ndarray[double, ndim=1] r_drys, np.ndarray[double, ndim=1] Nis,
-        double V, np.ndarray[double, ndim=1] kappas):
+def der(double[::1] y, double t,
+        int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas):
     """ Calculates the instantaneous time-derivate of the parcel model system.
 
     Given a current state vector ``y`` of the parcel model, computes the tendency
@@ -117,7 +116,8 @@ def der(np.ndarray[double, ndim=1] y, double t,
     cdef double wv = y[2]
     cdef double wc = y[3]
     cdef double S = y[4]
-    cdef np.ndarray[double, ndim=1] rs = y[5:]
+    #cdef np.ndarray[double, ndim=1] rs = y[5:]
+    cdef double[::1] rs = y[5:]
 
     cdef double T_c = T-273.15 # convert temperature to Celsius
     cdef double pv_sat = es(T_c) # saturation vapor pressure
@@ -126,19 +126,22 @@ def der(np.ndarray[double, ndim=1] y, double t,
     cdef double rho_air = P/(Rd*Tv)
 
     ## Begin computing tendencies
+    cdef:
+        double dP_dt, dwc_dt, dwv_dt, dT_dt, dS_dt
+        double[::1] drs_dt
 
-    cdef double dP_dt = (-g*P*V)/(Rd*Tv)
-
-    cdef np.ndarray[double, ndim=1] drs_dt = np.empty(dtype="d", shape=(nr))
-    cdef int i
-    cdef double dwc_dt = 0.0
+    dP_dt = (-g*P*V)/(Rd*Tv)
+    dwc_dt = 0.0
+    drs_dt = np.empty(shape=(nr), dtype="d")
 
     cdef: # variables set in parallel loop
+        unsigned int i
         double G_a, G_b, G
         double r, r_dry, delta_S, kappa, dr_dt, Ni
         double dv_r, ka_r, P_atm, A, B, Seq_r
 
-    for i in prange(nr, nogil=True, schedule='static'):#, num_threads=40):
+    for i in prange(nr, nogil=True):#, schedule='static'):#, num_threads=40):
+    #for i in range(nr):
         r = rs[i]
         r_dry = r_drys[i]
         kappa = kappas[i]
@@ -160,14 +163,12 @@ def der(np.ndarray[double, ndim=1] y, double t,
 
         ## Size and liquid water tendencies
         dr_dt = (G/r)*delta_S
-        dwc_dt += Ni*(r**2)*dr_dt # Contribution to liq. water tendency due to growth
+        dwc_dt += Ni*r*r*dr_dt # Contribution to liq. water tendency due to growth
         drs_dt[i] = dr_dt
     dwc_dt *= (4.*PI*rho_w/rho_air) # Hydrated aerosol size -> water mass
 
-    cdef double dwv_dt
     dwv_dt = -dwc_dt
 
-    cdef double dT_dt
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
     ''' Alternative methods for calculation supersaturation tendency
@@ -193,12 +194,12 @@ def der(np.ndarray[double, ndim=1] y, double t,
     '''
 
     ## GHAN (2011)
-    cdef double alpha, gamma, dS_dt
+    cdef double alpha, gamma
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
     gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
-    cdef np.ndarray[double, ndim=1] x = np.empty(dtype='d', shape=(nr+5))
+    np.ndarray[double, ndim=1] x = np.empty(shape=(nr+5), dtype='d')
     x[0] = dP_dt
     x[1] = dT_dt
     x[2] = dwv_dt
