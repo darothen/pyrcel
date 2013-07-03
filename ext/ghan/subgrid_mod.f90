@@ -373,7 +373,7 @@ c           print *,'w=',w,' p(w)=',g,' f=',(fn(m),m=1,nmode)
 
 	 elseif(explicit_activate)then
 
-        write (100, "(30a)") 'press,temp,supersat,activen'
+        write (100, "(30a)") 'press,temp,supersat,activen,time'
 	    call explact(wnuc,smax)
 
 	 endif
@@ -714,8 +714,8 @@ c	external fex,jex
 	rtol=1.0d-6
 	atol=1.0d-10
 	t = 0.0d0
-	tout = 1.0d0
-	dt = 1.0d0
+	tout = 0.1d0
+	dt = 0.1d0
         timef = 500.0d0
 	activen=0.0d0
 	smaxdp=0.0
@@ -744,7 +744,7 @@ c     &  	' r=',(y(i)*1.e4,i=1,neq-1)
 
 	nstep=nstep+1
 
-	call newstate (neq,y,activen,dt,smaxdp)
+	call newstate (neq,y,activen,dt,smaxdp,tout)
 
         tt=temp
         pp=press
@@ -955,14 +955,14 @@ c        print *,'x,t,e,dt=',x,t,e,dt
         return
         end
 
-	subroutine newstate (neq,y,activen,dt,smax)
+	subroutine newstate (neq,y,activen,dt,smax,t)
 
 	parameter (nbin=200)
 	parameter (nbinp=nbin+1)
 
 	real*8 y(nbinp)
 	real*8 dt,activen
-	real*8 smax
+	real*8 smax,t
 
 	real*8 pi,cp,grav,fmw,ugc,fma,c1,c2,c3,denw,delt,delv
 	common /explactconstants/pi,cp,grav,fmw,ugc,fma,c1,c2,c3,
@@ -979,7 +979,7 @@ c        print *,'x,t,e,dt=',x,t,e,dt
      &        	alpha,beta,cons,ai
         real*8 sum,wno,presso,tempo
 
-9850   format(f12.8,',',f12.8,',',e12.6,',',f12.8)
+9850   format(f12.8,',',f12.8,',',e12.6,',',f12.6,','f10.4)
 
 	wno=wn
 	wn=0.0d0
@@ -1002,7 +1002,7 @@ c        print *,'x,t,e,dt=',x,t,e,dt
 	   smax=y(neq)
            print *,'press,temp,supersat,activen=',
      *              press,temp,y(neq),activen
-           write (100, 9850) press,temp,y(neq),activen
+           write (100, 9850) press,temp,y(neq),activen,t
 	   return
 	else
 	   return

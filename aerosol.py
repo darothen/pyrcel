@@ -36,6 +36,8 @@ class AerosolSpecies(object):
         * *N* -- The total aerosol species number concentration in (m**-3)
         * *r_min* -- The minimum radius of aerosol in the distribution (optional)
         * *r_max* -- The maximum radius of aerosol in the distribution (optional)
+        * *rho* -- The density of the dry aerosol material in kg/m^3 (optional)
+        * *mw* -- Molecular weight of dry aerosol material in kg/mole (optional)
 
     To construct an :class:`AerosolSpecies`, only the metadata (`species` and `kappa`)
     and the size distribution needs to be specified. The size distribution
@@ -69,7 +71,7 @@ class AerosolSpecies(object):
         :class:`parcel_model.lognorm.Lognorm`
 
     """
-    def __init__(self, species, distribution, kappa, bins=None, r_min=None, r_max=None):
+    def __init__(self, species, distribution, kappa, rho=None, mw=None, bins=None, r_min=None, r_max=None):
         """Basic constructor for aerosol species
 
         Raises:
@@ -79,6 +81,8 @@ class AerosolSpecies(object):
 
         self.species = species # Species molecular formula
         self.kappa = kappa # Kappa hygroscopicity parameter
+        self.rho = rho
+        self.mw = mw
         self.bins = bins # Number of bins for discretizing the size distribution
 
         ## Handle the size distribution passed to the constructor
