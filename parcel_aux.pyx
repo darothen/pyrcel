@@ -128,7 +128,7 @@ def der(double[::1] y, double t,
     ## Begin computing tendencies
     cdef:
         double dP_dt, dwc_dt, dwv_dt, dT_dt, dS_dt
-        double[::1] drs_dt
+        double[::1] drs_dt, x
 
     dP_dt = (-g*P*V)/(Rd*Tv)
     dwc_dt = 0.0
@@ -199,7 +199,7 @@ def der(double[::1] y, double t,
     gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
-    np.ndarray[double, ndim=1] x = np.empty(shape=(nr+5), dtype='d')
+    x = np.empty(shape=(nr+5), dtype='d')
     x[0] = dP_dt
     x[1] = dT_dt
     x[2] = dwv_dt

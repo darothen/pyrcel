@@ -11,6 +11,7 @@ model is contained in this script.
 __docformat__ = 'reStructuredText'
 
 import os
+import time
 
 import numpy as np
 from scipy.optimize import bisect
@@ -194,7 +195,7 @@ class ParcelModel(object):
         if self.console:
             print "PARCEL INITIAL CONDITIONS"
             print "    {:>8} {:>8} {:>8} {:>8} {:>8}".format("P (hPa)", "T (K)", "wv", "wc", "S")
-            print "      %4.1f   %3.2f  %3.1e   %3.1e   %01.2f" % (P0/100., T0, wv0, wc0, S0)
+            print "      %4.1f   %3.2f  %3.1e   %3.1e   %01.3f" % (P0/100., T0, wv0, wc0, S0)
         y0.extend(r0s)
         y0 = np.array(y0)
         out['y0'] = y0
@@ -202,7 +203,62 @@ class ParcelModel(object):
 
         return out
 
-    def run(self, z_top, dt=None, ts=None, max_steps=1000, solver="odeint"):
+    def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, **kwargs):
+
+        V = args[3]
+        t_meter = 1./V # time to travel 1 meter
+        z = 0.0
+        t0 = 0.0
+
+        xs, ts = [], []
+        S_old = y0[4]
+
+        if console:
+            print           "SIMULATION STATUS"
+            print           "    z (m) |    T (K) |        S |  time elapsed (s)"
+            status_format = " %8.3f | %8.2f | %8.5f | %8.2f/%-9.2f"
+
+        # Loop over 1 meter increments until S begins to decrease
+        S_increasing = True
+        initial_time = time.time()
+        while S_increasing:
+
+            if console and z == 0:
+                print status_format % (z, y0[0], S_old, 0.0, 0.0)
+
+            t = np.arange(t0, t0+t_meter+dt, dt)
+
+            begin = time.time()
+            x, success = integrator(der_fcn, t, y0, args, console, max_steps)
+            if not success:
+                raise ParcelModelError("Solver '%s' failed; check console output" % solver)
+            end = time.time()
+            elapsed = end-begin
+            total = end-initial_time
+
+            xs.append(x[:-1])
+            ts.append(t[:-1])
+            t0 = t[-1]
+
+            # Check if S is still increasing
+            S_new = x[-1, 4]
+            T_new = x[-1, 0]
+
+            #print S_new, S_old
+            S_increasing = S_new > S_old
+            S_old = S_new
+
+            y0 = x[-1, :]
+
+            z += 1.0
+            if console:
+                print status_format % (z, T_new, S_new, elapsed, total)
+
+        x = np.concatenate(xs)
+        t = np.concatenate(ts)
+        return t, x
+
+    def run(self, z_top, incremental=False, dt=None, ts=None, max_steps=1000, solver="odeint"):
         """Run the parcel model.
 
         After initializing the parcel model, it can be immediately run by
@@ -277,9 +333,15 @@ class ParcelModel(object):
 
         args = (nr, r_drys, Nis, self.V, kappas)
         integrator = Integrator.solver(solver)
-        x, success = integrator(der_fcn, t, y0, args, self.console, max_steps)
-        if not success:
-            raise ParcelModelError("Solver '%s' failed; check console output" % solver)
+
+        if incremental:
+            t, x = self._integrate_increment(der_fcn, y0, dt, args, integrator, self.console, max_steps)
+
+        else:
+
+            x, success = integrator(der_fcn, t, y0, args, self.console, max_steps)
+            if not success:
+                raise ParcelModelError("Solver '%s' failed; check console output" % solver)
 
         heights = t*self.V
         offset = 0

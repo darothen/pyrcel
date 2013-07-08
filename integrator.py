@@ -70,16 +70,14 @@ class Integrator(object):
     def _solve_odeint(f, t, y0, args, console=False, max_steps=1000):
         """Wrapper for scipy.integrate.odeint
         """
-        if console:
-            x, info = odeint(f, y0, t, args=args,
-                             full_output=1, printmessg=1, ixpr=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
-
-        else:
-            x, info = odeint(f, y0, t, args=args,
-                             full_output=1, mxstep=max_steps,
-                             mxhnil=0, atol=1e-15, rtol=1e-12)
+        x, info = odeint(f, y0, t, args=args, full_output=1, mxhnil=0,
+                         mxstep=max_steps, atol=1e-15, rtol=1e-12)
 
         success = info['message'] == "Integration successful."
+
+        if not success:
+            print info
+            raise ValueError("something broke in odeint")
+            return None, False
 
         return x, success
