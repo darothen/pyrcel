@@ -80,13 +80,35 @@ class ParcelModel(object):
         Initialize the model with information about updraft speed and the aerosol
         distribution.
         """
-        self.aerosols = aerosols
+        self._model_set = False
+        self.console = console
+
         self.V = V
         self.T0 = T0
         self.S0 = S0
         self.P0 = P0
+        self.aerosols = aerosols
 
-        self.console = console
+        _ = self._setup_run()
+
+    def set_initial_conditions(self, V=None, T0=None, S0=None, P0=None, aerosols=None):
+        """Setup the initial conditions and parameters for a new parcel \
+        model run without having to create a new ``ParcelModel`` instance.
+        """
+
+        if V:
+            self.V = V
+        if T0:
+            self.T0 = T0
+        if P0:
+            self.P0 = P0
+        if S0:
+            self.S0 = S0
+        if aerosols:
+            self.aerosols = aerosols
+
+        if T0 or P0 or S0 or aerosols:
+            _ = self._setup_run()
 
     def _setup_run(self):
         """Setup the initial parcel state for the run, given the initial
@@ -125,6 +147,9 @@ class ParcelModel(object):
         """
         T0, S0, P0 = self.T0, self.S0, self.P0
         out = dict()
+
+        if self.console:
+            print "Setting up parcel model initial conditions..."
 
         ## 1) Setup aerosols
         # a) grab all the initial aerosol size/concentrations
@@ -201,6 +226,18 @@ class ParcelModel(object):
         out['y0'] = y0
         self.y0 = y0
 
+        ## Store the model configuration
+        self._r0s = r0s
+        self._r_drys = r_drys
+        self._kappas = kappas
+        self._Nis = Nis
+        self._nr = len(r_drys)
+
+        self._model_set = True
+
+        if self.console:
+            "Initial conditions set successfully."
+
         return out
 
     def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, **kwargs):
@@ -265,7 +302,8 @@ class ParcelModel(object):
         After initializing the parcel model, it can be immediately run by
         calling this function. Before the model is integrated, a routine
         :func:`_setup_run()` is performed to equilibrate the initial aerosol
-        population to the ambient meteorology. Then, the initial conditions are
+        population to the ambient meteorology if it hasn't already been done.
+        Then, the initial conditions are
         passed to a user-specified solver which integrates the system forward
         in time. By default, the integrator wraps ODEPACK's LSODA routine through
         SciPy's :func:`odeint` method, but extensions to use other solvers can be
@@ -322,13 +360,14 @@ class ParcelModel(object):
         if not output in ["dataframes", "arrays", "smax"]:
             raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
 
-        setup_results = self._setup_run()
+        if not self._model_set:
+            _ = self._setup_run()
 
-        y0 = setup_results['y0']
-        r_drys = setup_results['r_drys']
-        kappas = setup_results['kappas']
-        Nis = setup_results['Nis']
-        nr = len(r_drys)
+        y0 = self.y0
+        r_drys = self._r_drys
+        kappas = self._kappas
+        Nis = self._Nis
+        nr = self._nr
 
         ## Setup run time conditions
         if dt:
@@ -361,7 +400,6 @@ class ParcelModel(object):
             if not success:
               raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
 
-
         ## Convert independent unit from time to height
         heights = t*self.V
         offset = 0
@@ -384,7 +422,8 @@ class ParcelModel(object):
                                     output format." % output)
 
     def _convert_to_dataframes(self):
-
+        """Process the output arrays into DataFrames for returning.
+        """
         x = self.x
         heights = self.heights
 
