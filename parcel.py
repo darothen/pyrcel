@@ -259,7 +259,7 @@ class ParcelModel(object):
         t = np.concatenate(ts)
         return t, x
 
-    def run(self, z_top, incremental=False, dt=None, ts=None, max_steps=1000, solver="odeint"):
+    def run(self, z_top, incremental=False, dt=None, ts=None, max_steps=1000, solver="odeint", output="dataframes"):
         """Run the parcel model.
 
         After initializing the parcel model, it can be immediately run by
@@ -292,17 +292,36 @@ class ParcelModel(object):
                     SciPy's ``integrate`` module
                 * ``"lsoda"``: LSODA implementation from ODEPACK via odespy
                 * ``"lsode"``: LSODE implementation from ODEPACK via odespy
+            * *output* -- A string indicating the format in which the output of the run should be returned
 
         **Returns**:
+            Depending on what was passed to the *output* argument, different
+            types of data might be returned:
+                * ``"dataframes"``: (default) will process the output into \
+                    two pandas DataFrames - the first one containing profiles \
+                    of the meteorological quantities tracked in the model, \
+                    and the second a dictionary of DataFrames with one for \
+                    each AerosolSpecies, tracking the growth in each bin \
+                    for those species.
+                * ``"arrays"``: will return the raw output from the solver \
+                    used internally by the parcel model - the state vector \
+                    ``x`` and the evaluated timesteps converted into height \
+                    coordinates.
+                * ``"smax"``: will only return the maximum supersaturation \
+                    value achieved in the simulation.
+
             A tuple whose first element is a DataFrame containing the profiles
             of the meteorological quantities tracked in the parcel model, and
             whose second element is a dictionary of DataFrames corresponding to
             each aerosol species and their droplet sizes.
 
         **Raises**:
-            ``ParcelModelError``: The parcel model failed to complete successfully.
+            ``ParcelModelError``: The parcel model failed to complete successfully or failed to initialize.
 
         """
+        if not output in ["dataframes", "arrays", "smax"]:
+            raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
+
         setup_results = self._setup_run()
 
         y0 = setup_results['y0']
@@ -337,12 +356,11 @@ class ParcelModel(object):
 
         if incremental:
             t, x = self._integrate_increment(der_fcn, y0, dt, args, integrator, self.console, max_steps)
-
         else:
-
             x, success = integrator(der_fcn, t, y0, args, self.console, max_steps)
             if not success:
-                raise ParcelModelError("Solver '%s' failed; check console output" % solver)
+              raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
+
 
         ## Convert independent unit from time to height
         heights = t*self.V
@@ -351,7 +369,24 @@ class ParcelModel(object):
             offset = 1
             heights = heights[:len(x)]
 
-        print x.shape, heights.shape
+        self.x = x
+        self.heights = heights
+
+        if output == "dataframes":
+            return self._convert_to_dataframes()
+        elif output == "arrays":
+            return self.x, self.heights
+        elif output == "smax":
+            S = self.x[:,4]
+            return S.max()
+        else: # Shouldn't ever get here; invalid output specified
+            raise ParcelModelError("Invalid value (%s) specified for \
+                                    output format." % output)
+
+    def _convert_to_dataframes(self):
+
+        x = self.x
+        heights = self.heights
 
         parcel = pandas.DataFrame( {'P':x[:,0], 'T':x[:,1], 'wv':x[:,2],
                                 'wc':x[:,3], 'S':x[:,4]},
