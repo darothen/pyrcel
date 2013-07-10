@@ -248,7 +248,7 @@ class ParcelModel(object):
             S_increasing = S_new > S_old
             S_old = S_new
 
-            y0 = x[-1, :]
+            y0 = x[-1, :].copy()
 
             z += 1.0
             if console:

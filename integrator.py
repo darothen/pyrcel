@@ -10,6 +10,7 @@ __docformat__ = 'reStructuredText'
 try:
     from odespy.odepack import Lsode, Lsoda
 except ImportError:
+    print "Could not import odespy package"
     pass
 from scipy.integrate import odeint
 
@@ -45,7 +46,7 @@ class Integrator(object):
         try:
             x, t = solver.solve(t)
         except ValueError, e:
-            raise ValueError("something broke in LSODE")
+            raise ValueError("something broke in LSODE: %r" % e)
             return None, False
 
         return x, True
@@ -54,14 +55,17 @@ class Integrator(object):
     def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000):
         """Wrapper for odespy.odepack.Lsoda
         """
-        solver = Lsoda(f, fargs=args, atol=1e-15, rtol=1e-12, nsteps=max_steps)
+        nr, r_drys, Nis, V, kappas = args
+        kwargs = { 'atol':1e-15, 'rtol':1e-12, 'nsteps':max_steps }
+        f_w_args = lambda u, t: f(u, t, *args)
+        solver = Lsoda(f_w_args, **kwargs)
         solver.set_initial_condition(y0)
-        solver.set(f_args=args)
+        #solver.set(f_args=args)
 
         try:
             x, t = solver.solve(t)
         except ValueError, e:
-            raise ValueError("something broke in LSODA")
+            raise ValueError("something broke in LSODA: %r" % e)
             return None, False
 
         return x, True
@@ -77,7 +81,7 @@ class Integrator(object):
 
         if not success:
             print info
-            raise ValueError("something broke in odeint")
+            raise ValueError("something broke in odeint: %r" % info['message'])
             return None, False
 
         return x, success
