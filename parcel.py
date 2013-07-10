@@ -18,18 +18,20 @@ from scipy.optimize import bisect
 import pandas
 
 ## Parcel model imports
-from aerosol import AerosolSpecies
 from integrator import Integrator
 from micro import *
 from parcel_aux import der
+
 
 class ParcelModelError(Exception):
     """Custom exception to throw during parcel model execution.
     """
     def __init__(self, error_str):
         self.error_str = error_str
+
     def __str__(self):
         return repr(self.error_str)
+
 
 class ParcelModel(object):
     """Implementation of the logic for setting up and running the parcel model.
@@ -83,13 +85,20 @@ class ParcelModel(object):
         self._model_set = False
         self.console = console
 
-        self.V = V
+        self.V  = V
         self.T0 = T0
         self.S0 = S0
         self.P0 = P0
         self.aerosols = aerosols
 
-        _ = self._setup_run()
+        ## To be set by call to "self._setup_run()"
+        self._r0s    = None
+        self._r_drys = None
+        self._kappas = None
+        self._Nis    = None
+        self._nr     = None
+
+        self._setup_run()
 
     def set_initial_conditions(self, V=None, T0=None, S0=None, P0=None, aerosols=None):
         """Setup the initial conditions and parameters for a new parcel \
@@ -108,7 +117,7 @@ class ParcelModel(object):
             self.aerosols = aerosols
 
         if T0 or P0 or S0 or aerosols:
-            _ = self._setup_run()
+            self._setup_run()
 
     def _setup_run(self):
         """Setup the initial parcel state for the run, given the initial
@@ -186,15 +195,18 @@ class ParcelModel(object):
         f = lambda r, r_dry, kappa: (Seq(r, r_dry, T0, kappa) - S0)
         ## Compute the equilibrium wet particle radii
         r0s = []
-        for r_dry , kappa in zip(r_drys, kappas):
+        r_b, _ = kohler_crit(T0, r_drys[-1], kappas[-1])
+        for r_dry , kappa in zip(r_drys, kappas)[::-1]:
         # Locate the critical value (f(r_crit) > 0), and use bisection from it and
         # r_dry (f(r_dry) < 0) to find equilibrium wet particle radius for a given S0
-            r_b, _ = kohler_crit(T0, r_dry, kappa)
+            #r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
             r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30)
             r0s.append(r0)
-        r0s = np.array(r0s)
+
+            r_b = r0
+        r0s = np.array(r0s[::-1])
 
         ## Console logging output, if requested, of the equilibrium calcuations. Useful for
         ## checking if the computations worked
@@ -237,8 +249,6 @@ class ParcelModel(object):
 
         if self.console:
             "Initial conditions set successfully."
-
-        return out
 
     def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, **kwargs):
 

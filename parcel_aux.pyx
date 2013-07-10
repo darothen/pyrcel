@@ -19,20 +19,22 @@ cimport numpy as np
 cimport cython
 cimport openmp
 
+import constants as c
+
 ## Thermodynamic/chemistry constants
 cdef:
-    double Mw = 18.0153/1e3 #: Molecular weight of water, kg/mol
-    double Ma = 28.9/1e3    #: Molecular weight of dry air, kg/mol
-    double R = 8.314        #: Universal gas constant, J/(mol K)
-    double rho_w = 1e3      #: Density of water, kg/m**3
-    double Rd = 287.0       #: Gas constant for dry air, J/(kg K)
-    double g = 9.81         #: Gravitational constant, m/s**2
-    double Dv = 3.e-5       #: Diffusivity of water vapor in air, m^2/s
-    double ac = 1.0         #: Condensation Constant
-    double Ka = 2.e-2       #: Thermal conductivity of air, J/m/s/K
-    double at = 0.96        #: thermal accomodation coefficient
-    double L = 2.5e6        #: Latent heat of condensation, J/kg
-    double Cp = 1004.0      #: Specific heat of dry air at constant pressure, J/kg
+    double Mw = c.Mw        #: Molecular weight of water, kg/mol
+    double Ma = c.Ma        #: Molecular weight of dry air, kg/mol
+    double R = c.R          #: Universal gas constant, J/(mol K)
+    double rho_w = c.rho_w  #: Density of water, kg/m**3
+    double Rd = c.Rd        #: Gas constant for dry air, J/(kg K)
+    double g = c.g          #: Gravitational constant, m/s**2
+    double Dv = c.Dv        #: Diffusivity of water vapor in air, m^2/s
+    double ac = c.ac        #: Condensation Constant
+    double Ka = c.Ka        #: Thermal conductivity of air, J/m/s/K
+    double at = c.at        #: thermal accomodation coefficient
+    double L = c.L          #: Latent heat of condensation, J/kg
+    double Cp = c.Cp        #: Specific heat of dry air at constant pressure, J/kg
     double PI = 3.14159265358979323846264338328 #: Pi, constant
 
 ## Auxiliary, single-value calculations with GIL released for derivative

@@ -10,6 +10,7 @@ import numpy as numpy
 from scipy.special import erfc, erf
 
 from micro import *
+from constants import *
 
 def act_fraction(Smax, T, rs, kappa, r_drys, Nis):
     """Calculates the equilibrium activated fraction given the details of a population
