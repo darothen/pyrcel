@@ -58,12 +58,13 @@ class Integrator(object):
         nr, r_drys, Nis, V, kappas = args
         kwargs = { 'atol':1e-15, 'rtol':1e-12, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
+        terminate = lambda u, t, step_no: u[step_no][4] < u[step_no-1][4]
         solver = Lsoda(f_w_args, **kwargs)
         solver.set_initial_condition(y0)
         #solver.set(f_args=args)
 
         try:
-            x, t = solver.solve(t)
+            x, t = solver.solve(t, terminate)
         except ValueError, e:
             raise ValueError("something broke in LSODA: %r" % e)
             return None, False

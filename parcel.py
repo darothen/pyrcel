@@ -237,7 +237,8 @@ class ParcelModel(object):
             total = end-initial_time
 
             xs.append(x[:-1])
-            ts.append(t[:-1])
+            ts.append(t[:len(x)-1]) # If we terminate early, don't append
+                                    # unused timesteps!
             t0 = t[-1]
 
             # Check if S is still increasing
@@ -343,13 +344,19 @@ class ParcelModel(object):
             if not success:
                 raise ParcelModelError("Solver '%s' failed; check console output" % solver)
 
+        ## Convert independent unit from time to height
         heights = t*self.V
         offset = 0
         if len(heights) > x.shape[0]:
             offset = 1
+            heights = heights[:len(x)]
+
+        print x.shape, heights.shape
 
         parcel = pandas.DataFrame( {'P':x[:,0], 'T':x[:,1], 'wv':x[:,2],
-                                'wc':x[:,3], 'S':x[:,4]} , index=heights[offset:])
+                                'wc':x[:,3], 'S':x[:,4]},
+                                 index=heights)
+                                 #index=heights[offset:])
 
         aerosol_dfs = {}
         species_shift = 0 # increment by nr to select the next aerosol's radii
@@ -362,7 +369,9 @@ class ParcelModel(object):
             for i, label in enumerate(labels):
                 radii_dict[label] = x[:,5+species_shift+i]
 
-            aerosol_dfs[species] = pandas.DataFrame( radii_dict, index=heights[offset:])
+            aerosol_dfs[species] = pandas.DataFrame( radii_dict,
+                                                     index=heights)
+                                                     #index=heights[offset:])
             species_shift += nr
 
         return parcel, aerosol_dfs
