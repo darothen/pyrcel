@@ -9,7 +9,8 @@ __docformat__ = 'reStructuredText'
 
 import numpy as np
 
-from lognorm import Lognorm
+from lognorm import Lognorm, MultiModeLognorm
+
 
 class AerosolSpecies(object):
     """Container class for organizing and passing around important details about
@@ -103,6 +104,29 @@ class AerosolSpecies(object):
             self.N = distribution.N
             if not r_min and not r_max:
                 lr, rr = np.log10(self.mu/(10.*self.sigma)), np.log10(self.mu*10.*self.sigma)
+            else:
+                lr, rr = np.log10(r_min), np.log10(r_max)
+
+            self.rs = np.logspace(lr, rr, num=bins+1)[:]
+            mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
+            self.Nis = np.array([0.5*(b-a)*(distribution.pdf(a) + distribution.pdf(b)) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
+            self.r_drys = mids*1e-6
+
+        elif isinstance(distribution, MultiModeLognorm):
+            if bins is None:
+                raise ValueError("Need to specify `bins` argument if passing a MultiModeLognorm distribution")
+
+            self.mu = distribution.mu
+            self.sigma = distribution.sigma
+            self.N = distribution.N
+
+            small_mu = distribution.mus[0]
+            small_sigma = distribution.sigmas[0]
+            big_mu = distribution.mus[-1]
+            big_sigma = distribution.sigmas[-1]
+
+            if not r_min and not r_max:
+                lr, rr = np.log10(small_mu/(10.*small_sigma)), np.log10(big_mu*10.*big_sigma)
             else:
                 lr, rr = np.log10(r_min), np.log10(r_max)
 

@@ -11,7 +11,13 @@ __docformat__ = "reStructuredText"
 import numpy as np
 from scipy.special import erf
 
-class MultiModeLognorm:
+jaenicke_distributions = {
+    "Urban": MultiModeLognorm(mus=(0.0065, 0.007, 0.025), 
+                              sigmas=(10**0.245, 10**0.666, 10**0.337),
+                              Ns=(9.93e4, 1.11e3, 3.64e4)),
+}
+
+class MultiModeLognorm(object):
     """Multimode lognormal distribution class.
 
     Container for multiple Lognorm classes representing a full aerosol size
@@ -19,9 +25,9 @@ class MultiModeLognorm:
     """
 
     def __init__(self, mus, sigmas, Ns):
-        self.mus = np.array(mus)
-        self.sigmas = np.array(sigmas)
-        self.Ns = np.array(Ns)
+        self.mus = np.array(sorted(mus))
+        self.sigmas = np.array(sorted(sigmas))
+        self.Ns = np.array(sorted(Ns))
 
         self.lognorms = []
         for mu, sigma, N in zip(self.mus, self.sigmas, self.Ns):
@@ -33,6 +39,12 @@ class MultiModeLognorm:
 
     def pdf(self, x):
         return np.sum([d.pdf(x) for d in self.lognorms])
+
+    def __repr__(self):
+        mus_str = "("+", ".join("%2.2e" % mu for mu in self.mus)+")"
+        sigmas_str = "("+", ".join("%2.2e" % sigma for sigma in self.sigmas)+")"
+        Ns_str = "("+", ".join("%2.2e" % N for N in self.Ns)+")"
+        return "MultiModeLognorm| mus = %s, sigmas = %s, Totals = %s |" % (mus_str, sigmas_str, Ns_str)
 
 class Lognorm(object):
     """Lognormal distribution class.
@@ -58,31 +70,40 @@ class Lognorm(object):
         Default - 1.0
     """
 
-    def __init__(self, mu, sigma, N=1.0):
+    def __init__(self, mu, sigma, N=1.0, base="e"):
         self.mu = mu
         self.sigma = sigma
         self.N = N
+
+        self.base = base
+        if self.base in ["e", np.e]:
+            self.log = np.log
+        elif self.base == 10.:
+            self.log = np.log10
+        else:
+            self.log_base = np.log(self.base)
+            self.log = lambda x: np.log(x)/self.log_base
 
         # Compute moments
         self.median = self.mu
         self.mean = self.mu*np.exp(0.5*self.sigma**2)
 
     def cdf(self, x):
-        erf_arg = (np.log(x/self.mu))/(np.sqrt(2.0)*np.log(self.sigma))
+        erf_arg = (self.log(x/self.mu))/(np.sqrt(2.0)*self.log(self.sigma))
         return (self.N/2.0)*(1.0+erf(erf_arg))
 
     def pdf(self, x):
         """
         Probability density function
         """
-        scaling = self.N/(np.sqrt(2.0*np.pi)*np.log(self.sigma))
-        exponent = ((np.log(x/self.mu))**2)/(2.0*(np.log(self.sigma))**2)
+        scaling = self.N/(np.sqrt(2.0*np.pi)*self.log(self.sigma))
+        exponent = ((self.log(x/self.mu))**2)/(2.0*(self.log(self.sigma))**2)
         #return (scaling/x)*np.exp(-exponent)
         return (scaling/x)*np.exp(-exponent)
 
     def moment(self, k):
         geo_number_mean_volume = ((4./3.)*np.pi*self.mu**3)**k
-        exponent = ((9./2.)*(k**2)*(np.log(self.sigma))**2)
+        exponent = ((9./2.)*(k**2)*(self.log(self.sigma))**2)
         return geo_number_mean_volume*self.N*np.exp(exponent)
 
     def stats(self):
