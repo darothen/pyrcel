@@ -24,14 +24,15 @@ class MultiModeLognorm(object):
     distribution.
     """
 
-    def __init__(self, mus, sigmas, Ns):
+    def __init__(self, mus, sigmas, Ns, base="e"):
         self.mus = np.array(sorted(mus))
         self.sigmas = np.array(sorted(sigmas))
         self.Ns = np.array(sorted(Ns))
+        self.base = base
 
         self.lognorms = []
         for mu, sigma, N in zip(self.mus, self.sigmas, self.Ns):
-            mode_dist = Lognorm(mu, sigma, N)
+            mode_dist = Lognorm(mu, sigma, N, base)
             self.lognorms.append(mode_dist)
 
     def cdf(self, x):
