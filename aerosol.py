@@ -1,4 +1,4 @@
-"""
+"""33
 .. module:: parcel
     :synopsis: Tool for specifying aerosol distributions.
 
@@ -11,6 +11,19 @@ import numpy as np
 
 from lognorm import Lognorm, MultiModeLognorm
 
+
+def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
+    """Calculates the concentration in a given size bin from a spectral
+    size distribution.
+    """
+    pdf = dist.pdf
+    width = r_max - r_min
+    if rule == "trapezoid":
+        return width*0.5*(pdf(r_max) + pdf(r_min))
+    elif rule == "simpson":
+        return (width/6.)*(pdf(r_max) + pdf(r_min) + 4.*pdf(0.5*(r_max + r_min)))
+    else:
+        return width*pdf(0.5*(r_max + r_min))
 
 class AerosolSpecies(object):
     """Container class for organizing and passing around important details about
@@ -72,7 +85,9 @@ class AerosolSpecies(object):
         :class:`parcel_model.lognorm.Lognorm`
 
     """
-    def __init__(self, species, distribution, kappa, rho=None, mw=None, bins=None, r_min=None, r_max=None):
+    def __init__(self, species, distribution, kappa, 
+                       rho=None, mw=None, 
+                       bins=None, r_min=None, r_max=None):
         """Basic constructor for aerosol species
 
         Raises:
@@ -80,11 +95,11 @@ class AerosolSpecies(object):
             distribution.
         """
 
-        self.species = species # Species molecular formula
-        self.kappa = kappa # Kappa hygroscopicity parameter
+        self.species = species  # Species molecular formula
+        self.kappa = kappa      # Kappa hygroscopicity parameter
         self.rho = rho
         self.mw = mw
-        self.bins = bins # Number of bins for discretizing the size distribution
+        self.bins = bins        # Number of bins for discretizing the size distribution
 
         ## Handle the size distribution passed to the constructor
         self.distribution = distribution

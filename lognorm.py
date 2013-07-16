@@ -11,11 +11,13 @@ __docformat__ = "reStructuredText"
 import numpy as np
 from scipy.special import erf
 
-jaenicke_distributions = {
-    "Urban": MultiModeLognorm(mus=(0.0065, 0.007, 0.025), 
-                              sigmas=(10**0.245, 10**0.666, 10**0.337),
-                              Ns=(9.93e4, 1.11e3, 3.64e4)),
-}
+
+# jaenicke_distributions = {
+#     "Urban": MultiModeLognorm(mus=(0.0065, 0.007, 0.025), 
+#                               sigmas=(10**0.245, 10**0.666, 10**0.337),
+#                               Ns=(9.93e4, 1.11e3, 3.64e4)),
+# }
+
 
 class MultiModeLognorm(object):
     """Multimode lognormal distribution class.
@@ -25,9 +27,13 @@ class MultiModeLognorm(object):
     """
 
     def __init__(self, mus, sigmas, Ns, base="e"):
-        self.mus = np.array(sorted(mus))
-        self.sigmas = np.array(sorted(sigmas))
-        self.Ns = np.array(sorted(Ns))
+
+        dist_params = zip(mus, sigmas, Ns)
+        from operator import itemgetter
+        dist_params = sorted(dist_params, key=itemgetter(0))
+
+        self.mus, self.sigmas, self.Ns = zip(*dist_params)
+
         self.base = base
 
         self.lognorms = []
@@ -45,7 +51,9 @@ class MultiModeLognorm(object):
         mus_str = "("+", ".join("%2.2e" % mu for mu in self.mus)+")"
         sigmas_str = "("+", ".join("%2.2e" % sigma for sigma in self.sigmas)+")"
         Ns_str = "("+", ".join("%2.2e" % N for N in self.Ns)+")"
-        return "MultiModeLognorm| mus = %s, sigmas = %s, Totals = %s |" % (mus_str, sigmas_str, Ns_str)
+        return "MultiModeLognorm| mus = %s, sigmas = %s, Totals = %s |" % \
+               (mus_str, sigmas_str, Ns_str)
+
 
 class Lognorm(object):
     """Lognormal distribution class.
