@@ -3,5 +3,10 @@ Model/code provided by Steve Ghan
 
 """
 
-from activation import *
+try:
+    from activation import *
+except ImportError:
+    print "Could not import Ghan package; check that it was compiled sucessfully"
+    pass
+    
 
