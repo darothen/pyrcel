@@ -276,8 +276,9 @@ class ParcelModel(object):
             t = np.arange(t0, t0+t_meter+dt, dt)
 
             begin = time.time()
-            x, success = integrator(der_fcn, t, y0, args, console, max_steps)
-            if not success:
+            try:
+                x, success = integrator(der_fcn, t, y0, args, console, max_steps)
+            except ValueError, e:
                 raise ParcelModelError("Solver '%s' failed; check console output" % solver)
             end = time.time()
             elapsed = end-begin
