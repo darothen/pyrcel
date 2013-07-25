@@ -195,11 +195,11 @@ class ParcelModel(object):
         f = lambda r, r_dry, kappa: (Seq(r, r_dry, T0, kappa) - S0)
         ## Compute the equilibrium wet particle radii
         r0s = []
-        r_b, _ = kohler_crit(T0, r_drys[-1], kappas[-1])
+        #r_b, _ = kohler_crit(T0, r_drys[-1], kappas[-1])
         for r_dry , kappa in zip(r_drys, kappas)[::-1]:
         # Locate the critical value (f(r_crit) > 0), and use bisection from it and
         # r_dry (f(r_dry) < 0) to find equilibrium wet particle radius for a given S0
-            #r_b, _ = kohler_crit(T0, r_dry, kappa)
+            r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
             r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30)
@@ -217,7 +217,7 @@ class ParcelModel(object):
             if r < 0:
                 if self.console: print "Found bad r", r, r_dry, sp
                 raised = True
-            if np.abs(ss-S0) > 1e-10:
+            if np.abs(ss-S0) > 1e-8:
                 if self.console: print "Found S discrepancy", ss, S0, r_dry
                 raised = True
         if raised:

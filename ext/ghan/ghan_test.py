@@ -1,5 +1,5 @@
-from parcel_model.lognorm import Lognorm
-from parcel_model.parcel import ParcelModel, AerosolSpecies
+from parcel_model import Lognorm
+from parcel_model import ParcelModel, AerosolSpecies
 
 import pandas
 from activation import explicit, parameterization

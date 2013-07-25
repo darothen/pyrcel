@@ -715,7 +715,7 @@ c	external fex,jex
 	atol=1.0d-10
 	t = 0.0d0
 	tout = 0.1d0
-	dt = 0.1d0
+	dt = 1.0d0
         timef = 500.0d0
 	activen=0.0d0
 	smaxdp=0.0

@@ -11,14 +11,6 @@ __docformat__ = "reStructuredText"
 import numpy as np
 from scipy.special import erf
 
-
-# jaenicke_distributions = {
-#     "Urban": MultiModeLognorm(mus=(0.0065, 0.007, 0.025), 
-#                               sigmas=(10**0.245, 10**0.666, 10**0.337),
-#                               Ns=(9.93e4, 1.11e3, 3.64e4)),
-# }
-
-
 class MultiModeLognorm(object):
     """Multimode lognormal distribution class.
 
@@ -42,10 +34,10 @@ class MultiModeLognorm(object):
             self.lognorms.append(mode_dist)
 
     def cdf(self, x):
-        return np.sum([d.cdf(x) for d in self.lognorms])
+        return np.sum([d.cdf(x) for d in self.lognorms], axis=0)
 
     def pdf(self, x):
-        return np.sum([d.pdf(x) for d in self.lognorms])
+        return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
     def __repr__(self):
         mus_str = "("+", ".join("%2.2e" % mu for mu in self.mus)+")"
@@ -126,3 +118,25 @@ class Lognorm(object):
 
     def __repr__(self):
         return "Lognorm| mu = %2.2e, sigma = %2.2e, Total = %2.2e |" % (self.mu, self.sigma, self.N)
+
+## Source = Aerosol-Cloud-Climate Interactions by Peter V. Hobbs, pg. 14
+jaenicke_distributions = {
+    "Polar": MultiModeLognorm(mus=(0.0689, 0.375, 4.29),
+                              sigmas=(10**0.245, 10**0.300, 10**0.291),
+                              Ns=(21.7, 0.186, 3.04e-4), base=10.),
+    "Urban": MultiModeLognorm(mus=(0.00651, 0.00714, 0.0248),
+                              sigmas=(10.**0.245, 10.**0.666, 10.**0.337),
+                              Ns=(9.93e4, 1.11e3, 3.64e4), base=10.),
+    "Background": MultiModeLognorm(mus=(0.0036, 0.127, 0.259),
+                                   sigmas=(10.**0.645, 10.**0.253, 10.**0.425),
+                                   Ns=(129., 59.7, 63.5), base=10.),
+    "Maritime": MultiModeLognorm(mus=(0.0039, 0.133, 0.29),
+                                 sigmas=(10.**0.657, 10.**0.210, 10.**0.396),
+                                 Ns=(133., 66.6, 3.06), base=10.),
+    "Remote Continental": MultiModeLognorm(mus=(0.01, 0.058, 0.9),
+                                           sigmas=(10.**0.161, 10.**0.217, 10.**0.38),
+                                           Ns=(3.2e3, 2.9e3, 0.3), base=10.),
+    "Rural": MultiModeLognorm(mus=(0.00739, 0.0269, 0.0149),
+                              sigmas=(10.**0.225, 10.**0.557, 10.**0.266),
+                              Ns=(6.65e3, 147., 1990.), base=10.),
+}

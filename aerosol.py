@@ -114,11 +114,9 @@ class AerosolSpecies(object):
             if bins is None:
                 raise ValueError("Need to specify `bins` argument if passing a Lognorm distribution")
 
-            self.mu = distribution.mu
-            self.sigma = distribution.sigma
-            self.N = distribution.N
             if not r_min and not r_max:
-                lr, rr = np.log10(self.mu/(10.*self.sigma)), np.log10(self.mu*10.*self.sigma)
+                lr = np.log10(distribution.mu/(10.*distribution.sigma))
+                rr = np.log10(distribution.mu*10.*distribution.sigma)
             else:
                 lr, rr = np.log10(r_min), np.log10(r_max)
 
@@ -130,10 +128,6 @@ class AerosolSpecies(object):
         elif isinstance(distribution, MultiModeLognorm):
             if bins is None:
                 raise ValueError("Need to specify `bins` argument if passing a MultiModeLognorm distribution")
-
-            self.mu = distribution.mu
-            self.sigma = distribution.sigma
-            self.N = distribution.N
 
             small_mu = distribution.mus[0]
             small_sigma = distribution.sigmas[0]
@@ -161,6 +155,8 @@ class AerosolSpecies(object):
     def __repr__(self):
         return "%s - %r" % (self.species, self.distribution)
 
+    '''
+    ## As of 7/16/2013 these methods are deprecated and must be re-written.
     def summary_str(self):
         """Returns a string summarizing the components of this aerosol distribution.
         """
@@ -178,3 +174,4 @@ class AerosolSpecies(object):
         dist = Lognorm(mu=summary_dict['mu'], sigma=summary_dict['sigma'], N=summary_dict['N'])
         aerosol = AerosolSpecies(summary_dict['species'], dist, summary_dict['kappa'], summary_dict['bins'])
         return aerosol
+    '''
