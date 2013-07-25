@@ -155,6 +155,7 @@ class ParcelModel(object):
             ``ParcelModelError``: An equilibrium droplet size distribution could not be calculated.
         """
         T0, S0, P0 = self.T0, self.S0, self.P0
+        z0 = 0.0
         out = dict()
 
         if self.console:
@@ -228,7 +229,7 @@ class ParcelModel(object):
         wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
 
         # d) concatenate into initial conditions arrays
-        y0 = [P0, T0, wv0, wc0, S0]
+        y0 = [z0, P0, T0, wv0, wc0, S0]
         if self.console:
             print "PARCEL INITIAL CONDITIONS"
             print "    {:>8} {:>8} {:>8} {:>8} {:>8}".format("P (hPa)", "T (K)", "wv", "wc", "S")
@@ -251,6 +252,9 @@ class ParcelModel(object):
             "Initial conditions set successfully."
 
     def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, **kwargs):
+        """
+        DEPRECATED, 7/25/2013
+        """
 
         V = args[3]
         t_meter = 1./V # time to travel 1 meter
@@ -276,8 +280,9 @@ class ParcelModel(object):
             t = np.arange(t0, t0+t_meter+dt, dt)
 
             begin = time.time()
-            x, success = integrator(der_fcn, t, y0, args, console, max_steps)
-            if not success:
+            try:
+                x, success = integrator(der_fcn, t, y0, args, console, max_steps)
+            except ValueError, e:
                 raise ParcelModelError("Solver '%s' failed; check console output" % solver)
             end = time.time()
             elapsed = end-begin
@@ -306,7 +311,8 @@ class ParcelModel(object):
         t = np.concatenate(ts)
         return t, x
 
-    def run(self, z_top, incremental=False, dt=None, ts=None, max_steps=1000, solver="odeint", output="dataframes"):
+    def run(self, t_end, dt, max_steps=1000, solver="odeint", output="dataframes",
+            terminate=False):
         """Run the parcel model.
 
         After initializing the parcel model, it can be immediately run by
@@ -380,18 +386,9 @@ class ParcelModel(object):
         nr = self._nr
 
         ## Setup run time conditions
-        if dt:
-            t0 = 0.
-            if self.V:
-                t_end = z_top/self.V
-            else:
-                t_end = dt*1000
-            t = np.arange(t0, t_end+dt, dt)
-            if self.console:
-                print "\n"+"n_steps = %d" % (len(t))+"\n"
-                #raw_input("Continue run?")
-        else:
-            t = ts[:]
+        t = np.arange(0., t_end+dt, dt)
+        if self.console:
+            print "\n"+"n_steps = %d" % (len(t))+"\n"
 
         ## Setup/run integrator
         try:
@@ -403,29 +400,32 @@ class ParcelModel(object):
         args = (nr, r_drys, Nis, self.V, kappas)
         integrator = Integrator.solver(solver)
 
-        if incremental:
-            t, x = self._integrate_increment(der_fcn, y0, dt, args, integrator, self.console, max_steps)
-        else:
-            x, success = integrator(der_fcn, t, y0, args, self.console, max_steps)
-            if not success:
-              raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
+        ## Is the updraft speed a function?
+        v_is_func = hasattr(self.V, '__call__')
+        if v_is_func: # Re-wrap the function to correctly figure out V
+            orig_der_fcn = der_fcn
+            def der_fcn(y, t, nr, r_drys, Nis, V, kappas):
+                V_t = self.V(t)
+                return orig_der_fcn(y, t, nr, r_drys, Nis, V_t, kappas)
 
-        ## Convert independent unit from time to height
-        heights = t*self.V
-        offset = 0
-        if len(heights) > x.shape[0]:
-            offset = 1
-            heights = heights[:len(x)]
+        try:
+            x, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate)
+        except ValueError, e:
+            raise ParcelModelError("Something failed during model integration: %r" % e)
+
+        if not success:
+            raise ParcelModelError("Something failed during model integration.")
 
         self.x = x
-        self.heights = heights
+        self.heights = self.x[:,0]
+        self.time = t
 
         if output == "dataframes":
             return self._convert_to_dataframes()
         elif output == "arrays":
             return self.x, self.heights
         elif output == "smax":
-            S = self.x[:,4]
+            S = self.x[:,5]
             return S.max()
         else: # Shouldn't ever get here; invalid output specified
             raise ParcelModelError("Invalid value (%s) specified for \
@@ -436,10 +436,11 @@ class ParcelModel(object):
         """
         x = self.x
         heights = self.heights
+        time = self.time
 
-        parcel = pandas.DataFrame( {'P':x[:,0], 'T':x[:,1], 'wv':x[:,2],
-                                'wc':x[:,3], 'S':x[:,4]},
-                                 index=heights)
+        parcel = pandas.DataFrame( {'P':x[:,1], 'T':x[:,2], 'wv':x[:,3],
+                                'wc':x[:,4], 'S':x[:,5], 'z':heights},
+                                 index=time)
                                  #index=heights[offset:])
 
         aerosol_dfs = {}
@@ -451,10 +452,10 @@ class ParcelModel(object):
             labels = ["r%03d" % i for i in xrange(nr)]
             radii_dict = dict()
             for i, label in enumerate(labels):
-                radii_dict[label] = x[:,5+species_shift+i]
+                radii_dict[label] = x[:,6+species_shift+i]
 
             aerosol_dfs[species] = pandas.DataFrame( radii_dict,
-                                                     index=heights)
+                                                     index=time)
                                                      #index=heights[offset:])
             species_shift += nr
 
@@ -578,13 +579,13 @@ def der(y, t, nr, r_drys, Nis, V, kappas):
             all the computed tendencies at this time-step.
 
     """
-    P = y[0]
-    T = y[1]
-    wv = y[2]
-    wc = y[3]
-    S = y[4]
-    #P, T, wv, wc, S = y[:5]
-    rs = np.array(y[5:])
+    z = y[0]
+    P = y[1]
+    T = y[2]
+    wv = y[3]
+    wc = y[4]
+    S = y[5]
+    rs = np.array(y[6:])
 
     pv_sat = es(T-273.15) # saturation vapor pressure
     #wv_sat = wv/(S+1.) # saturation mixing ratio
@@ -636,14 +637,17 @@ def der(y, t, nr, r_drys, Nis, V, kappas):
     gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
+    dz_dt = V
+
     ## Repackage tendencies for feedback to numerical solver
-    x = np.zeros(shape=(nr+5, ))
-    x[0] = dP_dt
-    x[1] = dT_dt
-    x[2] = dwv_dt
-    x[3] = dwc_dt
-    x[4] = dS_dt
-    x[5:] = drs_dt[:]
+    x = np.zeros(shape=(nr+6, ))
+    x[0] = dz_dt
+    x[1] = dP_dt
+    x[2] = dT_dt
+    x[3] = dwv_dt
+    x[4] = dwc_dt
+    x[5] = dS_dt
+    x[6:] = drs_dt[:]
 
     ## Kill off unused variables to get rid of numba warnings
     extra = 0.*t*wc
