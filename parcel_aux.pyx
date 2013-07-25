@@ -113,13 +113,14 @@ def der(double[::1] y, double t,
         slow-down if too many threads are specified.
 
     """
-    cdef double P = y[0]
-    cdef double T = y[1]
-    cdef double wv = y[2]
-    cdef double wc = y[3]
-    cdef double S = y[4]
+    cdef double z = y[0]
+    cdef double P = y[1]
+    cdef double T = y[2]
+    cdef double wv = y[3]
+    cdef double wc = y[4]
+    cdef double S = y[5]
     #cdef np.ndarray[double, ndim=1] rs = y[5:]
-    cdef double[::1] rs = y[5:]
+    cdef double[::1] rs = y[6:]
 
     cdef double T_c = T-273.15 # convert temperature to Celsius
     cdef double pv_sat = es(T_c) # saturation vapor pressure
@@ -173,6 +174,8 @@ def der(double[::1] y, double t,
 
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
+    dz_dt = V
+
     ''' Alternative methods for calculation supersaturation tendency
     # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
     #cdef double S_a, S_b, S_c, dS_dt
@@ -201,12 +204,13 @@ def der(double[::1] y, double t,
     gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
-    x = np.empty(shape=(nr+5), dtype='d')
-    x[0] = dP_dt
-    x[1] = dT_dt
-    x[2] = dwv_dt
-    x[3] = dwc_dt
-    x[4] = dS_dt
-    x[5:] = drs_dt[:]
+    x = np.empty(shape=(nr+6), dtype='d')
+    x[0] = dz_dt
+    x[1] = dP_dt
+    x[2] = dT_dt
+    x[3] = dwv_dt
+    x[4] = dwc_dt
+    x[5] = dS_dt
+    x[6:] = drs_dt[:]
 
     return x

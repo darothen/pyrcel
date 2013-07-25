@@ -36,7 +36,7 @@ class Integrator(object):
         return solvers[method]
 
     @staticmethod
-    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000):
+    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000, terminate=False):
         """Wrapper for odespy.odepack.Lsode
         """
         solver = Lsode(f, fargs=args, atol=1e-15, rtol=1e-12, nsteps=max_steps)
@@ -52,7 +52,7 @@ class Integrator(object):
         return x, True
 
     @staticmethod
-    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000):
+    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000, terminate=False):
         """Wrapper for odespy.odepack.Lsoda
         """
         nr, r_drys, Nis, V, kappas = args
@@ -64,7 +64,10 @@ class Integrator(object):
         #solver.set(f_args=args)
 
         try:
-            x, t = solver.solve(t, terminate)
+            if terminate:
+                x, t = solver.solve(t, terminate)
+            else:
+                x, t = solver.solve(t)
         except ValueError, e:
             raise ValueError("something broke in LSODA: %r" % e)
             return None, False
@@ -72,7 +75,7 @@ class Integrator(object):
         return x, True
 
     @staticmethod
-    def _solve_odeint(f, t, y0, args, console=False, max_steps=1000):
+    def _solve_odeint(f, t, y0, args, console=False, max_steps=1000, terminate=False):
         """Wrapper for scipy.integrate.odeint
         """
         x, info = odeint(f, y0, t, args=args, full_output=1, mxhnil=0,
