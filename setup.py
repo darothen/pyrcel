@@ -10,6 +10,9 @@ setup(
                              include_dirs=[numpy.get_include(), ],
                              #extra_compile_args=['-fopenmp', ],
                              #extra_link_args=['-fopenmp', ], 
-                             )
+                             ),
+                   Extension("parcel_aux_bin", ["parcel_aux_bin.pyx"],
+                             include_dirs=[numpy.get_include(), ],
+                             ),
                    ]
 )
