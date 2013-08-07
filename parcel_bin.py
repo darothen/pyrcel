@@ -154,28 +154,6 @@ if __name__ == "__main__":
 	print "EQUILIBRATION CALCULATION"
 	for it in xrange(EQUIL_ITER):
 		for k in xrange(nk):
-			""" 
-			# Attempt 1 - try to just predict Mk. Fails because we end up produce mean_x
-				values that are outside the bin we're projecting into.
-
-			## Borrowed from parcel model:
-			## Locate the critical value (f(r_crit) > 0), and use bisection from it
-			## the mean r_dry (f(r_dry) < 0) to find the equil wet particle radius
-			mean_x_dry = Mks_dry0[k]/Nks_dry0[k]
-			mean_r_dry = xs_to_rs(mean_x_dry)
-			r_b, _ = kohler_crit(T0, mean_r_dry, aerosol.kappa)
-			r_a = mean_r_dry
-
-			mean_r = bisect(f, r_a, r_b, args=(mean_r_dry, ), xtol=1e-30)
-			mean_x = (4.*np.pi*aerosol_rho/3.)*(mean_r_dry**3) + \
-			   		 (4.*np.pi*rho_w/3.)*((mean_r**3) - (mean_r_dry**3))
-			Mk = Nks_dry0[k]*mean_x
-			Mks0[k] = Mk
-
-			print "k %3d" % k, "%1.3e->%1.3e | %1.3e" % (mean_r_dry, mean_r,  Mk)
-			print "      (%1.3e, %1.3e) %1.3e" % (xks[k], p*xks[k], mean_x)
-			"""
-
 			# Attempt 2 - predict dm_dt using method from before, and re-bin
 			if Nks0[k] == 0 or Mks_dry0[k] == 0:
 				dms[k] = 0.
@@ -223,7 +201,7 @@ if __name__ == "__main__":
 
 	rhs = bin_methods.der
 
-	dt = 2.
+	dt = 1.
 	y0 = [0.0, P0, T0, wv0, wc0, S0]
 	y0.extend(np.zeros_like(xks))
 	t0 = 0.
@@ -233,7 +211,7 @@ if __name__ == "__main__":
 	log = 0
 	r.set_integrator('vode', method='adams', order=5, max_step=dt/100.)
 	r.set_initial_value(y0)
-	r.set_f_params(*[Nks0, Mks0, Mks_dry0, V, aerosol.kappa, aerosol_rho, nk, log])
+	r.set_f_params(*[xks_edges, Nks0, Mks0, Mks_dry0, V, aerosol.kappa, aerosol_rho, nk, log])
 
 	Nks = Nks0[:]
 	Mks = Mks0[:]
@@ -263,7 +241,7 @@ if __name__ == "__main__":
 		#	np.ma.sum(Mks_dry)/np.ma.sum(Mks_dry0) < 0.9:
 		#	raise ValueError("Too much dry mass change")
 
-		r.set_f_params(*[Nks, Mks, Mks_dry, V, aerosol.kappa, aerosol_rho, nk, log])
+		r.set_f_params(*[xks_edges, Nks, Mks, Mks_dry, V, aerosol.kappa, aerosol_rho, nk, log])
 
 		r.y[6:nk+6] = 0.
 		#r.y[:6] = y0[:6]

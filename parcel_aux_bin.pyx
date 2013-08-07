@@ -337,7 +337,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
     return new_Nks, new_Mks, new_Mks_dry
 
 @cython.cdivision(True)
-def der(double t, double[::1] y,
+def der(double t, double[::1] y, double[::1] xks,
         double[::1] Nks, double[::1] Mks, double[::1] Mks_dry, 
         double V, double kappa, double rho, int nk,
         int output_log=0):
@@ -364,7 +364,8 @@ def der(double t, double[::1] y,
     cdef:
         double Nk, Mk, Nk_dry, Mk_dry
         double mean_m, mean_m_dry, mean_r, mean_r_dry
-        double dm_dt
+        double dm_dt, xk, xkp1, dx, Tot_add, dmk_dt, xi, ri
+        unsigned int i, k
 
     dms_dt = np.zeros(shape=(nk), dtype='d')
 
@@ -386,7 +387,24 @@ def der(double t, double[::1] y,
 
         dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air)
         dms_dt[k] = dm_dt
-        dwc_dt += dm_dt*Nk
+
+        ## To more accurately estimate the change in cloud droplet water, 
+        ## integrate the growth rate over the bin
+        Tot_add = 0.0
+        xk = xks[k]
+        xkp1 = xks[k+1]
+        dx = (xkp1 - xk)/(100.)
+        for i in range(1, 100):
+            xi = xk + dx*i
+            ri = m_to_r(xi, rho_w)
+            if ri <= mean_r_dry: continue
+
+            dmk_dt = growth_rate(ri, mean_r_dry, T, P, S, kappa, rho_air)
+            Tot_add += dmk_dt*cn_x_linear(xi, xk, xkp1, Nk, Mk, 0)
+        Tot_add *= dx
+        dwc_dt += Tot_add
+
+        #dwc_dt += dm_dt*Nk
     dwc_dt *= 1./rho_air
 
     dwv_dt = -dwc_dt
