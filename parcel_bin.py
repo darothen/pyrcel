@@ -18,7 +18,7 @@ rmax = 100.0*1e-6
 P0 = 80000.
 T0 = 283.15
 V = 0.5
-S0 = -0.001
+S0 = -0.00
 wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15))
 aerosol_rho = 1760.
 
@@ -201,11 +201,11 @@ if __name__ == "__main__":
 
 	rhs = bin_methods.der
 
-	dt = 1.
+	dt = 0.1
 	y0 = [0.0, P0, T0, wv0, wc0, S0]
 	y0.extend(np.zeros_like(xks))
 	t0 = 0.
-	#t_end = 0.4
+	t_end = 2.*dt
 
 	r = ode(rhs)
 	log = 0
@@ -221,6 +221,7 @@ if __name__ == "__main__":
 
 	t0s = [t0, ]
 	y0s = [y0[:6], ]
+	Nks_all, Mks_all = [Nks0, ], [Mks0, ]
 	while r.successful() and r.t < t_end:
 		r.integrate(r.t + dt)
 		print r.t, r.y[:6]
@@ -231,7 +232,10 @@ if __name__ == "__main__":
 
 		Nks, Mks, Mks_dry = bin_methods.adjust_bins(xks_edges, dms,
 													Nks, Mks, Mks_dry,
-													nk, 0)
+													nk, 2)
+		Nks_all.append(Nks)
+		Mks_all.append(Mks)
+
 		#for rk, N, M in zip(rks, Nks, Mks):
 		#	print rk, N, M
 		print "     Nk", np.ma.sum(Nks)/np.ma.sum(Nks0)
@@ -246,6 +250,8 @@ if __name__ == "__main__":
 		r.y[6:nk+6] = 0.
 		#r.y[:6] = y0[:6]
 
+	Nks_all = np.array(Nks_all)
+	Mks_all = np.array(Mks_all)
 	x = np.array(y0s)
 
 	x = pandas.DataFrame( {'P':x[:,1], 'T':x[:,2], 'wv':x[:,3],
@@ -289,8 +295,14 @@ if __name__ == "__main__":
 		x[p_key].plot(ax=ax, linewidth=0, marker='x')
 		ax.set_xlim(0, t_end)
 
-
-
+	from matplotlib.colors import LogNorm
+	figure(5); clf();
+	yy = t0s
+	xx = range(nk)
+	xx, yy = np.meshgrid(xx, yy)
+	pcolor(xx, yy, Nks_all, norm=LogNorm(vmin=1e-6, vmax=Nks_all.max(), clip=True), cmap='PuBu')
+	colorbar()
+	xlim(0, nk); ylim(0, t0s[-1])
 		
 
 
