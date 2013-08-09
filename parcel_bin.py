@@ -7,9 +7,9 @@ from pandas import *
 
 import parcel_aux_bin as bin_methods
 
-EQUIL_ITER = 20
+EQUIL_ITER = 2
 
-s = 2
+s = 1
 p = 2**(1./s)
 nx = 100*s
 r0 = 0.001*1e-6 ## meters
@@ -17,13 +17,13 @@ rmax = 100.0*1e-6
 
 P0 = 80000.
 T0 = 283.15
-V = 0.2
+V = 1.0
 S0 = -0.00
 wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15))
 aerosol_rho = 1760.
 
-size_dist = Lognorm(mu=0.01*1e-6, sigma=2.0, N=200.*1e6)
-size_dist2 = Lognorm(mu=0.01, sigma=2.0, N=200.)
+size_dist = Lognorm(mu=0.05*1e-6, sigma=2.0, N=500.*1e6)
+size_dist2 = Lognorm(mu=0.05, sigma=2.0, N=500.)
 
 #############################
 
@@ -167,6 +167,9 @@ if __name__ == "__main__":
 			r_a = mean_r_dry
 
 			mean_r_new = bisect(f, r_a, r_b, args=(mean_r_dry, ), xtol=1e-30)
+			#mean_r2 = bin_methods.r_eq_find(S0, r_a, r_b, mean_r_dry, T0, aerosol.kappa, 
+			#								100, 1e-12)
+			#print "|--| k %d|" % (k, ), mean_r_new, mean_r2
 			mean_x_new = (4.*np.pi*aerosol_rho/3.)*(mean_r_dry**3) + \
 			   		 	 (4.*np.pi*rho_w/3.)*((mean_r_new**3) - (mean_r_dry**3))
 
@@ -200,7 +203,7 @@ if __name__ == "__main__":
 
 	rhs = bin_methods.der
 
-	dt = 1.0
+	dt = 0.5
 	y0 = [0.0, P0, T0, wv0, wc0, S0]
 	y0.extend(np.zeros_like(xks))
 	t0 = 0.
@@ -210,7 +213,8 @@ if __name__ == "__main__":
 	log = 0
 	r.set_integrator('vode', method='bdf', order=5, max_step=dt/100.)
 	r.set_initial_value(y0)
-	r.set_f_params(*[xks_edges, Nks0, Mks0, Mks_dry0, V, aerosol.kappa, aerosol_rho, nk, log])
+	r.set_f_params(*[xks_edges, Nks0, Mks0, Mks_dry0, 
+					 V, aerosol.kappa, aerosol_rho, nk, dt, log])
 
 	Nks = Nks0[:]
 	Mks = Mks0[:]
@@ -244,7 +248,8 @@ if __name__ == "__main__":
 		#	np.ma.sum(Mks_dry)/np.ma.sum(Mks_dry0) < 0.9:
 		#	raise ValueError("Too much dry mass change")
 
-		r.set_f_params(*[xks_edges, Nks, Mks, Mks_dry, V, aerosol.kappa, aerosol_rho, nk, log])
+		r.set_f_params(*[xks_edges, Nks, Mks, Mks_dry, 
+						 V, aerosol.kappa, aerosol_rho, nk, dt, log])
 
 		r.y[6:nk+6] = 0.
 		#r.y[:6] = y0[:6]
@@ -280,7 +285,7 @@ if __name__ == "__main__":
 	fig, axes = subplots(2, 3, num=3, figsize=(20,8))
 	cols = { 'P': (79900, 80001),
 			 'T': (283., 284.),
-			 'S': (S0, 0.002),
+			 'S': (S0, pp.S.max()*1.01),
 			 'wv': (pp.wv.min(), pp.wv.max()),
 			 'wc': (pp.wc.min(), pp.wc.max()),
 

@@ -1,6 +1,7 @@
 #cython: cdivision=True
 
 from libc.math cimport exp, sqrt, abs
+from libc.stdio cimport printf
 import numpy as np
 import parcel_model.constants as c
 
@@ -33,8 +34,8 @@ cdef:
     double a = 0.5          #: weighting coefficient for shift factor (Simmel and Wurzler, 2006)
     int N_TRAP = 1100        #: number of steps to use in internal trapezoid rule
 
-cdef inline double cmax(double a, double b): return a if a >= b else b
-cdef inline double cmin(double a, double b): return a if a <= b else b
+cdef inline double cmax(double a, double b) nogil: return a if a >= b else b
+cdef inline double cmin(double a, double b) nogil: return a if a <= b else b
     
 cdef inline double sigma_w(double T) nogil:
     return 0.0761 - (1.55e-4)*(T-273.15)
@@ -67,22 +68,80 @@ cdef inline double r_to_m(double r, double rho) nogil:
     else:
         return (4./3.)*PI*rho_w*(r**3)
 
-cpdef double Seq(double r, double r_dry, double T, double kappa) nogil:
+cdef double Seq_wrap(double x, void * params) nogil:
+    cdef double r_dry, T, kappa, offset
+
+    r_dry = (<double_ptr> params)[0]
+    T = (<double_ptr> params)[1]
+    kappa = (<double_ptr> params)[2]
+    offset = (<double_ptr> params)[3]
+
+    return Seq(x, r_dry, T, kappa, offset)
+
+cpdef double Seq(double r, double r_dry, double T, double kappa, double offset=0.0) nogil:
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
     cdef double B = 1.0
     if kappa > 0.0:
         B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
     cdef double returnval = exp(A)*B - 1.0
-    return returnval
+    return returnval - offset
+
+cpdef double r_eq_find(double S, double low, double high,
+                       double mean_r_dry, double T, double kappa,
+                       int maxit=100, double tol=1e-15) nogil:
+
+    cdef int it = 0
+
+    cdef double params[3]
+    params[0] = mean_r_dry
+    params[1] = T
+    params[2] = kappa
+    params[3] = S
+
+    cdef gsl_function F
+    F.function = &Seq_wrap
+    F.params = &params
+
+    cdef gsl_root_fsolver_type * fsol_type = gsl_root_fsolver_brent
+    cdef gsl_root_fsolver * s = gsl_root_fsolver_alloc(fsol_type)
+
+    cdef int status
+    status = gsl_root_fsolver_set(s, &F, low, high)
+
+    cdef double r = 0.0
+
+    #printf("Using %s method\n", gsl_root_fsolver_name(s))
+    #printf("%5s [%9s, %9s] %9s %10s %9s\n",
+    #        "iter", "lower", "upper", "root", "err", "err(est)")
+
+    while (it < maxit) :
+        status = gsl_root_fsolver_iterate(s)
+        r = gsl_root_fsolver_root(s)
+        low = gsl_root_fsolver_x_lower(s)
+        high = gsl_root_fsolver_x_upper(s)
+        status = gsl_root_test_interval(low, high, 0, tol)
+
+        if status == GSL_SUCCESS:
+        #    print "Converged!"
+            break
+
+        #printf("%5d [%.7f, %.7f] %.7f %+.7f %.7f\n", \
+        #        it, low, high, r, 0.,  high-low)
+
+        it += 1
+
+    return r
 
 cdef double growth_rate(double r, double r_dry, double T, double P, double S,
-                        double kappa, double rho_air) nogil:
+                        double kappa, double rho_air, double dt=0.) nogil:
     cdef double pv_sat = es(T - 273.15)
     cdef:
         double G_a, G_b, G
         double delta_S, dr_dt
         double dv_r, ka_r, P_atm, Seq_r
         double dm_dyn, dm_eq
+        double equil_r
+        double r_low, r_high
     
     ## Non-continuum diffusivity/thermal conductivity of air near
     ## near particle
@@ -106,6 +165,37 @@ cdef double growth_rate(double r, double r_dry, double T, double P, double S,
     dm_dyn = 4.*PI*rho_w*r*r*dr_dt
     
     ## Equilibrium value
+    # only do this if the droplet is large and dilute
+    if r > 1e-6:
+        return dm_dyn 
+
+    if dt > 0:
+        if delta_S >= 0:
+            r_low, r_high = r, r+dr_dt*dt
+
+            #printf("[%1.3e, %1.3e] - (%1.3e %1.3e)\n", r_low, r_high,
+            #        Seq(r_low, r_dry, T, kappa), Seq(r_high, r_dry, T, kappa))
+            ## Use Seq_r as the offset because we want equil GROWTH size!
+            equil_r = r_eq_find(Seq_r, r_low, r_high, r_dry, T, kappa)
+            dr_dt = (equil_r - r)/dt
+            dm_eq = 4.*PI*rho_w*r*r*dr_dt
+
+            return cmin(dm_eq, dm_dyn)
+
+        else:
+            r_low, r_high = r+dr_dt*dt, r
+
+            equil_r = r_eq_find(Seq_r, r_low, r_high, r_dry, T, kappa)
+            dr_dt = (equil_r - r)/dt
+            dm_eq = 4.*PI*rho_w*r*r*dr_dt
+
+            #dr_dt =  (r_dry - r)/dt
+            #dm_eq = 4.*PI*rho_w*r*r*dr_dt
+
+            return cmax(dm_eq, dm_dyn)
+
+        #else
+        #    r_low, r_high
     #dm_eq =  4.*PI*rho_w*r*G*S
     
     ## Check if the droplet is shrinking; if it is, we can't go lower than the dry 
@@ -213,7 +303,6 @@ cdef double cn_x_linear(double x, double xk, double xkp1, double Nk, double Mk,
     The issue only ever crops up on the edges anyways, and having a high N_TRAP should reduce
     the numerical error from this.
 
-    8/8/2013: Problem solved by using adaptive-step quadrature method. 
     """
     
     if n_xk < 0:
@@ -261,9 +350,9 @@ cdef double quad_integrate(double xleft, double xright, # bounds to integrate
     params[4] = mom
     F.params = params
 
-    gsl_integration_qags(&F, xleft, xright, 0., 0., 1000, w, &result, &error)
+    gsl_integration_qags(&F, x_low, x_high, 0., 0., 1000, w, &result, &error)
     return result    
-"""
+
 ## Deprecated, 8/8/2013 after introduction of GSL quadrature routines
 @cython.cdivision(True)
 cdef double trap_integrate(double xleft, double xright, # bounds to integrate
@@ -296,7 +385,7 @@ cdef double trap_integrate(double xleft, double xright, # bounds to integrate
     #        print "        ", cn_x_linear(xright, x_low, x_high, Nk, Mk, mom, 1)
     
     return Tot_add
-"""
+
 
 @cython.cdivision(True)
 def adjust_bins(double[::1] xks, double[::1] dms,
@@ -338,6 +427,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
         x_high = xkp1 + dm
 
         ## Check if things were made too small and adjust
+        # - should no longer be triggered 8/8/2013
         if Mk_new < 0:
             dm = (Mk_dry - Mk)/Nk
             Mk_new = Mk_dry
@@ -387,8 +477,10 @@ def adjust_bins(double[::1] xks, double[::1] dms,
             last_bin_added = m
 
             ## Wet Droplets            
-            Nks_add = quad_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 0)
-            Mks_add = quad_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 1)
+            #Nks_add = quad_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 0)
+            #Mks_add = quad_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 1)            
+            Nks_add = trap_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 0)
+            Mks_add = trap_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 1)
             new_Nks[m] += Nks_add
             new_Mks[m] += Mks_add
         
@@ -417,7 +509,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
                 print "   added %1.5e kg to bin %d" % (Mk_dry*f_aer, m)
 
         ## Adjust for numerical spillage from bins
-        '''
+        
         if Nk_new - N_acc > 0:
             new_Nks[last_bin_added] += Nk_new - N_acc
             N_acc += Nk_new - N_acc
@@ -427,7 +519,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
         if Mk_dry - Md_acc > 0:
             new_Mks_dry[last_bin_added] += Mk_dry - Md_acc
             Md_acc += Mk_dry - Md_acc
-        '''
+        
             
         if output_log > 0:
             print "+++ %1.5e (%1.5e/%1.5e) total N acc" % (N_acc/Nk_new, N_acc, Nk_new)
@@ -455,7 +547,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
 @cython.cdivision(True)
 def der(double t, double[::1] y, double[::1] xks,
         double[::1] Nks, double[::1] Mks, double[::1] Mks_dry, 
-        double V, double kappa, double rho, int nk,
+        double V, double kappa, double rho, int nk, double dt,
         int output_log=0):
 
     cdef double z = y[0]
@@ -501,7 +593,7 @@ def der(double t, double[::1] y, double[::1] xks,
                 print "k", k, "no mass in bin"
             continue
 
-        dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air)
+        dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air, dt)
         dms_dt[k] = dm_dt 
 
         '''
@@ -509,9 +601,9 @@ def der(double t, double[::1] y, double[::1] xks,
         ## integrate the growth rate over the bin
         xk = xks[k]
         xkp1 = xks[k+1]
-        Tot_add = bin_growth_integrate(mean_r_dry, T, P, S, kappa, rho_air,
-                                       xk, xkp1, Nk, Mk)
-        """
+        #Tot_add = bin_growth_integrate(mean_r_dry, T, P, S, kappa, rho_air,
+        #                               xk, xkp1, Nk, Mk)
+        
         Tot_add = 0.0
         dx = (xkp1 - xk)/(100.)
         for i in range(1, 100):
@@ -522,9 +614,10 @@ def der(double t, double[::1] y, double[::1] xks,
             dmk_dt = growth_rate(ri, mean_r_dry, T, P, S, kappa, rho_air)
             Tot_add += dmk_dt*cn_x_linear(xi, xk, xkp1, Nk, Mk, 0)
         Tot_add *= dx
-        """
+        
         dwc_dt += Tot_add
         '''
+        
 
         dwc_dt += dm_dt*Nk
     dwc_dt *= 1./rho_air
