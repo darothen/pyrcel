@@ -1,8 +1,17 @@
+#cython: cdivision=True
+
 from libc.math cimport exp, sqrt, abs
 import numpy as np
 import parcel_model.constants as c
 
+from cython_gsl cimport *
+
 cimport cython
+
+## CythonGSL typedefs
+ctypedef double * double_ptr
+ctypedef void * void_ptr
+
 
 cdef extern from "math.h":
     bint isnan(double x)
@@ -22,7 +31,7 @@ cdef:
     double Cp = c.Cp        #: Specific heat of dry air at constant pressure, J/kg
     double PI = 3.14159265358979323846264338328 #: Pi, constant
     double a = 0.5          #: weighting coefficient for shift factor (Simmel and Wurzler, 2006)
-    int N_TRAP = 1000        #: number of steps to use in internal trapezoid rule
+    int N_TRAP = 1100        #: number of steps to use in internal trapezoid rule
 
 cdef inline double cmax(double a, double b): return a if a >= b else b
 cdef inline double cmin(double a, double b): return a if a <= b else b
@@ -43,16 +52,16 @@ cdef inline double dv(double T, double r, double P) nogil:
     denom = 1.0 + (dv_cont/(ac*r))*sqrt((2*PI*Mw)/(R*T))
     return dv_cont/denom
 
-cdef inline double es(double T):
+cdef inline double es(double T) nogil:
     return 611.2*exp(17.67*T/(T+243.5))
 
-cdef inline double m_to_r(double m, double rho):
+cdef inline double m_to_r(double m, double rho) nogil:
     if m <= 0.: 
         return 0.
     else:
         return (m*0.75/(rho*PI))**(1./3.)
 
-cdef inline double r_to_m(double r, double rho):
+cdef inline double r_to_m(double r, double rho) nogil:
     if r <= 0.:
         return 0.
     else:
@@ -67,7 +76,7 @@ cpdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     return returnval
 
 cdef double growth_rate(double r, double r_dry, double T, double P, double S,
-                        double kappa, double rho_air):
+                        double kappa, double rho_air) nogil:
     cdef double pv_sat = es(T - 273.15)
     cdef:
         double G_a, G_b, G
@@ -113,9 +122,74 @@ cdef double growth_rate(double r, double r_dry, double T, double P, double S,
     
     return dm_dyn
 
+cdef double bin_growth_integrate(double mean_r_dry, double T, double P, double S, 
+                                 double kappa, double rho_air,
+                                 double xk, double xkp1, double Nk, double Mk):
+
+    cdef gsl_integration_workspace * w
+    cdef double result, error
+    cdef double params[9]
+    w = gsl_integration_workspace_alloc(1000)
+
+    cdef gsl_function F
+    F.function = &bin_growth
+
+    params[0] = mean_r_dry
+    params[1] = T
+    params[2] = P
+    params[3] = S
+    params[4] = kappa
+    params[5] = rho_air
+    params[6] = xk
+    params[7] = xkp1
+    params[8] = Nk
+    params[9] = Mk
+
+    F.params = params
+
+    gsl_integration_qags(&F, xk, xkp1, 0., 0., 1000, w, &result, &error)
+    return result    
+
+cdef double bin_growth(double x, void * params) nogil:
+
+    cdef double mean_r_dry, T, P, S, kappa, rho_air
+    cdef double xk, xkp1, Nk, Mk
+    mean_r_dry = (<double_ptr> params)[0]
+    T = (<double_ptr> params)[1]
+    P = (<double_ptr> params)[2]
+    S = (<double_ptr> params)[3]
+    kappa = (<double_ptr> params)[4]
+    rho_air = (<double_ptr> params)[5]
+    xk = (<double_ptr> params)[6]
+    xkp1 = (<double_ptr> params)[7]
+    Nk = (<double_ptr> params)[8]
+    Mk = (<double_ptr> params)[9]
+
+    cdef double Tot_add = 0.0
+    cdef double r = m_to_r(x, rho_w)
+    cdef double G_r, N_x
+
+    r = m_to_r(x, rho_w)
+    if r <= mean_r_dry: 
+        return 0.
+    else:
+        G_r = growth_rate(r, mean_r_dry, T, P, S, kappa, rho_air)
+        N_x = cn_x_linear(x, xk, xkp1, Nk, Mk, 0)
+        return G_r*N_x
+
+cdef double cn_x_linear_wrap(double x, void * params) nogil:
+    cdef double xk, xkp1, Nk,  Mk, moment
+    xk = (<double_ptr> params)[0]
+    xkp1 = (<double_ptr> params)[1]
+    Nk = (<double_ptr> params)[2]
+    Mk = (<double_ptr> params)[3]
+    moment = (<double_ptr> params)[4]
+
+    return cn_x_linear(x, xk, xkp1, Nk, Mk, moment, 0)
+
 @cython.cdivision(True)
 cdef double cn_x_linear(double x, double xk, double xkp1, double Nk, double Mk, 
-                       double moment=0.0, int flag=0):
+                         double moment=0.0, int flag=0) nogil:
     cdef double xk_hat = 0.5*(xk + xkp1)
     cdef double n0 = Nk/(xkp1 - xk)
     cdef double a = 12.*(Mk - xk_hat*Nk)/((xkp1 - xk)**3)
@@ -138,6 +212,8 @@ cdef double cn_x_linear(double x, double xk, double xkp1, double Nk, double Mk,
     be to merely exclude the endpoints when I integrate over the linear approximations...
     The issue only ever crops up on the edges anyways, and having a high N_TRAP should reduce
     the numerical error from this.
+
+    8/8/2013: Problem solved by using adaptive-step quadrature method. 
     """
     
     if n_xk < 0:
@@ -146,24 +222,49 @@ cdef double cn_x_linear(double x, double xk, double xkp1, double Nk, double Mk,
         if x <= x_star : 
             return 0.
         else:
+            #if flag == 1: 
+            #    print "HERE (n_xk<0)", x, x_star, x-x_star
+            #    print "    ", x**moment, a_star, xk, x_star, x
             return (x**moment)*a_star*(x - x_star)
         
     if n_xkp1 < 0:
         x_star = 3.*Mk/Nk - 2.*xk
         a_star = -2.*Nk/((xk - x_star)**2)
+
         if x >= x_star :
             return 0.
         else:
-            if flag == 1: 
-                print "HERE", x, x_star, x-x_star
-                print "    ", x**moment, a_star, xk, x_star, x
-            return (x**moment)*a_star*(x - x_star)
+            #if flag == 1: 
+            #    print "HERE (n_xkp1<0)", x, x_star, x-x_star
+            #    print "    ", x**moment, a_star, xk, x_star, x
+            return (x**moment)*a_star*(x - x_star)    
         
     return (x**moment)*(n0 + a*(x - xk_hat))
 
-cdef inline double moment_linear(xl, xr, l, n_x):
-    return 0.5*(xr - xl)*((xl**l)*n_x(xl) + (xr**l)*n_x(xr))
+cdef double quad_integrate(double xleft, double xright, # bounds to integrate
+                           double x_low, double x_high, # params for new linear func
+                           double Nk, double Mk, int moment):
 
+    cdef gsl_integration_workspace * w
+    cdef double result, error
+    cdef double mom = moment*1.0
+    cdef double params[4]
+    w = gsl_integration_workspace_alloc(1000)
+
+    cdef gsl_function F
+    F.function = &cn_x_linear_wrap
+
+    params[0] = x_low
+    params[1] = x_high
+    params[2] = Nk
+    params[3] = Mk
+    params[4] = mom
+    F.params = params
+
+    gsl_integration_qags(&F, xleft, xright, 0., 0., 1000, w, &result, &error)
+    return result    
+"""
+## Deprecated, 8/8/2013 after introduction of GSL quadrature routines
 @cython.cdivision(True)
 cdef double trap_integrate(double xleft, double xright, # bounds to integrate
                            double x_low, double x_high, # params for new linear func
@@ -178,9 +279,9 @@ cdef double trap_integrate(double xleft, double xright, # bounds to integrate
 
     dx = (xright - xleft)/(1.0*N_TRAP)
     ## Trapezoidal rule integration of linear function, N = N_TRAP
-    """
+    '''
     Workaround 8/7/2013: Don't add the edges to the integration! see note in cn_x_linear
-    """
+    '''
     #Tot_add = 0.5*cn_x_linear(xleft, x_low, x_high, Nk, Mk, mom) + \
     #          0.5*cn_x_linear(xright, x_low, x_high, Nk, Mk, mom)
     for i in range(1, N_TRAP):
@@ -189,12 +290,13 @@ cdef double trap_integrate(double xleft, double xright, # bounds to integrate
     Tot_add *= dx
 
     #if mom == 0.:
-    #    if Tot_add >= Nk:
+    #    if abs((Tot_add - Nk)/Nk) > 0.1:
     #        print "TRAP BAD", Tot_add, Nk, xleft, xright
     #        print "        ", cn_x_linear(xleft, x_low, x_high, Nk, Mk, mom, 1)
     #        print "        ", cn_x_linear(xright, x_low, x_high, Nk, Mk, mom, 1)
     
     return Tot_add
+"""
 
 @cython.cdivision(True)
 def adjust_bins(double[::1] xks, double[::1] dms,
@@ -207,9 +309,10 @@ def adjust_bins(double[::1] xks, double[::1] dms,
     cdef:
         double xk, xkp1, Nk, Mk, Nk_dry, Mk_dry
         double x_low, x_high, xm, xmp1
-        double N_acc, M_acc
-        double Nks_add, Mks_add
+        double N_acc, M_acc, Md_acc
+        double Nks_add, Mks_add, Mks_dry_add
         double f_N, f_M, f_aer
+        int last_bin_added
         unsigned int m, k
 
     for k in range(nk):
@@ -230,9 +333,22 @@ def adjust_bins(double[::1] xks, double[::1] dms,
 
         Nk_new = Nk*1.0
         Mk_new = Mk + Nk*dm
-        
+
         x_low = xk + dm
         x_high = xkp1 + dm
+
+        ## Check if things were made too small and adjust
+        if Mk_new < 0:
+            dm = (Mk_dry - Mk)/Nk
+            Mk_new = Mk_dry
+
+            x_low = xk + dm
+            if x_low < 0:
+                x_low = xks[0]
+            x_high = xkp1 + dm
+
+            if output_log > 0:
+                print "   (too much evaporation occurred)"
 
         if output_log > 0:
             print "k", k, "(%1.5e, %1.5e)->(%1.5e, %1.5e)" % (xk, xkp1, x_low, x_high)
@@ -243,7 +359,8 @@ def adjust_bins(double[::1] xks, double[::1] dms,
         ## Loop over bins; if a bin is partially contained with [x_low, x_high],
         ## then integrate over the linear approximation in that bin to compute the
         ## shift in moments
-        N_acc, M_acc = 0., 0.
+        N_acc, M_acc, Md_acc = 0., 0., 0.
+        last_bin_added = -1
         for m in range(nk):
             xm = xks[m]
             xmp1 = xks[m+1]
@@ -267,29 +384,11 @@ def adjust_bins(double[::1] xks, double[::1] dms,
             else: 
                 continue
 
-            """
-            if (xm <= x_low) and (x_low < xmp1 <= x_high):
-                ## Contribute xlow->xmp1 to bin m
-                xleft, xright = x_low, xmp1
-                if output_log > 1:
-                    print "   CASE 1 (xm <= x_low, x_low < xmp1 <= x_high)"
-            elif (x_low <= xm < xmp1 <= x_high):
-                ## Contribute xm->xmp1 to bin m
-                xleft, xright = xm, xmp1
-                if output_log > 1:
-                    print "   CASE 2 (x_low <= xm < xmp1 <= x_high)"
-            elif (xm <= x_high) and (x_high <= xmp1):
-                ## Contribute xmp1->xhigh to bin m
-                xleft, xright = np.max([xm, x_low]), x_high
-                if output_log > 1:
-                    print "   CASE 3 (xm <= x_high <= xmp1) "
-            else:
-                continue
-            """
+            last_bin_added = m
 
             ## Wet Droplets            
-            Nks_add = trap_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 0)
-            Mks_add = trap_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 1)
+            Nks_add = quad_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 0)
+            Mks_add = quad_integrate(xleft, xright, x_low, x_high, Nk_new, Mk_new, 1)
             new_Nks[m] += Nks_add
             new_Mks[m] += Mks_add
         
@@ -306,12 +405,29 @@ def adjust_bins(double[::1] xks, double[::1] dms,
             f_N = Nks_add/Nk_new
             f_M = Mks_add/Mk_new
             f_aer = a*f_M + (1. - a)*f_N
-            new_Mks_dry[m] += Mk_dry*f_aer            
+            Mks_dry_add = Mk_dry*f_aer     
+
+            new_Mks_dry[m] += Mks_dry_add
+
+            Md_acc += Mks_dry_add  
             
             if output_log > 1:
                 print "   aerosol -"
                 print "   added %1.5e/cc to bin %d" % (Nks_add, m)
                 print "   added %1.5e kg to bin %d" % (Mk_dry*f_aer, m)
+
+        ## Adjust for numerical spillage from bins
+        '''
+        if Nk_new - N_acc > 0:
+            new_Nks[last_bin_added] += Nk_new - N_acc
+            N_acc += Nk_new - N_acc
+        if Mk_new - M_acc > 0:
+            new_Mks[last_bin_added] += Mk_new - M_acc
+            M_acc += Mk_new - M_acc
+        if Mk_dry - Md_acc > 0:
+            new_Mks_dry[last_bin_added] += Mk_dry - Md_acc
+            Md_acc += Mk_dry - Md_acc
+        '''
             
         if output_log > 0:
             print "+++ %1.5e (%1.5e/%1.5e) total N acc" % (N_acc/Nk_new, N_acc, Nk_new)
@@ -386,13 +502,17 @@ def der(double t, double[::1] y, double[::1] xks,
             continue
 
         dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air)
-        dms_dt[k] = dm_dt
+        dms_dt[k] = dm_dt 
 
+        '''
         ## To more accurately estimate the change in cloud droplet water, 
         ## integrate the growth rate over the bin
-        Tot_add = 0.0
         xk = xks[k]
         xkp1 = xks[k+1]
+        Tot_add = bin_growth_integrate(mean_r_dry, T, P, S, kappa, rho_air,
+                                       xk, xkp1, Nk, Mk)
+        """
+        Tot_add = 0.0
         dx = (xkp1 - xk)/(100.)
         for i in range(1, 100):
             xi = xk + dx*i
@@ -402,9 +522,11 @@ def der(double t, double[::1] y, double[::1] xks,
             dmk_dt = growth_rate(ri, mean_r_dry, T, P, S, kappa, rho_air)
             Tot_add += dmk_dt*cn_x_linear(xi, xk, xkp1, Nk, Mk, 0)
         Tot_add *= dx
+        """
         dwc_dt += Tot_add
+        '''
 
-        #dwc_dt += dm_dt*Nk
+        dwc_dt += dm_dt*Nk
     dwc_dt *= 1./rho_air
 
     dwv_dt = -dwc_dt

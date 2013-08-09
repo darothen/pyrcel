@@ -7,7 +7,7 @@ from pandas import *
 
 import parcel_aux_bin as bin_methods
 
-EQUIL_ITER = 2
+EQUIL_ITER = 20
 
 s = 2
 p = 2**(1./s)
@@ -17,13 +17,13 @@ rmax = 100.0*1e-6
 
 P0 = 80000.
 T0 = 283.15
-V = 0.5
+V = 0.2
 S0 = -0.00
 wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15))
 aerosol_rho = 1760.
 
-size_dist = Lognorm(mu=0.05*1e-6, sigma=2.0, N=1000.*1e6)
-size_dist2 = Lognorm(mu=0.05, sigma=2.0, N=1000.)
+size_dist = Lognorm(mu=0.01*1e-6, sigma=2.0, N=200.*1e6)
+size_dist2 = Lognorm(mu=0.01, sigma=2.0, N=200.)
 
 #############################
 
@@ -34,7 +34,6 @@ def moment_bin(xl, xr, moment, n_x, method='quad'):
         return quad(lambda x: (x**l)*n_x(x), xl, xr)[0]
     else:
         return 0.5*(xr - xl)*((xl**l)*n_x(xl) + (xr**l)*n_x(xr))
-
 
 x0 = (4./3.)*np.pi*(r0**3)*aerosol_rho ## kg/m^3
 xmax = (4./3.)*np.pi*(rmax**3)*aerosol_rho
@@ -49,7 +48,7 @@ while rks[-1] <= rmax:
 	xks.append(xk)
 ## Add a giant catch-all bin at the end
 for k in xrange(1):
-	xks.append(xks[-1]*20.)
+	xks.append(xks[-1]*p)
 	rks.append((xks[-1]*0.75/(aerosol_rho*np.pi))**(1./3.))
 
 xks_edges = np.array(xks)
@@ -201,15 +200,15 @@ if __name__ == "__main__":
 
 	rhs = bin_methods.der
 
-	dt = 0.1
+	dt = 1.0
 	y0 = [0.0, P0, T0, wv0, wc0, S0]
 	y0.extend(np.zeros_like(xks))
 	t0 = 0.
-	t_end = 2.*dt
+	#t_end = 2.*dt
 
 	r = ode(rhs)
 	log = 0
-	r.set_integrator('vode', method='adams', order=5, max_step=dt/100.)
+	r.set_integrator('vode', method='bdf', order=5, max_step=dt/100.)
 	r.set_initial_value(y0)
 	r.set_f_params(*[xks_edges, Nks0, Mks0, Mks_dry0, V, aerosol.kappa, aerosol_rho, nk, log])
 
@@ -275,8 +274,7 @@ if __name__ == "__main__":
 	step(Nks,  'y',  marker='o', label='after')
 	step(Nks_dry0, 'k', marker='^', label='dry')
 	semilogy()
-	ylim(1e6, 1e9)
-	
+	ylim(1e6, 1e9)	
 	
 	figure(3); clf();
 	fig, axes = subplots(2, 3, num=3, figsize=(20,8))
@@ -296,13 +294,25 @@ if __name__ == "__main__":
 		ax.set_xlim(0, t_end)
 
 	from matplotlib.colors import LogNorm
-	figure(5); clf();
+	fig = figure(5); clf();
+	ax = fig.add_subplot(111)
 	yy = t0s
 	xx = range(nk)
 	xx, yy = np.meshgrid(xx, yy)
-	pcolor(xx, yy, Nks_all, norm=LogNorm(vmin=1e-6, vmax=Nks_all.max(), clip=True), cmap='PuBu')
-	colorbar()
-	xlim(0, nk); ylim(0, t0s[-1])
+	pc = ax.pcolor(xx, yy, Nks_all, norm=LogNorm(vmin=1e-6, vmax=Nks_all.max(), clip=True), cmap='PuBu')
+	cb = fig.colorbar(pc)
+	ax.set_xlim(0, nk); 
+	ax.set_xlabel("Bin Number")
+	ax.set_ylabel("time")
+
+	ax_S = ax.twiny()
+	ax_S.plot(pp.S, pp.index, color='k', linewidth=1.5)
+	ax_S.plot(x.S, t0s, color='r', marker='x', markersize=2)
+	ax_S.set_xlim(S0, 1.01*pp.S.max())
+	ax_S.set_xlabel("Supersaturation")
+
+	ax.set_ylim(0, t0s[-1])
+
 		
 
 
