@@ -6,10 +6,11 @@ from scipy.optimize import bisect
 from pandas import *
 
 import parcel_aux_bin as bin_methods
+import odespy
 
 EQUIL_ITER = 2
 
-s = 1
+s = 3
 p = 2**(1./s)
 nx = 100*s
 r0 = 0.001*1e-6 ## meters
@@ -18,7 +19,7 @@ rmax = 100.0*1e-6
 P0 = 80000.
 T0 = 283.15
 V = 1.0
-S0 = -0.00
+S0 = -0.0001
 wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15))
 aerosol_rho = 1760.
 
@@ -48,7 +49,7 @@ while rks[-1] <= rmax:
 	xks.append(xk)
 ## Add a giant catch-all bin at the end
 for k in xrange(1):
-	xks.append(xks[-1]*p)
+	xks.append(xks[-1]*10)
 	rks.append((xks[-1]*0.75/(aerosol_rho*np.pi))**(1./3.))
 
 xks_edges = np.array(xks)
@@ -163,7 +164,8 @@ if __name__ == "__main__":
 			mean_x_dry = Mks_dry0[k]/Nks0[k]
 			mean_r_dry = xs_to_rs(mean_x_dry)
 
-			r_b, _ = kohler_crit(T0, mean_r_dry, aerosol.kappa)
+			#r_b, _ = kohler_crit(T0, mean_r_dry, aerosol.kappa)
+			r_b = bin_methods.kohler_crit_public(T0, mean_r_dry, aerosol.kappa)
 			r_a = mean_r_dry
 
 			mean_r_new = bisect(f, r_a, r_b, args=(mean_r_dry, ), xtol=1e-30)
@@ -235,10 +237,10 @@ if __name__ == "__main__":
 
 		Nks, Mks, Mks_dry = bin_methods.adjust_bins(xks_edges, dms,
 													Nks, Mks, Mks_dry,
-													nk, 2)
+													nk, 0)
 		Nks_all.append(Nks)
 		Mks_all.append(Mks)
-
+		print dms
 		#for rk, N, M in zip(rks, Nks, Mks):
 		#	print rk, N, M
 		print "     Nk", np.ma.sum(Nks)/np.ma.sum(Nks0)
@@ -318,7 +320,18 @@ if __name__ == "__main__":
 
 	ax.set_ylim(0, t0s[-1])
 
-		
+"""
+from parcel_aux_bin import Seq
+from pylab import *
+ion()
+
+import numpy as np
+
+rs = np.logspace(np.log10(r_low), np.log10(r_high), 1000)
+plot(rs, [Seq(r, 1.053431e-08, 2.831451e+02, 6.000000e-01) for r in rs])
+"""
+
+
 
 
 

@@ -75,16 +75,100 @@ cdef double Seq_wrap(double x, void * params) nogil:
     T = (<double_ptr> params)[1]
     kappa = (<double_ptr> params)[2]
     offset = (<double_ptr> params)[3]
+    prefac = (<double_ptr> params)[4]
 
-    return Seq(x, r_dry, T, kappa, offset)
+    return Seq(x, r_dry, T, kappa, offset, prefac)
 
-cpdef double Seq(double r, double r_dry, double T, double kappa, double offset=0.0) nogil:
+@cython.cdivision(True)
+cpdef double Seq(double r, double r_dry, double T, double kappa, double offset=0.0,
+                 double prefactor=1.) nogil:
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
     cdef double B = 1.0
     if kappa > 0.0:
         B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
     cdef double returnval = exp(A)*B - 1.0
-    return returnval - offset
+    return prefactor*returnval - offset
+
+def kohler_crit_public(double T, double r_dry, double kappa):
+    cdef double x = 0.
+    with nogil:
+        x = kohler_crit(T, r_dry, kappa)
+    return x
+
+cdef double kohler_crit(double T, double r_dry, double kappa) nogil:
+    cdef int status, it, maxit
+    it = 0
+    maxit = 100
+
+    cdef double params[6]
+    params[0] = r_dry
+    params[1] = T
+    params[2] = kappa
+    params[3] = 0. # offset
+    params[4] = -1. # negate
+
+    cdef gsl_min_fminimizer_type * fmin_type = gsl_min_fminimizer_brent
+    cdef gsl_min_fminimizer * s = gsl_min_fminimizer_alloc(fmin_type)
+
+    cdef gsl_function F
+    F.function = &Seq_wrap
+    F.params = &params
+
+    cdef double a = r_dry+1e-10
+    cdef double b = r_dry*1e4
+
+    ## nudge over until find a satisfactory initial condition
+    cdef double m = a
+    cdef double fm = Seq_wrap(m, params)
+    cdef double fa = Seq_wrap(a, params)
+    cdef double fb = Seq_wrap(b, params)
+    cdef int max_space = 1000
+    cdef double dx = (b/a)**(1./max_space)
+    cdef double counter = 1.
+    while (fm >= fa or fm >= fb) and (counter < max_space):
+        m = a*(dx**counter)
+        fm = Seq_wrap(m, params)
+        counter += 1.
+    #printf("total moves - %f", counter)
+
+    '''
+    #cdef int nr = 100
+    #cdef double ri = 1.
+    #cdef double dr = (b-a)/nr
+    #while ri < nr:
+    #    printf("%e %e\n", a+ri*dr, Seq_wrap(a+ri*dr, params))
+    #    ri += 1.
+
+    printf("\n>> import numpy as np; from pylab import *; ion()\n")
+    printf(">> from parcel_aux_bin import Seq\n")
+    printf(">> a, b, m= %e, %e, %e\n", a, b, m)
+    printf(">> rs = np.logspace(np.log10(a), np.log10(b), 200)\n")
+    printf(">> plot(rs, [Seq(r, %e, %e, %e, 0., -1.) for r in rs])\n", r_dry, T, kappa)
+    printf(">> semilogx(); ylim(-1e-1, 1e-1)\n\n")
+    printf("%e %e %e\n", fa,fm, fb)
+    '''
+
+
+    status = gsl_min_fminimizer_set(s, &F, m,  a,  b)
+
+    cdef double GSL_CONTINUE = -2
+    status = -2
+    while (it < maxit and status == GSL_CONTINUE):
+        status = gsl_min_fminimizer_iterate(s)
+
+        m = gsl_min_fminimizer_x_minimum(s)
+        a = gsl_min_fminimizer_x_lower(s)
+        b = gsl_min_fminimizer_x_upper(s)
+
+        status = gsl_min_test_interval(a, b, 0., 1e-15)
+        if (status == GSL_SUCCESS):
+            break
+
+        it += 1
+
+    gsl_min_fminimizer_free(s)
+
+    return m
 
 cpdef double r_eq_find(double S, double low, double high,
                        double mean_r_dry, double T, double kappa,
@@ -92,11 +176,12 @@ cpdef double r_eq_find(double S, double low, double high,
 
     cdef int it = 0
 
-    cdef double params[3]
+    cdef double params[4]
     params[0] = mean_r_dry
     params[1] = T
     params[2] = kappa
     params[3] = S
+    params[4] = 1.
 
     cdef gsl_function F
     F.function = &Seq_wrap
@@ -114,18 +199,23 @@ cpdef double r_eq_find(double S, double low, double high,
     #printf("%5s [%9s, %9s] %9s %10s %9s\n",
     #        "iter", "lower", "upper", "root", "err", "err(est)")
 
-    while (it < maxit) :
+    #printf("initial sanity check\n")
+    #printf("%e, %e | %e, %e\n", low, high, Seq(low, mean_r_dry, T, kappa, S), Seq(high, mean_r_dry, T, kappa, S))
+
+    cdef double GSL_CONTINUE = -2
+    status = -2
+    while (it < maxit and status == GSL_CONTINUE) :
         status = gsl_root_fsolver_iterate(s)
         r = gsl_root_fsolver_root(s)
         low = gsl_root_fsolver_x_lower(s)
         high = gsl_root_fsolver_x_upper(s)
-        status = gsl_root_test_interval(low, high, 0, tol)
+        status = gsl_root_test_interval(low, high, 0., tol)
 
         if status == GSL_SUCCESS:
         #    print "Converged!"
             break
 
-        #printf("%5d [%.7f, %.7f] %.7f %+.7f %.7f\n", \
+        #printf("%5d [%1.5e, %1.5e] %1.5e %+1.5e %1.5e\n", \
         #        it, low, high, r, 0.,  high-low)
 
         it += 1
@@ -141,7 +231,7 @@ cdef double growth_rate(double r, double r_dry, double T, double P, double S,
         double dv_r, ka_r, P_atm, Seq_r
         double dm_dyn, dm_eq
         double equil_r
-        double r_low, r_high
+        double r_low, r_high, r_crit
     
     ## Non-continuum diffusivity/thermal conductivity of air near
     ## near particle
@@ -171,27 +261,39 @@ cdef double growth_rate(double r, double r_dry, double T, double P, double S,
 
     if dt > 0:
         if delta_S >= 0:
-            r_low, r_high = r, r+dr_dt*dt
+            r_crit = kohler_crit(T, r_dry, kappa) 
+            r_low, r_high = r, r_crit
+
+            if Seq(r_high, r_dry, T, kappa, S)*Seq(r_high,r_dry,T,kappa,S) > 0:
+                ## same sign, won't be able to find an equilibrium value.
+                ## FUDGE FACTOR
+                return dm_dyn/10.
 
             #printf("[%1.3e, %1.3e] - (%1.3e %1.3e)\n", r_low, r_high,
-            #        Seq(r_low, r_dry, T, kappa), Seq(r_high, r_dry, T, kappa))
-            ## Use Seq_r as the offset because we want equil GROWTH size!
-            equil_r = r_eq_find(Seq_r, r_low, r_high, r_dry, T, kappa)
+            #        Seq(r_low, r_dry, T, kappa, S), Seq(r_high, r_dry, T, kappa, S))     
+            #printf("   Seq(r, %e, %e, %e, %e)", r_dry, T, kappa, S)       
+            equil_r = r_eq_find(S, r_low, r_high, r_dry, T, kappa)
+
             dr_dt = (equil_r - r)/dt
             dm_eq = 4.*PI*rho_w*r*r*dr_dt
 
+            #printf("gr %1.5e | (%1.5e) %1.5e %1.5e\n", r, equil_r, dm_eq, dm_dyn)
             return cmin(dm_eq, dm_dyn)
 
         else:
-            r_low, r_high = r+dr_dt*dt, r
+            #r_low, r_high = r_dry, r
 
-            equil_r = r_eq_find(Seq_r, r_low, r_high, r_dry, T, kappa)
-            dr_dt = (equil_r - r)/dt
-            dm_eq = 4.*PI*rho_w*r*r*dr_dt
-
-            #dr_dt =  (r_dry - r)/dt
+            #printf("[%1.3e, %1.3e] - (%1.3e %1.3e)\n", r_low, r_high,
+            #       Seq(r_low, r_dry, T, kappa), Seq(r_high, r_dry, T, kappa))  
+            #equil_r = r_eq_find(S, r_low, r_high, r_dry, T, kappa)
+            #dr_dt = (equil_r - r)/dt
             #dm_eq = 4.*PI*rho_w*r*r*dr_dt
 
+            equil_r = r_dry
+            dr_dt =  (r_dry - r)/dt
+            dm_eq = 4.*PI*rho_w*r*r*dr_dt
+
+            #printf("ev %1.5e | (%1.5e) %1.5e %1.5e\n", r, equil_r, dm_eq, dm_dyn)
             return cmax(dm_eq, dm_dyn)
 
         #else
@@ -596,7 +698,7 @@ def der(double t, double[::1] y, double[::1] xks,
         dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air, dt)
         dms_dt[k] = dm_dt 
 
-        '''
+        
         ## To more accurately estimate the change in cloud droplet water, 
         ## integrate the growth rate over the bin
         xk = xks[k]
@@ -616,10 +718,10 @@ def der(double t, double[::1] y, double[::1] xks,
         Tot_add *= dx
         
         dwc_dt += Tot_add
-        '''
+        
         
 
-        dwc_dt += dm_dt*Nk
+        #dwc_dt += dm_dt*Nk
     dwc_dt *= 1./rho_air
 
     dwv_dt = -dwc_dt
