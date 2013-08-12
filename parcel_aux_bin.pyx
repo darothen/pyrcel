@@ -267,7 +267,7 @@ cdef double growth_rate(double r, double r_dry, double T, double P, double S,
             if Seq(r_high, r_dry, T, kappa, S)*Seq(r_high,r_dry,T,kappa,S) > 0:
                 ## same sign, won't be able to find an equilibrium value.
                 ## FUDGE FACTOR
-                return dm_dyn/10.
+                return dm_dyn
 
             #printf("[%1.3e, %1.3e] - (%1.3e %1.3e)\n", r_low, r_high,
             #        Seq(r_low, r_dry, T, kappa, S), Seq(r_high, r_dry, T, kappa, S))     
@@ -647,7 +647,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
     return new_Nks, new_Mks, new_Mks_dry
 
 @cython.cdivision(True)
-def der(double t, double[::1] y, double[::1] xks,
+def der(double[::1] y, double t, double[::1] xks,
         double[::1] Nks, double[::1] Mks, double[::1] Mks_dry, 
         double V, double kappa, double rho, int nk, double dt,
         int output_log=0):

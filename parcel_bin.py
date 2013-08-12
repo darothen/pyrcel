@@ -10,7 +10,7 @@ import odespy
 
 EQUIL_ITER = 2
 
-s = 3
+s = 4
 p = 2**(1./s)
 nx = 100*s
 r0 = 0.001*1e-6 ## meters
@@ -18,7 +18,7 @@ rmax = 100.0*1e-6
 
 P0 = 80000.
 T0 = 283.15
-V = 1.0
+V = 0.5
 S0 = -0.0001
 wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15))
 aerosol_rho = 1760.
@@ -205,18 +205,23 @@ if __name__ == "__main__":
 
 	rhs = bin_methods.der
 
-	dt = 0.5
+	dt = 0.1
 	y0 = [0.0, P0, T0, wv0, wc0, S0]
 	y0.extend(np.zeros_like(xks))
 	t0 = 0.
 	#t_end = 2.*dt
-
-	r = ode(rhs)
 	log = 0
-	r.set_integrator('vode', method='bdf', order=5, max_step=dt/100.)
-	r.set_initial_value(y0)
-	r.set_f_params(*[xks_edges, Nks0, Mks0, Mks_dry0, 
-					 V, aerosol.kappa, aerosol_rho, nk, dt, log])
+
+	solver = odespy.Euler(rhs)
+	solver.set_initial_condition(y0)
+	solver.set(f_args=[xks_edges, Nks0, Mks0, Mks_dry0, 
+			   		   V, aerosol.kappa, aerosol_rho, nk, dt, log])
+
+	#r = ode(rhs)
+	#r.set_integrator('vode', method='bdf', order=5, max_step=dt/100.)
+	#r.set_initial_value(y0)
+	#r.set_f_params(*[xks_edges, Nks0, Mks0, Mks_dry0, 
+	#				 V, aerosol.kappa, aerosol_rho, nk, dt, log])
 
 	Nks = Nks0[:]
 	Mks = Mks0[:]
@@ -227,13 +232,28 @@ if __name__ == "__main__":
 	t0s = [t0, ]
 	y0s = [y0[:6], ]
 	Nks_all, Mks_all = [Nks0, ], [Mks0, ]
-	while r.successful() and r.t < t_end:
-		r.integrate(r.t + dt)
-		print r.t, r.y[:6]
-		y0s.append(r.y[:6])
-		t0s.append(r.t)
+	#while r.successful() and r.t < t_end:
+	#	r.integrate(r.t + dt)
+	#	print r.t, r.y[:6]
+	#	y0s.append(r.y[:6])
+	#	t0s.append(r.t)
+	t = t0
+	y = y0
+	while t < t_end:
+		time_points = [t, t+dt]
+		solver.set_initial_condition(y)
+		solver.set(f_args=[xks_edges, Nks, Mks, Mks_dry, 
+			 			   V, aerosol.kappa, aerosol_rho, nk, dt, log])
+		y, _ = solver.solve(time_points)
+		y = y[-1, :]
 
-		dms = r.y[6:nk+6]*1.0
+		t += dt
+
+		y0s.append(y[:6])
+		t0s.append(t)
+
+		#dms = r.y[6:nk+6]*1.0
+		dms = y[6:nk+6]*1.0
 
 		Nks, Mks, Mks_dry = bin_methods.adjust_bins(xks_edges, dms,
 													Nks, Mks, Mks_dry,
@@ -250,10 +270,12 @@ if __name__ == "__main__":
 		#	np.ma.sum(Mks_dry)/np.ma.sum(Mks_dry0) < 0.9:
 		#	raise ValueError("Too much dry mass change")
 
-		r.set_f_params(*[xks_edges, Nks, Mks, Mks_dry, 
-						 V, aerosol.kappa, aerosol_rho, nk, dt, log])
+	#	r.set_f_params(*[xks_edges, Nks, Mks, Mks_dry, 
+	#					 V, aerosol.kappa, aerosol_rho, nk, dt, log])
 
-		r.y[6:nk+6] = 0.
+	#	r.y[6:nk+6] = 0.
+		y[6:nk+6] = 0.
+
 		#r.y[:6] = y0[:6]
 
 	Nks_all = np.array(Nks_all)
@@ -277,11 +299,40 @@ if __name__ == "__main__":
 	semilogx()
 
 	figure(2); clf();
-	step(Nks0, 'b',  marker='x', label='before')
-	step(Nks,  'y',  marker='o', label='after')
-	step(Nks_dry0, 'k', marker='^', label='dry')
-	semilogy()
-	ylim(1e6, 1e9)	
+	fig, (ax1, ax2) = subplots(2, 1, sharex=True, num=2, figsize=(10, 4))
+	ax1.plot(xks_edges[:-1], Nks0, 'b',  marker='x', label='before')
+	ax1.plot(xks_edges[:-1], Nks,  'y',  marker='o', label='after')
+	ax1.plot(xks_edges[:-1], Nks_dry0, 'k', marker='^', label='dry')
+	ax1.semilogy()
+	ax1.semilogx()
+	ax_top = ax1.twiny()
+	ax_top.grid()
+	ax_top.set_xlim(rks_edges[0], rks_edges[-2])
+	ax_top.semilogx()
+	ax1.set_xlim(xks_edges[0], xks_edges[-2])
+	ax1.set_ylim(1e5, 1e9)	
+	ax1.set_ylabel("Number in bin (m$^-3$)")
+	ax_top.set_xlabel("Droplet radius (m)")
+
+	ax2.plot(xks_edges[:-1], Mks0, 'b',  marker='x', label='before')
+	ax2.plot(xks_edges[:-1], Mks,  'y',  marker='o', label='after')
+	ax2.plot(xks_edges[:-1], Mks_dry0, 'k', marker='^', label='dry')
+	ax2.semilogy()
+	ax2.semilogx()
+	ax2.set_xlim(xks_edges[0], xks_edges[-2])
+	ax2.set_ylim(1e-12, 1e-5)
+	ax2.set_xlabel("Droplet Mass (kg)")
+	ax2.set_ylabel("Mass in bin (kg/m$^3$)")
+	ax2.legend(loc='upper left')
+
+	ax2.grid(False, 'minor')
+	ax1.grid(False, 'minor')
+	ax_top.grid(False, 'major')
+	ax_top.grid(False, 'minor')
+
+	fig.subplots_adjust(hspace=0.05)
+	draw()
+
 	
 	figure(3); clf();
 	fig, axes = subplots(2, 3, num=3, figsize=(20,8))
@@ -306,8 +357,14 @@ if __name__ == "__main__":
 	yy = t0s
 	xx = range(nk)
 	xx, yy = np.meshgrid(xx, yy)
-	pc = ax.pcolor(xx, yy, Nks_all, norm=LogNorm(vmin=1e-6, vmax=Nks_all.max(), clip=True), cmap='PuBu')
+	pc = ax.pcolor(xx, yy, Nks_all, norm=LogNorm(vmin=1e-1, vmax=Nks_all.max(), clip=False),
+					   cmap='PuBu', rasterized=True)
+	#im = ax.imshow(Nks_all, norm=LogNorm(vmin=1e-1, vmax=Nks_all.max(), clip=True),
+	#				   cmap='PuBu', interpolation='None', origin='lower')
+	#im.set_extent([0, nk, 0, t0s[-1]])
+	ax.grid()
 	cb = fig.colorbar(pc)
+	cb.set_label("Number Concentration (m$^-3$)")
 	ax.set_xlim(0, nk); 
 	ax.set_xlabel("Bin Number")
 	ax.set_ylabel("time")
@@ -315,10 +372,17 @@ if __name__ == "__main__":
 	ax_S = ax.twiny()
 	ax_S.plot(pp.S, pp.index, color='k', linewidth=1.5)
 	ax_S.plot(x.S, t0s, color='r', marker='x', markersize=2)
-	ax_S.set_xlim(S0, 1.01*pp.S.max())
+	ax_S.set_xlim(S0, 1.01*np.max([pp.S.max(), x.S.max()]))
 	ax_S.set_xlabel("Supersaturation")
-
+	ax_S.grid()
 	ax.set_ylim(0, t0s[-1])
+
+	draw()
+
+	#from mpl_toolkits.mplot3d import Axes3D
+	#fig = figure(6); clf()
+	#ax = fig.add_subplot(111, projection='3d')
+
 
 """
 from parcel_aux_bin import Seq
@@ -330,9 +394,4 @@ import numpy as np
 rs = np.logspace(np.log10(r_low), np.log10(r_high), 1000)
 plot(rs, [Seq(r, 1.053431e-08, 2.831451e+02, 6.000000e-01) for r in rs])
 """
-
-
-
-
-
 
