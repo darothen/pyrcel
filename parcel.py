@@ -409,7 +409,7 @@ class ParcelModel(object):
                 return orig_der_fcn(y, t, nr, r_drys, Nis, V_t, kappas)
 
         try:
-            x, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate)
+            x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate)
         except ValueError, e:
             raise ParcelModelError("Something failed during model integration: %r" % e)
 
