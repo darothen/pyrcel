@@ -49,7 +49,7 @@ class Integrator(object):
             raise ValueError("something broke in LSODE: %r" % e)
             return None, False
 
-        return x, True
+        return x, t, True
 
     @staticmethod
     def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000, terminate=False):
@@ -58,7 +58,7 @@ class Integrator(object):
         nr, r_drys, Nis, V, kappas = args
         kwargs = { 'atol':1e-15, 'rtol':1e-12, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
-        terminate = lambda u, t, step_no: u[step_no][4] < u[step_no-1][4]
+        terminate = lambda u, t, step_no: u[step_no][5] < u[step_no-1][5]
         solver = Lsoda(f_w_args, **kwargs)
         solver.set_initial_condition(y0)
         #solver.set(f_args=args)
@@ -72,7 +72,7 @@ class Integrator(object):
             raise ValueError("something broke in LSODA: %r" % e)
             return None, False
 
-        return x, True
+        return x, t, True
 
     @staticmethod
     def _solve_odeint(f, t, y0, args, console=False, max_steps=1000, terminate=False):
@@ -88,4 +88,4 @@ class Integrator(object):
             raise ValueError("something broke in odeint: %r" % info['message'])
             return None, False
 
-        return x, success
+        return x, t, success

@@ -10,7 +10,7 @@ import odespy
 
 EQUIL_ITER = 2
 
-s = 4
+s = 2
 p = 2**(1./s)
 nx = 100*s
 r0 = 0.001*1e-6 ## meters
@@ -19,7 +19,7 @@ rmax = 100.0*1e-6
 P0 = 80000.
 T0 = 283.15
 V = 0.5
-S0 = -0.0001
+S0 = -0.00
 wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15))
 aerosol_rho = 1760.
 
@@ -49,7 +49,7 @@ while rks[-1] <= rmax:
 	xks.append(xk)
 ## Add a giant catch-all bin at the end
 for k in xrange(1):
-	xks.append(xks[-1]*10)
+	xks.append(xks[-1]*p)
 	rks.append((xks[-1]*0.75/(aerosol_rho*np.pi))**(1./3.))
 
 xks_edges = np.array(xks)
@@ -205,7 +205,7 @@ if __name__ == "__main__":
 
 	rhs = bin_methods.der
 
-	dt = 0.1
+	dt = 0.05
 	y0 = [0.0, P0, T0, wv0, wc0, S0]
 	y0.extend(np.zeros_like(xks))
 	t0 = 0.
