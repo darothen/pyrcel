@@ -445,9 +445,9 @@ if __name__ == "__main__":
     #mus = np.ones_like(Ns)*0.05 # 0.05
 
     # READ FROM A FILE
-    with open("all_params_deg5", "rb") as f:
-        data = pickle.load(f)
-    alphas, gammas, ds_dcs, Ns, Ms = map(np.array, zip(*data))
+    #with open("all_params_deg5", "rb") as f:
+    #    data = pickle.load(f)
+    #alphas, gammas, ds_dcs, Ns, Ms = map(np.array, zip(*data))
 
     params['alphas'] = alphas
     params['gammas'] = gammas

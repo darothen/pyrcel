@@ -48,7 +48,7 @@ def ming2006(V, T, P, aerosol):
 
     Num = aerosol.Nis*1e-6
 
-    RpDry = aerosol.mu*1e-6
+    RpDry = aerosol.distribution.mu*1e-6
     kappa = aerosol.kappa
 
     ## pre-algorithm
@@ -164,9 +164,9 @@ def arg2000(V, T, P, aerosols):
     Sparts = []
     for aerosol in aerosols:
 
-        sigma = aerosol.sigma
-        am = aerosol.mu*1e-6
-        N = aerosol.N*1e6
+        sigma = aerosol.distribution.sigma
+        am = aerosol.distribution.mu*1e-6
+        N = aerosol.distribution.N*1e6
         kappa = aerosol.kappa
 
         fi = 0.5*np.exp(2.5*(np.log(sigma)**2))
@@ -191,9 +191,9 @@ def arg2000(V, T, P, aerosols):
 
     act_fracs = []
     for Smi, aerosol in zip(Smis, aerosols):
-        ui = 2.*np.log(Smi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-        N_act = 0.5*aerosol.N*erfc(ui)
-        act_fracs.append(N_act/aerosol.N)
+        ui = 2.*np.log(Smi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+        N_act = 0.5*aerosol.distribution.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.distribution.N)
 
     return Smax, act_fracs
 
@@ -227,7 +227,7 @@ def fn2005(V, T, P, aerosols, tol=1e-6, max_iters=100):
     ## Compute sgi of each mode
     sgis = []
     for aerosol in aerosols:
-        _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+        _, sgi = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
         sgis.append(sgi)
     #print "--"*20
 
@@ -248,8 +248,8 @@ def fn2005(V, T, P, aerosols, tol=1e-6, max_iters=100):
         I1s, I2s = 0.0, 0.0
         for aerosol, sgi in zip(aerosols, sgis):
 
-            log_sig = np.log(aerosol.sigma)
-            Ni = aerosol.N*1e6
+            log_sig = np.log(aerosol.distribution.sigma)
+            Ni = aerosol.distribution.N*1e6
 
             upart = 2.*np.log(sgi/Spart)/(3.*np.sqrt(2)*log_sig)
             umax = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2)*log_sig)
@@ -315,9 +315,9 @@ def fn2005(V, T, P, aerosols, tol=1e-6, max_iters=100):
 
     act_fracs = []
     for aerosol, sgi in zip(aerosols, sgis):
-        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-        N_act = 0.5*aerosol.N*erfc(ui)
-        act_fracs.append(N_act/aerosol.N)
+        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+        N_act = 0.5*aerosol.distribution.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.distribution.N)
 
     return Smax, act_fracs
 
@@ -348,7 +348,7 @@ def ns2003(V, T, P, aerosols, tol=1e-6, max_iters=100):
 
     sgis = []
     for aerosol in aerosols:
-        _, sgi = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
+        _, sgi = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
         sgis.append(sgi)
 
     def sintegral(spar):
@@ -375,9 +375,9 @@ def ns2003(V, T, P, aerosols, tol=1e-6, max_iters=100):
         for aerosol, sgi in zip(aerosols, sgis):
 
             sg_par = sgi
-            tpi = aerosol.N*1e6
+            tpi = aerosol.distribution.N*1e6
 
-            dlgsg = np.log(aerosol.sigma)
+            dlgsg = np.log(aerosol.distribution.sigma)
             dlgsp = np.log(sg_par/spar)
 
             orism1 = 2.0*np.log(sg_par/ssplt2)/(3.*sqtwo*dlgsg)
@@ -442,8 +442,8 @@ def ns2003(V, T, P, aerosols, tol=1e-6, max_iters=100):
 
     act_fracs = []
     for aerosol, sgi in zip(aerosols, sgis):
-        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-        N_act = 0.5*aerosol.N*erfc(ui)
-        act_fracs.append(N_act/aerosol.N)
+        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+        N_act = 0.5*aerosol.distribution.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.distribution.N)
 
     return Smax, act_fracs
