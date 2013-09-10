@@ -97,7 +97,7 @@ class AerosolSpecies(object):
 
         self.species = species  # Species molecular formula
         self.kappa = kappa      # Kappa hygroscopicity parameter
-        self.rho = rho
+        self.rho = rho          # aerosol density kg/m^3
         self.mw = mw
         self.bins = bins        # Number of bins for discretizing the size distribution
 
@@ -114,15 +114,19 @@ class AerosolSpecies(object):
             if bins is None:
                 raise ValueError("Need to specify `bins` argument if passing a Lognorm distribution")
 
-            if not r_min and not r_max:
-                lr = np.log10(distribution.mu/(10.*distribution.sigma))
-                rr = np.log10(distribution.mu*10.*distribution.sigma)
+            if isinstance(bins, (list, np.ndarray)):
+                self.rs = bins[:]
             else:
-                lr, rr = np.log10(r_min), np.log10(r_max)
+                if not r_min and not r_max:
+                    lr = np.log10(distribution.mu/(10.*distribution.sigma))
+                    rr = np.log10(distribution.mu*10.*distribution.sigma)
+                else:
+                    lr, rr = np.log10(r_min), np.log10(r_max)
+                self.rs = np.logspace(lr, rr, num=bins+1)[:]
 
-            self.rs = np.logspace(lr, rr, num=bins+1)[:]
-            mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
-            self.Nis = np.array([0.5*(b-a)*(distribution.pdf(a) + distribution.pdf(b)) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
+            nbins = len(self.rs)
+            mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:nbins]
+            self.Nis = np.array([0.5*(b-a)*(distribution.pdf(a) + distribution.pdf(b)) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:nbins]
             self.r_drys = mids*1e-6
 
         elif isinstance(distribution, MultiModeLognorm):
@@ -134,14 +138,17 @@ class AerosolSpecies(object):
             big_mu = distribution.mus[-1]
             big_sigma = distribution.sigmas[-1]
 
-            if not r_min and not r_max:
-                lr, rr = np.log10(small_mu/(10.*small_sigma)), np.log10(big_mu*10.*big_sigma)
+            if isinstance(bins, (list, np.ndarray)):
+                self.rs = bins[:]
             else:
-                lr, rr = np.log10(r_min), np.log10(r_max)
+                if not r_min and not r_max:
+                    lr, rr = np.log10(small_mu/(10.*small_sigma)), np.log10(big_mu*10.*big_sigma)
+                else:
+                    lr, rr = np.log10(r_min), np.log10(r_max)
 
-            self.rs = np.logspace(lr, rr, num=bins+1)[:]
-            mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
-            self.Nis = np.array([0.5*(b-a)*(distribution.pdf(a) + distribution.pdf(b)) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:bins]
+                self.rs = np.logspace(lr, rr, num=bins+1)[:]
+            mids = np.array([np.sqrt(a*b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:nbins]
+            self.Nis = np.array([0.5*(b-a)*(distribution.pdf(a) + distribution.pdf(b)) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:nbins]
             self.r_drys = mids*1e-6
 
         else:

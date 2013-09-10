@@ -402,7 +402,7 @@ class ParcelModel(object):
 
         ## Is the updraft speed a function?
         v_is_func = hasattr(self.V, '__call__')
-        if v_is_func: # Re-wrap the function to correctly figure out V
+        if v_is_func: # Re-wrap the function to correctly figure out V            
             orig_der_fcn = der_fcn
             def der_fcn(y, t, nr, r_drys, Nis, V, kappas):
                 V_t = self.V(t)

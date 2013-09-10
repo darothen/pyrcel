@@ -11,8 +11,16 @@ try:
     from odespy.odepack import Lsode, Lsoda
     from odespy import Vode
 except ImportError:
-    print "Could not import odespy package"
+    print "Could not import odespy package; invoking the 'lsoda' or 'lsode' options will fail!"
     pass
+
+try: 
+    from assimulo.problem import Explicit_Problem
+    from assimulo.solvers.sundials import CVode, CVodeError
+except ImportError:
+    print "Could not import Assimulo; invoking the CVode solver will fail!"
+    pass
+
 from scipy.integrate import odeint
 
 class Integrator(object):
@@ -33,6 +41,7 @@ class Integrator(object):
             'lsoda': Integrator._solve_lsoda,
             'lsode': Integrator._solve_lsode,
             'vode': Integrator._solve_vode,
+            'cvode': Integrator._solve_cvode,
         }
 
         return solvers[method]
@@ -108,6 +117,35 @@ class Integrator(object):
 
         return x, t, True
 
+    @staticmethod
+    def _solve_cvode(f, t, y0, args, console=False, max_steps=1000, terminate=False):
+        """Wrapper for Assimulo's CVODE-Sundials routine
+        """
+        def rhs(t, u):
+            return f(u, t, *args)
+
+        prob = Explicit_Problem(rhs, y0)
+        sim = CVode(prob)
+        sim.rtol = 1e-15
+        sim.atol = 1e-12
+        sim.discr = 'BDF'
+        sim.maxord = 5 
+        sim.maxsteps = max_steps
+
+        if not console:
+            sim.verbosity = 50
+
+        t_end = t[-1]
+        steps = len(t)
+
+        try:
+            print t_end, steps
+            t, x = sim.simulate(t_end, steps)
+        except CVodeError, e:
+            raise ValueError("Something broke in CVode: %r" % e)
+            return None, False
+
+        return x, t, True
 
     @staticmethod
     def _solve_odeint(f, t, y0, args, console=False, max_steps=1000, terminate=False):
