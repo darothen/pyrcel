@@ -45,7 +45,7 @@ class Integrator(object):
         kwargs = { 'atol':1e-15, 'rtol':1e-12, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
         f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no -1][5]
-        solver = Lsode(f, f_w_args, **kwargs)
+        solver = Lsode(f_w_args, **kwargs)
         solver.set_initial_condition(y0)
         #solver.set(f_args=args)
 
