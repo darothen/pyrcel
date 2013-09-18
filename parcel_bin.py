@@ -182,7 +182,7 @@ if __name__ == "__main__":
 			#print "k %3d" % k, "%1.3e->%1.3e | %1.3e" % (mean_r_dry, mean_r_new, mean_r_wet)
 			#print "      (%1.3e, %1.3e) %1.3e" % (xks[k], p*xks[k], mean_x_new)
 			#print "      mass: %1.3e to %1.3e (%1.3e kg/drop)" % (Mks0[k], Mk_new, dms[k])
-		Nks1, Mks1, Mks_dry1 = bin_methods.adjust_bins(xks_edges, dms,
+		Nks1, Mks1, Mks_dry1 = bin_methods.adjust_bins(xks_edges, dms, dms,
 													   Nks0, Mks0, Mks_dry0,
 													   nk, 0)
 		wc_add = np.sum(dms*Nks0)/rho_air
@@ -253,9 +253,11 @@ if __name__ == "__main__":
 		t0s.append(t)
 
 		#dms = r.y[6:nk+6]*1.0
-		dms = y[6:nk+6]*1.0
+		#dms = y[6:nk+6]*1.0
+		dms_low = r.y[6:nk+6]*1.0
+		dms_high = r.y[nk+6:2*nk+6]*1.0
 
-		Nks, Mks, Mks_dry = bin_methods.adjust_bins(xks_edges, dms,
+		Nks, Mks, Mks_dry = bin_methods.adjust_bins(xks_edges, dms_low, dms_high,
 													Nks, Mks, Mks_dry,
 													nk, 0)
 		Nks_all.append(Nks)
@@ -274,8 +276,8 @@ if __name__ == "__main__":
 	#					 V, aerosol.kappa, aerosol_rho, nk, dt, log])
 
 	#	r.y[6:nk+6] = 0.
-		y[6:nk+6] = 0.
-
+	#	y[6:nk+6] = 0.
+		r.y[6:2*nk+6] = 0.
 		#r.y[:6] = y0[:6]
 
 	Nks_all = np.array(Nks_all)

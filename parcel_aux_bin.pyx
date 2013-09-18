@@ -490,7 +490,7 @@ cdef double trap_integrate(double xleft, double xright, # bounds to integrate
 
 
 @cython.cdivision(True)
-def adjust_bins(double[::1] xks, double[::1] dms,
+def adjust_bins(double[::1] xks, double[::1] dms_lo, double[::1] dms_hi,
                 double[::1] Nks, double[::1] Mks, double[::1] Mks_dry,
                 int nk, int output_log):
     new_Nks = np.zeros(shape=(nk), dtype='d')
@@ -520,13 +520,18 @@ def adjust_bins(double[::1] xks, double[::1] dms,
                 print "k", k, "no mass in bin"
             continue
         
-        dm = dms[k]
+        dm_low = dms_lo[k]
+        dm_high = dms_hi[k]
 
         Nk_new = Nk*1.0
-        Mk_new = Mk + Nk*dm
+        #Mk_new = Mk + Nk*dm
 
-        x_low = xk + dm
-        x_high = xkp1 + dm
+        #x_low = xk + dm
+        #x_high = xkp1 + dm
+        Mk_new = Mk + Nk*0.5*(dm_high + dm_low)
+        
+        x_low = xk + dm_low
+        x_high = xkp1 + dm_high
 
         ## Check if things were made too small and adjust
         # - should no longer be triggered 8/8/2013
@@ -544,7 +549,7 @@ def adjust_bins(double[::1] xks, double[::1] dms,
 
         if output_log > 0:
             print "k", k, "(%1.5e, %1.5e)->(%1.5e, %1.5e)" % (xk, xkp1, x_low, x_high)
-            print "   dm", dm
+            print "   dm", dm_low, dm_high
             print "   Mk", Mk, Mk_new
             print "   Nk", Nk, Nk_new      
         
@@ -677,13 +682,15 @@ def der(double[::1] y, double t, double[::1] xks,
         double dm_dt, xk, xkp1, dx, Tot_add, dmk_dt, xi, ri
         unsigned int i, k
 
-    dms_dt = np.zeros(shape=(nk), dtype='d')
+    dms_dt = np.zeros(shape=(2, nk), dtype='d')
 
     for k in range(nk):
         Nk = Nks[k]
         Mk = Mks[k]
         Nk_dry = Nks[k]
         Mk_dry = Mks_dry[k]
+        xk = xks[k]
+        xkp1 = xks[k+1]
         
         mean_m = Mk/Nk # kg
         mean_m_dry = Mk_dry/Nk_dry
@@ -695,8 +702,14 @@ def der(double[::1] y, double t, double[::1] xks,
                 print "k", k, "no mass in bin"
             continue
 
-        dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air, dt)
-        dms_dt[k] = dm_dt 
+
+        ##dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air, dt)
+        ##dms_dt[k] = dm_dt 
+        #dm_dt = growth_rate(mean_r, mean_r_dry, T, P, S, kappa, rho_air)
+        #dms_dt[k] = dm_dt
+        dm_dt_low = growth_rate(m_to_r(xk, rho_w), mean_r_dry, T, P, S, kappa, rho_air)
+        dm_dt_high = growth_rate(m_to_r(xkp1, rho_w), mean_r_dry, T, P, S, kappa, rho_air)
+        dms_dt[:, k] = (dm_dt_low, dm_dt_high)
 
         
         ## To more accurately estimate the change in cloud droplet water, 
@@ -705,7 +718,6 @@ def der(double[::1] y, double t, double[::1] xks,
         xkp1 = xks[k+1]
         #Tot_add = bin_growth_integrate(mean_r_dry, T, P, S, kappa, rho_air,
         #                               xk, xkp1, Nk, Mk)
-        
         Tot_add = 0.0
         dx = (xkp1 - xk)/(100.)
         for i in range(1, 100):
@@ -734,13 +746,14 @@ def der(double[::1] y, double t, double[::1] xks,
     gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
-    x = np.empty(shape=(nk+6), dtype='d')
+    x = np.empty(shape=(2*nk+6), dtype='d')
     x[0] = dz_dt
     x[1] = dP_dt
     x[2] = dT_dt
     x[3] = dwv_dt
     x[4] = dwc_dt
     x[5] = dS_dt
-    x[6:nk+6] = dms_dt
+    x[6:nk+6] = dms_dt[0, :]
+    x[nk+6:2*nk+6] = dms_dt[1, :]
     
     return x
