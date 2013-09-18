@@ -1,0 +1,2 @@
+pgf90 -Mfree twomey.f
+a.out
