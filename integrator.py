@@ -134,6 +134,9 @@ class Integrator(object):
 
         if not console:
             sim.verbosity = 50
+        else:
+            sim.report_continuously = True
+
 
         t_end = t[-1]
         steps = len(t)
