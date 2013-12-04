@@ -6,7 +6,7 @@
 
 """
 
-import numpy as numpy
+import numpy as np
 from numpy import min as nmin
 from scipy.special import erfc, erf, erfinv
 
@@ -462,7 +462,7 @@ def uni_to_norm(x, a, b):
     """                                                                                               
     Map a value from the uniform distribution [a, b] to the normal distribution                       
     """
-    return sqrt(2.)*erfinv(2.*(x-a)/(b-a)  - 1.0)
+    return np.sqrt(2.)*erfinv(2.*(x-a)/(b-a)  - 1.0)
 
 def pce_param(V, T, P, aerosols):
 
@@ -473,13 +473,29 @@ def pce_param(V, T, P, aerosols):
         sigma = aerosol.distribution.sigma
         kappa = aerosol.kappa
 
-        Smax = _pce_fit(N, my, sigma, kappa, V, T, P*100.)
+        Smax = _pce_fit(N, mu, sigma, kappa, V, T, P)
+        Smaxes.append(Smax)
 
     min_smax = nmin(Smaxes)
     if 0. <= min_smax <= 0.5: 
-        return min_smax
+        Smax = min_smax
     else:
-        return 0.
+        return 0., [0.]*len(aerosols)
+
+    ## Compute scrit of each mode
+    scrits = []
+    for aerosol in aerosols:
+        _, scrit = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
+        scrits.append(scrit)
+
+    act_fracs = []
+    for aerosol, scrit in zip(aerosols, scrits):
+        ui = 2.*np.log(scrit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+        N_act = 0.5*aerosol.distribution.N*erfc(ui)
+        act_fracs.append(N_act/aerosol.distribution.N)
+
+    return Smax, act_fracs
+
 
 def _pce_fit(N, mu, sigma, kappa, V, T, P):
     ## P in Pa
