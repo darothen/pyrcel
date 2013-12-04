@@ -28,6 +28,7 @@ def iterate_runs(V, initial_aerosols, T, P, dt=0.01, dt_iters=2, max_steps=500):
     """
     Iterate through several different strategies for integrating the parcel model.
     """
+    aerosols = initial_aerosols
     if V <= 0:
         return 0., 0., 0.
 
