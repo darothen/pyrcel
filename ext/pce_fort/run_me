@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+gfortran pce_param.F90
+./a.out
