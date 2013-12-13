@@ -476,6 +476,8 @@ def pce_param(V, T, P, aerosols):
         Smax = _pce_fit(N, mu, sigma, kappa, V, T, P)
         Smaxes.append(Smax)
 
+        print "PCE with", N, mu, sigma, kappa, V, T, P, Smax
+
     min_smax = nmin(Smaxes)
     if 0. <= min_smax <= 0.5: 
         Smax = min_smax
