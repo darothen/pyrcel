@@ -9,7 +9,8 @@
 from parcel import ParcelModel, ParcelModelError
 from activation import fn2005, arg2000
 
-def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, solver='lsoda'):
+def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, t_end=500.,
+              solver='lsoda'):
     """
     Setup and run the parcel model with the given set of model and 
     integrator parameters.
@@ -19,7 +20,7 @@ def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, solver='lsoda'):
 
     model = ParcelModel(initial_aerosols, V, T, -0.0, P)
     try:
-        Smax = model.run(500.0, dt, max_steps, solver=solver, output='smax')
+        Smax = model.run(t_end, dt, max_steps, solver=solver, output='smax')
     except ParcelModelError:
         return None
     return Smax

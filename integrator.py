@@ -7,9 +7,12 @@
 """
 __docformat__ = 'reStructuredText'
 
+available_integrators = ['odeint']
+
 try:
     from odespy.odepack import Lsode, Lsoda
     from odespy import Vode
+    available_integrators.extend(['lsode', 'lsoda', 'vode'])
 except ImportError:
     print "Could not import odespy package; invoking the 'lsoda' or 'lsode' options will fail!"
     pass
@@ -17,6 +20,7 @@ except ImportError:
 try: 
     from assimulo.problem import Explicit_Problem
     from assimulo.solvers.sundials import CVode, CVodeError
+    available_integrators.extend(['cvode'])
 except ImportError:
     print "Could not import Assimulo; invoking the CVode solver will fail!"
     pass
@@ -44,7 +48,12 @@ class Integrator(object):
             'cvode': Integrator._solve_cvode,
         }
 
-        return solvers[method]
+        if method in available_integrators:
+            return solvers[method]
+        else:
+            ## solver name is not defined, or the module containing
+            ## it is unavailable
+            raise ValueError("integrator for %s is not available" % method)
 
     @staticmethod
     def _solve_lsode(f, t, y0, args, console=False, max_steps=1000, terminate=False):
