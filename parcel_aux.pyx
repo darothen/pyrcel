@@ -17,7 +17,7 @@ from libc.math cimport exp, sqrt
 import numpy as np
 cimport numpy as np
 cimport cython
-cimport openmp
+#cimport openmp
 
 import constants as c
 

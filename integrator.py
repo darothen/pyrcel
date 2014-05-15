@@ -103,7 +103,7 @@ class Integrator(object):
 
     @staticmethod
     def _solve_vode(f, t, y0, args, console=False, max_steps=1000, terminate=False):
-        """Wrapper for odespy.odepack.Lsoda
+        """Wrapper for odespy.Vode
         """
         nr, r_drys, Nis, V, kappas = args
         #kwargs = { 'atol':1e-10, 'rtol':1e-8, 'nsteps':max_steps,
@@ -151,7 +151,7 @@ class Integrator(object):
         steps = len(t)
 
         try:
-            print t_end, steps
+            #print t_end, steps
             t, x = sim.simulate(t_end, steps)
         except CVodeError, e:
             raise ValueError("Something broke in CVode: %r" % e)

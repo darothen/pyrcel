@@ -10,7 +10,7 @@ from parcel import ParcelModel, ParcelModelError
 from activation import fn2005, arg2000
 
 def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, t_end=500.,
-              solver='lsoda'):
+              solver='lsoda', output='smax'):
     """
     Setup and run the parcel model with the given set of model and 
     integrator parameters.
@@ -20,12 +20,14 @@ def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, t_end=500.,
 
     model = ParcelModel(initial_aerosols, V, T, -0.0, P)
     try:
-        Smax = model.run(t_end, dt, max_steps, solver=solver, output='smax')
+        Smax = model.run(t_end, dt, max_steps, solver=solver, 
+                         output=output)
     except ParcelModelError:
         return None
     return Smax
 
-def iterate_runs(V, initial_aerosols, T, P, dt=0.01, dt_iters=2, max_steps=500):
+def iterate_runs(V, initial_aerosols, T, P, dt=0.01, dt_iters=2, 
+                 t_end=500., max_steps=500, output='smax'):
     """
     Iterate through several different strategies for integrating the parcel model.
     """
@@ -53,13 +55,15 @@ def iterate_runs(V, initial_aerosols, T, P, dt=0.01, dt_iters=2, max_steps=500):
 
     ## Strategy 1: Try CVODE with modest tolerances.
     print " Trying CVODE with default tolerance"
-    S_max = run_model(V, aerosols, T, P, dt, max_steps=2000, solver='cvode')
+    S_max = run_model(V, aerosols, T, P, dt, max_steps=2000, solver='cvode',
+                      t_end=t_end, output=output)
 
     ## Strategy 2: Iterate over some increasingly relaxed tolerances for LSODA.
     if not S_max:
         while dt > dt_orig/(2**dt_iters):
             print " Trying LSODA, dt = %1.3e, max_steps = %d" % (dt, max_steps)
-            S_max = run_model(V, aerosols, T, P, dt, max_steps, solver='lsoda')
+            S_max = run_model(V, aerosols, T, P, dt, max_steps, solver='lsoda',
+                              t_end=t_end)
             if not S_max:
                 dt = dt/2.
                 print "    Retrying..."
@@ -71,7 +75,8 @@ def iterate_runs(V, initial_aerosols, T, P, dt=0.01, dt_iters=2, max_steps=500):
     ##             a very long time.
     if not finished and not S_max:
         print " Trying LSODE"
-        S_max = run_model(V, aerosols, T, P, dt_orig, max_steps=1000, solver='lsode')
+        S_max = run_model(V, aerosols, T, P, dt_orig, max_steps=1000, solver='lsode',
+                          t_end=t_end)
 
     ## Strategy 4: If all else fails return -9999.
     if not S_max:
