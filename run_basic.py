@@ -10,7 +10,7 @@ import numpy as np
 P0 = 85000. # Pressure, Pa
 T0 = 283. # Temperature, K
 S0 = 0.0 # Supersaturation. 1-RH from wv term
-V = 0.2 # m/s
+V = 2.5 # m/s
 
 mu = 0.21
 sigma =  1.5
@@ -70,7 +70,7 @@ print eq, kn
 import matplotlib.pyplot as plt
 def quick_plot():
     plt.figure(1)
-    plt_meta = p.plot("z", "S")
+    plt_meta = p.plot("z", "S", zorder=3)
     c = plt_meta.lines[-1].get_color()
     plt.vlines(p.z.ix[tmax], 0, Smax, color=c, linestyle='dashed')
     plt.hlines(Smax, 0, p.z.ix[tmax], color=c, linestyle='dashed')

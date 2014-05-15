@@ -76,6 +76,27 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     cdef double returnval = exp(A)*B - 1.0
     return returnval
 
+## Jacobian of derivative
+def jac(double[::1] y, double t,
+        int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas):
+
+    cdef double z = y[0]
+    cdef double P = y[1]
+    cdef double T = y[2]
+    cdef double wv = y[3]
+    cdef double wc = y[4]
+    cdef double S = y[5]
+    #cdef np.ndarray[double, ndim=1] rs = y[5:]
+    cdef double[::1] rs = y[6:]
+
+    cdef double T_c = T-273.15 # convert temperature to Celsius
+    cdef double pv_sat = es(T_c) # saturation vapor pressure
+    cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
+    cdef double Tv = (1.+0.61*wv)*T
+    cdef double rho_air = P/(Rd*Tv)
+
+    return 
+
 ## RHS Derivative callback function
 def der(double[::1] y, double t,
         int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas):
@@ -89,11 +110,12 @@ def der(double[::1] y, double t,
 
     **Args**:
         * *y* -- NumPy array containing the current state of the parcel model system,
-            * y[0] = pressure, Pa
-            * y[1] = temperature, K
-            * y[2] = water vapor mass mixing ratio, kg/kg
-            * y[3] = droplet liquid water mass mixing ratio, kg/kg
-            * y[3] = parcel supersaturation
+            * y[0] = height, m
+            * y[1] = pressure, Pa
+            * y[2] = temperature, K
+            * y[3] = water vapor mass mixing ratio, kg/kg
+            * y[4] = droplet liquid water mass mixing ratio, kg/kg
+            * y[5] = parcel supersaturation
             * y[nr:] = aerosol bin sizes (radii), m
         * *t* -- Current decimal model time
         * *nr* -- Integer number of aerosol radii being tracked

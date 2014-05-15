@@ -10,7 +10,7 @@ from parcel import ParcelModel, ParcelModelError
 from activation import fn2005, arg2000
 
 def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, t_end=500.,
-              solver='lsoda', output='smax'):
+              solver='lsoda', output='smax', solver_args={}):
     """
     Setup and run the parcel model with the given set of model and 
     integrator parameters.
@@ -21,7 +21,7 @@ def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, t_end=500.,
     model = ParcelModel(initial_aerosols, V, T, -0.0, P)
     try:
         Smax = model.run(t_end, dt, max_steps, solver=solver, 
-                         output=output)
+                         output=output, solver_args=solver_args)
     except ParcelModelError:
         return None
     return Smax
@@ -56,7 +56,9 @@ def iterate_runs(V, initial_aerosols, T, P, dt=0.01, dt_iters=2,
     ## Strategy 1: Try CVODE with modest tolerances.
     print " Trying CVODE with default tolerance"
     S_max = run_model(V, aerosols, T, P, dt, max_steps=2000, solver='cvode',
-                      t_end=t_end, output=output)
+                      t_end=t_end, output=output, 
+                      solver_args={'iter': 'Newton', 'time_limit': 10.0, 
+                                   'linear_solver': "DENSE"})
 
     ## Strategy 2: Iterate over some increasingly relaxed tolerances for LSODA.
     if not S_max:

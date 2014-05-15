@@ -312,7 +312,7 @@ class ParcelModel(object):
         return t, x
 
     def run(self, t_end, dt, max_steps=1000, solver="odeint", output="dataframes",
-            terminate=False):
+            terminate=False, solver_args={}):
         """Run the parcel model.
 
         After initializing the parcel model, it can be immediately run by
@@ -409,7 +409,8 @@ class ParcelModel(object):
                 return orig_der_fcn(y, t, nr, r_drys, Nis, V_t, kappas)
 
         try:
-            x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate)
+            x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate,
+                                       **solver_args)
         except ValueError, e:
             raise ParcelModelError("Something failed during model integration: %r" % e)
 
