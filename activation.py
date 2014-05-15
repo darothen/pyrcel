@@ -271,7 +271,7 @@ def fn2005(V, T, P, aerosols, tol=1e-6, max_iters=100):
                 C2 = erf(umax - 3.*log_sig/(2.*np.sqrt(2.)))
                 return A1*A2*(C1 - C2)
 
-            beta = 0.5*np.pi*gamma*rho_w*G/alpha/V#/rho_air
+            beta = 0.5*np.pi*gamma*rho_w*G/alpha/V/rho_air
             #beta = 0.5*np.pi*gamma*rho_w/bet2_par/alpha/V/rho_air
             #print "++", Smax, I1(Smax), I2(Smax)
 
