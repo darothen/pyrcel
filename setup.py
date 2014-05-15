@@ -5,7 +5,6 @@ import numpy
 
 #import cython_gsl as cgsl
 
-
 ## Cython modules
 setup(
     #include_dirs = [cgsl.get_include(), ], 
