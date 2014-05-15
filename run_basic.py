@@ -1,23 +1,25 @@
 from aerosol import AerosolSpecies
 from lognorm import Lognorm
-from activation import arg2000, fn2005, act_fraction
+from activation import act_fraction
 from driver import iterate_runs
+from ext.ghan.activation import explicit as ghan_explicit
+from ext.ghan.activation import parameterization as ghan_param
 
 import numpy as np
 
-P0 = 95000. # Pressure, Pa
+P0 = 85000. # Pressure, Pa
 T0 = 283. # Temperature, K
 S0 = 0.0 # Supersaturation. 1-RH from wv term
-V = 0.5 # m/s
+V = 0.2 # m/s
 
-mu = 0.15
-sigma =  1.2
-kappa = 0.6
-N = 1000
+mu = 0.21
+sigma =  1.5
+kappa = 0.54
+N = 500
 
 ## Add aerosols to the parcel
 aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=mu, sigma=sigma, N=N),
-                          bins=200, kappa=kappa)
+                          bins=200, kappa=kappa, rho=1760.)
 initial_aerosols = [aerosol1, ]
 
 aer_species = [a.species for a in initial_aerosols]
@@ -26,7 +28,7 @@ for aerosol in initial_aerosols:
     aer_dict[aerosol.species] = aerosol
 
 dt = 0.05 # seconds
-t_end = 100./V
+t_end = 500./V
 
 ## Vanilla parcel model run
 '''
@@ -42,22 +44,27 @@ nenes_Smax, nenes_ratio = fn2005(V, T0, P0, initial_aerosols)
 (p, a), ghan_Smax, nenes_Smax = iterate_runs(V, initial_aerosols, T0, P0,
                                              output="dataframes", 
                                              dt=dt, t_end=t_end)
+
 Smax = p.S.max()
 tmax = p.S.argmax()
 a = a[aerosol1.species]
 rs = np.array(a.ix[tmax].tolist())
 eq, kn = act_fraction(Smax, T0, rs, kappa, aerosol1.r_drys, aerosol1.Nis)
 
+_, ghan_exp_Smax = ghan_explicit(initial_aerosols, V, T0, S0, P0)
+_, ghan_param_Smax = ghan_param(initial_aerosols, V, T0, S0, P0)
+
 ## print activation stuff
 
-print "       Smax"
-print " Nenes", nenes_Smax
-print "  Ghan", ghan_Smax
+print "               Smax"
+print "       Nenes", nenes_Smax
+print "        Ghan", ghan_Smax
 #print "  Ming", ming_Smax
-print "Parcel", Smax
-
+print "      Parcel", Smax
 print "--"*40
-
+print " Ghan parcel", ghan_exp_Smax
+print "  Ghan param", ghan_param_Smax
+print "--"*40
 print eq, kn
 
 import matplotlib.pyplot as plt
@@ -101,5 +108,8 @@ def activation_plot():
     plt.plot(p.z.ix[:tmax:step], kns, color='r', label="Kn")
     plt.legend(loc="upper left")
     plt.ylim(0, 1)
+
+quick_plot()
+plt.show(block=True)
 
 

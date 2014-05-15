@@ -133,19 +133,26 @@ class Integrator(object):
         def rhs(t, u):
             return f(u, t, *args)
 
+        ## Setup solver
         prob = Explicit_Problem(rhs, y0)
         sim = CVode(prob)
-        sim.rtol = 1e-15
-        sim.atol = 1e-12
         sim.discr = 'BDF'
         sim.maxord = 5 
         sim.maxsteps = max_steps
+        sim.iter = "Newton"
+        #sim.linear_solver = "SPGMR"
 
-        if not console:
-            sim.verbosity = 50
-        else:
-            sim.report_continuously = True
+        ## Setup tolerances
+        nr = args[0]
+        ny = 6 + nr # z, P, T, wv, wc, S, *droplet_sizes        
+        sim.rtol = 1e-7
+        sim.atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
 
+        #if not console:
+        #    sim.verbosity = 50
+        #else:
+        #    sim.report_continuously = True
+        sim.report_continuously = True
 
         t_end = t[-1]
         steps = len(t)
