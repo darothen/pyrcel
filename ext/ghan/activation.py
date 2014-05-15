@@ -38,10 +38,11 @@ def _unpack_aerosols(aerosols):
     ## Unpack the aerosol data for the Ghan code
     na, sig, rhodry, hygro, rad = [], [], [], [], []
     for aerosol in aerosols:
-        na.append(aerosol.N)
-        sig.append(aerosol.sigma)
+        dist = aerosol.distribution
+        na.append(dist.N)
+        sig.append(dist.sigma)
         hygro.append(aerosol.kappa)
-        rad.append(aerosol.mu)
+        rad.append(dist.mu)
 
         if hasattr(aerosol, 'rho'):
             rhodry.append(aerosol.rho*1e-3)
