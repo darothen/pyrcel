@@ -28,7 +28,6 @@ except ImportError:
 
 from scipy.integrate import odeint
 from numpy import zeros
-from parcel_model import Rd, g
 
 class Integrator(object):
     """
@@ -128,7 +127,7 @@ class Integrator(object):
                 x, t = solver.solve(t)
         except ValueError, e:
             raise ValueError("something broke in LSODA: %r" % e)
-            return None, False
+            return None, None, False
 
         return x, t, True
 
@@ -171,8 +170,6 @@ class Integrator(object):
             return j
         '''
 
-        print kwargs
-
         ## Setup solver
         prob = Explicit_Problem(rhs, y0)
         sim = CVode(prob)
@@ -187,6 +184,7 @@ class Integrator(object):
 
         if "time_limit" in kwargs:
             sim.time_limit = kwargs['time_limit']
+            sim.report_continuously = True
         else:
             sim.time_limit = 0.0
 
@@ -199,12 +197,10 @@ class Integrator(object):
         sim.rtol = 1e-7
         sim.atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
 
-        #if not console:
-        #    sim.verbosity = 50
-        #else:
-        #    sim.report_continuously = True
-        sim.verbosity = 10
-        sim.report_continuously = True
+        if not console:
+            sim.verbosity = 50
+        #sim.verbosity = 10
+        #sim.report_continuously = True
 
         t_end = t[-1]
         steps = len(t)
@@ -214,10 +210,10 @@ class Integrator(object):
             t, x = sim.simulate(t_end, steps)
         except CVodeError, e:
             raise ValueError("Something broke in CVode: %r" % e)
-            return None, False
+            return None, None,False
         except TimeLimitExceeded, e:
             raise ValueError("CVode took too long to complete")
-            return None, False
+            return None, None, False
 
         return x, t, True
 
@@ -234,6 +230,6 @@ class Integrator(object):
         if not success:
             print info
             raise ValueError("something broke in odeint: %r" % info['message'])
-            return None, False
+            return None, None, False
 
         return x, t, success

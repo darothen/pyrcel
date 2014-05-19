@@ -18,8 +18,8 @@ def run_model(V, initial_aerosols, T, P, dt, max_steps=1000, t_end=500.,
     if V <= 0:
         return 0.
 
-    model = ParcelModel(initial_aerosols, V, T, -0.0, P)
-    try:
+    try: 
+        model = ParcelModel(initial_aerosols, V, T, -0.0, P)
         Smax = model.run(t_end, dt, max_steps, solver=solver, 
                          output=output, solver_args=solver_args)
     except ParcelModelError:
