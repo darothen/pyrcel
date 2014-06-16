@@ -8,14 +8,14 @@ import numpy as np
 
 from collections import OrderedDict
 
-P0 = 80000. # Pressure, Pa
-T0 = 283.15 # Temperature, K
-S0 = -0.00 # Supersaturation. 1-RH from wv term
+P0 = 82500. # Pressure, Pa
+T0 = 283.0 # Temperature, K
+S0 = 0.00 # Supersaturation. 1-RH from wv term
 #V = 0.7076312079 # m/s
-V = 2.5
+V = 1.0
 
-aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.02494149518, sigma=1.301854178, N=2299.298741 ),
-                          bins=200, kappa=0.4983795899)
+aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=0.025, sigma=1.3, N=2300. ),
+                          bins=200, kappa=0.54)
 aerosol1.rho = 1760.
 
 initial_aerosols = [aerosol1, ]

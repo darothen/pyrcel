@@ -1,4 +1,4 @@
-FORT=pgfortran
+FORT=pgf90
 FFLAGS=-Mfixed -fPIC
 CC=gcc
 CCFLAGS=
