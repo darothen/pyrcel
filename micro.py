@@ -67,6 +67,32 @@ def dv(T, r, P):
     denom = 1.0 + (dv_t/(ac*r))*np.sqrt((2.*np.pi*Mw)/(R*T))
     return dv_t/denom
 
+def rho_air(T, P, RH=1.0):
+    """ Calculate the density of moist air by assuming a given relative humidty,
+    temperature, and pressure.
+
+    Uses the traditional formula (3.41) from Petty.
+
+    .. math::
+        \\begin{equation}
+        \rho_{\text{air}} = \frac{P}{R_dT_v}
+        \end{equation}
+
+    **Args**:
+        * *T* -- ambient air temperature, K
+        * *P* -- ambient air pressure, Pa
+        * *RH* -- relative humidity, decimal
+
+    **Returns**:
+        density of air in kg/m^3
+
+    """
+    qsat = RH*0.622*(es(T-273.15)/P)
+    Tv = T*(1.0 + 0.61*qsat)
+    rho_a = P/Rd/Tv # air density
+    
+    return rho_a
+
 def es(T_c):
     """Calculates the saturation vapor pressure over water for a given temperature.
 
@@ -135,7 +161,7 @@ def ka(T, rho, r):
     denom = 1.0 + (ka_t/(at*r*rho*Cp))*np.sqrt((2.*np.pi*Ma)/(R*T))
     return ka_t/denom
 
-def sigma_w(T_c):
+def sigma_w(T):
     """Calculates the surface tension of water for a given temperature.
 
     .. math::
@@ -144,13 +170,13 @@ def sigma_w(T_c):
         \end{equation}
 
     **Args**:
-        * *T_c* -- ambient air temperature, degrees C
+        * *T* -- ambient air temperature, degrees K
 
     **Returns**:
         :math:`\sigma_w(T)` in J/m^2
 
     """
-    return 0.0761 - (1.55e-4)*(T_c-273.15)
+    return 0.0761 - (1.55e-4)*(T-273.15)
 
 ##########################
 ## KOHLER THEORY FUNCTIONS
