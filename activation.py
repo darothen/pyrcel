@@ -36,6 +36,39 @@ def act_fraction(Smax, T, rs, kappa, r_drys, Nis):
 
     return eq_frac, kn_frac
 
+def shipwayabel2010(V, T, P, aerosol):
+    """ Activation scheme following Shipway and Abel, 2010 
+    (doi:10.1016/j.atmosres.2009.10.005).
+
+    """
+    rho_a = rho_air(T, P)
+
+    # The following calculation for Dv_mean is identical to the Fountoukis and Nenes (2005)
+    # implementation, as referenced in Shipway and Abel, 2010
+    Dp_big = 5e-6
+    Dp_low = np.min([0.207683*(ac**-0.33048), 5.0])*1e-5
+    Dp_B = 2.*dv_cont(T, P)*np.sqrt(2*np.pi*Mw/R/T)/ac
+    Dp_diff = Dp_big - Dp_low
+    Dv_mean = (dv_cont(T, P)/Dp_diff)*(Dp_diff - Dp_B*np.log((Dp_big + Dp_B)/(Dp_low+Dp_B)))
+
+    G = 1./rho_w/(Rv*T/es(T-273.15)/Dv_mean + (L/Ka/T)*(L/Rv/T - 1))
+
+    ### FROM APPENDIX B
+    psi1 = (g/T/Rd)*(Lv/Cp/T - 1.)
+    psi2 = (2.*np.pi*rho_w/rho_a) \
+         * ((2.*G)**(3./2.))      \
+         * (P/epsilon/es(T-273.15) + epsilon*(L**2)/Rd/(T**2)/Cp)
+
+    Smax = 0
+
+    act_fracs = []
+    #for Smi, aerosol in zip(Smis, aerosols):
+    #    ui = 2.*np.log(Smi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+    #    N_act = 0.5*aerosol.distribution.N*erfc(ui)
+    #    act_fracs.append(N_act/aerosol.distribution.N)
+
+    return Smax, act_fracs
+
 def ming2006(V, T, P, aerosol):
     """Ming activation scheme.
 
