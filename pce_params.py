@@ -6,6 +6,27 @@ from numpy import array
 from parcel_model.micro import kohler_crit
 from scipy.special import erfc, erf, erfinv
 
+brackets = {'mu': ('uniform_n', 0.01, 0.25), 
+            'sigma': ('uniform_n', 1.2, 3.0), 
+            'V': ('weibull_n', 2.0, 1.0), 
+            'kappa': ('uniform_n', 0.1, 1.2), 
+            'N': ('uniform_n', 100.0, 10000.0)}
+def map_to_norm(x, param):
+    prior, args = brackets[param][0], brackets[param][1:]
+
+    lo, hi = args
+
+    if prior == "lognormal_n": args = map(np.log, args)
+    if prior == "uniform_n": 
+        if x <= lo: 
+            x = lo*(1. + 1e-4)
+        elif x >= hi: 
+            x = hi*(1. - 1e-4)
+        pass
+
+    inv_func = inv_funcs[prior]
+    return inv_func(x, *args)
+
 def inv_uni(x, a0, b0, af=-1, bf=1):
     """
     Map a value from the uniform distribution [a, b]
@@ -64,24 +85,16 @@ def eval_legendre(deg, x):
     poly =  np.poly1d(roots, r=True)
     return poly(x)
 
-@profile
+#@profile
 def pce_deg1(V, T, P, aerosol):
-
-    brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
 
     As = array([ 0.00022826, -0.00051625, -0.00020289, -0.00039829, -0.0001025 ,
        -0.0001638 ])
 
-    def map_to_norm(x, param):
-        prior, args = brackets[param][0], brackets[param][1:]
-        if prior == "lognormal_n": args = map(np.log, args)
-        inv_func = inv_funcs[prior]
-        return inv_func(x, *args)
-
-    mu = map_to_norm(aerosol.mu, 'mu')
-    N = map_to_norm(aerosol.N, 'N')
+    mu = map_to_norm(aerosol.distribution.mu, 'mu')
+    N = map_to_norm(aerosol.distribution.N, 'N')
     V = map_to_norm(V, 'V')
-    sigma = map_to_norm(aerosol.sigma, 'sigma')
+    sigma = map_to_norm(aerosol.distribution.sigma, 'sigma')
     kappa = map_to_norm(aerosol.kappa, 'kappa')
 
     V_1 = eval_hermite(1, V)
@@ -92,17 +105,15 @@ def pce_deg1(V, T, P, aerosol):
 
     Smax = As.dot(np.array([1.0, mu_1, N_1, V_1, kappa_1, sigma_1, ]))
 
-    _, S_mode_crit = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
-    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-    N_act = 0.5*aerosol.N*erfc(ui)
-    act_frac = N_act/aerosol.N
+    _, S_mode_crit = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
+    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+    N_act = 0.5*aerosol.distribution.N*erfc(ui)
+    act_frac = N_act/aerosol.distribution.N
 
     return Smax, act_frac
 
-@profile
+#@profile
 def pce_deg2(V, T, P, aerosol):
-
-    brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
 
     As = array([  1.14326819e-03,  -7.17119470e-04,  -2.87207700e-04,
         -6.49925186e-04,  -1.32394919e-04,  -2.03550833e-04,
@@ -112,16 +123,10 @@ def pce_deg2(V, T, P, aerosol):
          5.96974401e-04,   9.09500909e-05,   7.94986009e-05,
          1.49255164e-04,   1.22341600e-04,   5.20229943e-05])
 
-    def map_to_norm(x, param):
-        prior, args = brackets[param][0], brackets[param][1:]
-        if prior == "lognormal_n": args = map(np.log, args)
-        inv_func = inv_funcs[prior]
-        return inv_func(x, *args)
-
-    mu = map_to_norm(aerosol.mu, 'mu')
-    N = map_to_norm(aerosol.N, 'N')
+    mu = map_to_norm(aerosol.distribution.mu, 'mu')
+    N = map_to_norm(aerosol.distribution.N, 'N')
     V = map_to_norm(V, 'V')
-    sigma = map_to_norm(aerosol.sigma, 'sigma')
+    sigma = map_to_norm(aerosol.distribution.sigma, 'sigma')
     kappa = map_to_norm(aerosol.kappa, 'kappa')
 
     V_1 = eval_hermite(1, V)
@@ -137,16 +142,15 @@ def pce_deg2(V, T, P, aerosol):
 
     Smax = As.dot(np.array([1.0, mu_1, N_1, V_1, kappa_1, sigma_1, mu_2, N_2, V_2, kappa_2, sigma_2, mu_1*N_1, mu_1*V_1, mu_1*kappa_1, mu_1*sigma_1, N_1*V_1, N_1*kappa_1, N_1*sigma_1, V_1*kappa_1, V_1*sigma_1, kappa_1*sigma_1]))
 
-    _, S_mode_crit = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
-    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-    N_act = 0.5*aerosol.N*erfc(ui)
-    act_frac = N_act/aerosol.N
+    _, S_mode_crit = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
+    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+    N_act = 0.5*aerosol.distribution.N*erfc(ui)
+    act_frac = N_act/aerosol.distribution.N
 
     return Smax, act_frac
 
 def pce_deg3(V, T, P, aerosol):
 
-    brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
 
     As = array([  9.14798604e-04,  -9.22633928e-04,  -8.06844177e-04,
         -1.43940090e-03,  -1.77269894e-04,  -2.30463363e-04,
@@ -168,16 +172,11 @@ def pce_deg3(V, T, P, aerosol):
          2.45392802e-05,  -8.72265689e-05,  -4.30851978e-05,
          1.24256190e-06,   1.07910264e-04])
 
-    def map_to_norm(x, param):
-        prior, args = brackets[param][0], brackets[param][1:]
-        if prior == "lognormal_n": args = map(np.log, args)
-        inv_func = inv_funcs[prior]
-        return inv_func(x, *args)
 
-    mu = map_to_norm(aerosol.mu, 'mu')
-    N = map_to_norm(aerosol.N, 'N')
+    mu = map_to_norm(aerosol.distribution.mu, 'mu')
+    N = map_to_norm(aerosol.distribution.N, 'N')
     V = map_to_norm(V, 'V')
-    sigma = map_to_norm(aerosol.sigma, 'sigma')
+    sigma = map_to_norm(aerosol.distribution.sigma, 'sigma')
     kappa = map_to_norm(aerosol.kappa, 'kappa')
 
     V_1 = eval_hermite(1, V)
@@ -198,17 +197,14 @@ def pce_deg3(V, T, P, aerosol):
 
     Smax = As.dot(np.array([1.0, mu_1, N_1, V_1, kappa_1, sigma_1, mu_2, N_2, V_2, kappa_2, sigma_2, mu_3, N_3, V_3, kappa_3, sigma_3, mu_1*N_1, mu_1*V_1, mu_1*kappa_1, mu_1*sigma_1, N_1*V_1, N_1*kappa_1, N_1*sigma_1, V_1*kappa_1, V_1*sigma_1, kappa_1*sigma_1, mu_1*N_2, mu_1*V_2, mu_1*kappa_2, mu_1*sigma_2, N_1*mu_2, N_1*V_2, N_1*kappa_2, N_1*sigma_2, V_1*mu_2, V_1*N_2, V_1*kappa_2, V_1*sigma_2, kappa_1*mu_2, kappa_1*N_2, kappa_1*V_2, kappa_1*sigma_2, sigma_1*mu_2, sigma_1*N_2, sigma_1*V_2, sigma_1*kappa_2, mu_1*N_1*V_1, mu_1*N_1*kappa_1, mu_1*N_1*sigma_1, mu_1*V_1*kappa_1, mu_1*V_1*sigma_1, mu_1*kappa_1*sigma_1, N_1*V_1*kappa_1, N_1*V_1*sigma_1, N_1*kappa_1*sigma_1, V_1*kappa_1*sigma_1]))
 
-    _, S_mode_crit = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
-    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-    N_act = 0.5*aerosol.N*erfc(ui)
-    act_frac = N_act/aerosol.N
+    _, S_mode_crit = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
+    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+    N_act = 0.5*aerosol.distribution.N*erfc(ui)
+    act_frac = N_act/aerosol.distribution.N
 
     return Smax, act_frac
 
 def pce_deg4(V, T, P, aerosol):
-
-    brackets = {'mu': ('uniform_n', 0.01, 0.25), 'sigma': ('uniform_n', 1.2, 3.0), 'V': ('weibull_n', 2.0, 1.0), 'kappa': ('uniform_n', 0.1, 1.2), 'N': ('uniform_n', 100.0, 10000.0)}
-
     As = array([  7.56052516e-04,  -9.34563322e-04,  -5.60707772e-04,
         -2.81045850e-04,  -8.60005463e-05,  -1.82949921e-04,
          3.64882107e-04,   3.49237541e-04,  -3.86741535e-04,
@@ -252,16 +248,11 @@ def pce_deg4(V, T, P, aerosol):
          1.00259494e-04,  -4.64968600e-05,  -6.63668001e-05,
         -3.33467254e-05,  -4.04622167e-05,   1.43066345e-05])
 
-    def map_to_norm(x, param):
-        prior, args = brackets[param][0], brackets[param][1:]
-        if prior == "lognormal_n": args = map(np.log, args)
-        inv_func = inv_funcs[prior]
-        return inv_func(x, *args)
 
-    mu = map_to_norm(aerosol.mu, 'mu')
-    N = map_to_norm(aerosol.N, 'N')
+    mu = map_to_norm(aerosol.distribution.mu, 'mu')
+    N = map_to_norm(aerosol.distribution.N, 'N')
     V = map_to_norm(V, 'V')
-    sigma = map_to_norm(aerosol.sigma, 'sigma')
+    sigma = map_to_norm(aerosol.distribution.sigma, 'sigma')
     kappa = map_to_norm(aerosol.kappa, 'kappa')
 
     V_1 = eval_hermite(1, V)
@@ -287,18 +278,18 @@ def pce_deg4(V, T, P, aerosol):
 
     Smax = As.dot(np.array([1.0, mu_1, N_1, V_1, kappa_1, sigma_1, mu_2, N_2, V_2, kappa_2, sigma_2, mu_3, N_3, V_3, kappa_3, sigma_3, mu_4, N_4, V_4, kappa_4, sigma_4, mu_1*N_1, mu_1*V_1, mu_1*kappa_1, mu_1*sigma_1, N_1*V_1, N_1*kappa_1, N_1*sigma_1, V_1*kappa_1, V_1*sigma_1, kappa_1*sigma_1, mu_1*N_2, mu_1*V_2, mu_1*kappa_2, mu_1*sigma_2, N_1*mu_2, N_1*V_2, N_1*kappa_2, N_1*sigma_2, V_1*mu_2, V_1*N_2, V_1*kappa_2, V_1*sigma_2, kappa_1*mu_2, kappa_1*N_2, kappa_1*V_2, kappa_1*sigma_2, sigma_1*mu_2, sigma_1*N_2, sigma_1*V_2, sigma_1*kappa_2, mu_1*N_1*V_1, mu_1*N_1*kappa_1, mu_1*N_1*sigma_1, mu_1*V_1*kappa_1, mu_1*V_1*sigma_1, mu_1*kappa_1*sigma_1, N_1*V_1*kappa_1, N_1*V_1*sigma_1, N_1*kappa_1*sigma_1, V_1*kappa_1*sigma_1, mu_1*N_3, mu_1*V_3, mu_1*kappa_3, mu_1*sigma_3, N_1*mu_3, N_1*V_3, N_1*kappa_3, N_1*sigma_3, V_1*mu_3, V_1*N_3, V_1*kappa_3, V_1*sigma_3, kappa_1*mu_3, kappa_1*N_3, kappa_1*V_3, kappa_1*sigma_3, sigma_1*mu_3, sigma_1*N_3, sigma_1*V_3, sigma_1*kappa_3, mu_2*N_2, mu_2*V_2, mu_2*kappa_2, mu_2*sigma_2, N_2*V_2, N_2*kappa_2, N_2*sigma_2, V_2*kappa_2, V_2*sigma_2, kappa_2*sigma_2, mu_1*N_1*V_2, mu_1*N_1*kappa_2, mu_1*N_1*sigma_2, mu_1*V_1*N_2, mu_1*V_1*kappa_2, mu_1*V_1*sigma_2, mu_1*kappa_1*N_2, mu_1*kappa_1*V_2, mu_1*kappa_1*sigma_2, mu_1*sigma_1*N_2, mu_1*sigma_1*V_2, mu_1*sigma_1*kappa_2, N_1*V_1*mu_2, N_1*V_1*kappa_2, N_1*V_1*sigma_2, N_1*kappa_1*mu_2, N_1*kappa_1*V_2, N_1*kappa_1*sigma_2, N_1*sigma_1*mu_2, N_1*sigma_1*V_2, N_1*sigma_1*kappa_2, V_1*kappa_1*mu_2, V_1*kappa_1*N_2, V_1*kappa_1*sigma_2, V_1*sigma_1*mu_2, V_1*sigma_1*N_2, V_1*sigma_1*kappa_2, kappa_1*sigma_1*mu_2, kappa_1*sigma_1*N_2, kappa_1*sigma_1*V_2, mu_1*N_1*V_1*kappa_1, mu_1*N_1*V_1*sigma_1, mu_1*N_1*kappa_1*sigma_1, mu_1*V_1*kappa_1*sigma_1, N_1*V_1*kappa_1*sigma_1]))
 
-    _, S_mode_crit = kohler_crit(T, aerosol.mu*1e-6, aerosol.kappa)
-    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.sigma))
-    N_act = 0.5*aerosol.N*erfc(ui)
-    act_frac = N_act/aerosol.N
+    _, S_mode_crit = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
+    ui = 2.*np.log(S_mode_crit/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
+    N_act = 0.5*aerosol.distribution.N*erfc(ui)
+    act_frac = N_act/aerosol.distribution.N
 
     return Smax, act_frac
 
 def MARS_param(V, T, P, aerosol):
 
-    N = aerosol.N
-    mu = aerosol.mu
-    sigma = aerosol.sigma
+    N = aerosol.distribution.N
+    mu = aerosol.distribution.mu
+    sigma = aerosol.distribution.sigma
     kappa = aerosol.kappa
 
     h = lambda x: np.max([0, x])
