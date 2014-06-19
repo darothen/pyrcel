@@ -21,3 +21,6 @@ ac = 1.0             #: condensation constant
 Ka = 2.e-2           #: Thermal conductivity of air, J/m/s/K
 at = 0.96            #: thermal accomodation coefficient
 epsilon = 0.622      #: molecular weight of water / molecular weight of dry air
+
+import pandas as pd
+std_atm = pd.read_csv("std_atm.txt", delim_whitespace=True)
