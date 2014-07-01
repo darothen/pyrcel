@@ -1,3 +1,5 @@
+#!/usr/env python
+
 from aerosol import AerosolSpecies
 from lognorm import Lognorm
 from activation import act_fraction
@@ -7,15 +9,16 @@ from ext.ghan.activation import parameterization as ghan_param
 
 import numpy as np
 
-P0 = 85000. # Pressure, Pa
-T0 = 283. # Temperature, K
-S0 = 0.0 # Supersaturation. 1-RH from wv term
-V = 2.5 # m/s
+# 516
+P0 = 77500. # Pressure, Pa
+T0 = 272.5 # Temperature, K
+S0 = -0.01 # Supersaturation. 1-RH from wv term
+V = 0.167 # m/s
 
-mu = 0.21
-sigma =  1.5
-kappa = 0.54
-N = 500
+mu = 0.13
+sigma =  2.1
+kappa = 1.15
+N = 1.808e3
 
 ## Add aerosols to the parcel
 aerosol1 = AerosolSpecies('(NH4)2SO4', Lognorm(mu=mu, sigma=sigma, N=N),
@@ -27,8 +30,9 @@ aer_dict = dict()
 for aerosol in initial_aerosols:
     aer_dict[aerosol.species] = aerosol
 
-dt = 0.05 # seconds
-t_end = 500./V
+dt = 0.01 # seconds
+#t_end = 500./V
+t_end=1800.
 
 ## Vanilla parcel model run
 '''

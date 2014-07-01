@@ -497,7 +497,7 @@ def uni_to_norm(x, a, b):
     """
     return np.sqrt(2.)*erfinv(2.*(x-a)/(b-a)  - 1.0)
 
-def pce_param(V, T, P, aerosols):
+def pce_agu_param(V, T, P, aerosols):
 
     Smaxes = []
     for aerosol in aerosols:
@@ -509,7 +509,7 @@ def pce_param(V, T, P, aerosols):
         Smax = _pce_fit(N, mu, sigma, kappa, V, T, P)
         Smaxes.append(Smax)
 
-        print "PCE with", N, mu, sigma, kappa, V, T, P, Smax
+        #print "PCE with", N, mu, sigma, kappa, V, T, P, Smax
 
     min_smax = nmin(Smaxes)
     if 0. <= min_smax <= 0.5: 
