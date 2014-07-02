@@ -11,8 +11,8 @@ on droplet activation.
 
 """
 
-__version__ = "0.1"
-__author__ = "Daniel Rothenberg <darothen@mit.edu"
+__version__ = "1.0"
+__author__ = "Daniel Rothenberg <darothen@mit.edu>"
 
 from parcel import *
 from parcel_aux import *
