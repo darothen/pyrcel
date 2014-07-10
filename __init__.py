@@ -1,13 +1,10 @@
 """
 Adiabatic Cloud Parcel Model
-============================
+----------------------------
 
-This module implements a one-dimensional, constant updraft
+This module implements a zero-dimensional, constant updraft
 adiabatic cloud parcel model, suitable for studying aerosol effects
 on droplet activation.
-
-.. module:: parcel
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
 
 """
 

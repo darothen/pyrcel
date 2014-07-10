@@ -3,7 +3,7 @@ Adiabatic cloud parcel model
 ============================
 
 Overview
---------m
+--------
 
 .. toctree::
    :maxdepth: 1
