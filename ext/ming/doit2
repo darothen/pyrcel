@@ -1,4 +1,0 @@
-#!/bin/bash
-gfortran -ffree-form twomey.f -o twomey.exe
-python gen_dist.py
-./twomey.exe
