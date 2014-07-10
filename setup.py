@@ -17,7 +17,9 @@ MAINTAINER_EMAIL = "darothen@mit.edu"
 URL = "https://github.com/darothen/parcel_model"
 LICENSE = "New BSD (3-clause)"
 DOWNLOAD_URL = "https://github.com/darothen/parcel_model"
-VERSION = "1.0.dev"
+
+execfile("parcel_model/version.py")
+VERSION = __version__
 
 try:
     from setuptools import setup
@@ -61,7 +63,7 @@ if __name__ == "__main__":
         url = URL,
         version = VERSION,
         download_url = DOWNLOAD_URL,
-        
+
         packages = ["parcel_model", ],
         ext_modules = extensions,
         cmdclass = {'build_ext': build_ext},

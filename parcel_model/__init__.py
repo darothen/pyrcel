@@ -8,7 +8,7 @@ on droplet activation.
 
 """
 
-__version__ = "1.0"
+execfile("version.py") # grab version
 __author__ = "Daniel Rothenberg <darothen@mit.edu>"
 
 from parcel import *
@@ -20,5 +20,3 @@ from activation import *
 from driver import *
 
 import constants
-
-from ext import *
