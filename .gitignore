@@ -5,11 +5,12 @@
 *.c
 *.h
 *.exe
-build/*
+build/
+dist/
 
 # IPython Notebook files
 ############################
-.ipynb_checkpoints
+.ipynb_checkpoints/
 
 # Previously generated files
 ############################
@@ -17,8 +18,13 @@ build/*
 *.csv
 *.html
 
+# Documentation
+############################
+doc/_build/
+doc/generated/
+
 # Other
 #######
 *~
 *#
-
+parcel_model.egg-info
