@@ -101,7 +101,7 @@ Running the code should give console output like the following:
 5.00 m/s: Smax = 1.190% | Nact = 559.9
 ```
 
-<iframe id="igraph" src="https://plot.ly/~darothen/6"seamless="seamless" scrolling="no"></iframe>![sample parcel model run](doc/figs/sample_script.png)
+<iframe id="igraph" src="https://plot.ly/~darothen/6" seamless="seamless" height="400" width="900" scrolling="no"></iframe>
 
 
 ## Development
