@@ -1,0 +1,24 @@
+# Compiled files
+################
+*.pyc
+*.so
+*.c
+*.h
+*.exe
+build/*
+
+# IPython Notebook files
+############################
+.ipynb_checkpoints
+
+# Previously generated files
+############################
+*.pdf
+*.csv
+*.html
+
+# Other
+#######
+*~
+*#
+
