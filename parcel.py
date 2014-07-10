@@ -1,12 +1,4 @@
-"""Adiabatic Cloud Parcel Model based on *Nenes et al, 2001* and implemented by
-Daniel Rothenberg (darothen@mit.edu). The core logic to initialize and run the
-model is contained in this script.
-
-.. module:: parcel
-    :synopsis: Parcel model main script.
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
-
+"""
 """
 __docformat__ = 'reStructuredText'
 
@@ -34,18 +26,19 @@ class ParcelModelError(Exception):
 
 
 class ParcelModel(object):
-    """Implementation of the logic for setting up and running the parcel model.
+    """ Wrapper class for instantiating and running the parcel model.
 
     The parcel model has been implemented in an object-oriented format to facilitate
     easy extensibility to different aerosol and meteorological conditions. A
-    typical use case would involve specifying the initial conditions such as::
+    typical use case would involve specifying the initial conditions such as:
 
+    >>> import parcel_model as pm.
     >>> P0 = 80000.
     >>> T0 = 283.15
     >>> S0 = 0.0
     >>> V = 1.0
-    >>> aerosol1 = AerosolSpecies('sulfate', Lognorm(mu=0.025, sigma=1.3, N=2000.),
-                                  bins=200, kappa=0.54)
+    >>> aerosol1 = pm.AerosolSpecies('sulfate', Lognorm(mu=0.025, sigma=1.3, N=2000.), \
+                                        bins=200, kappa=0.54)
     >>> initial_aerosols = [aerosol1, ]
     >>> z_top = 50.
     >>> dt = 0.01
@@ -54,33 +47,87 @@ class ParcelModel(object):
     layer (800 hPa, 283.15 K, 100% Relative Humidity, 1 m/s updraft), and a simple
     sulfate aerosol distribution which will be discretized into 200 size bins to
     track. Furthermore the model was specified to simulate the updraft for 50
-    meters (``z_top``) and use a time-discretization of 0.01 seconds. This
+    meters (`z_top`) and use a time-discretization of 0.01 seconds. This
     timestep is used in the model output -- the actual ODE solver will generally
     calculate the trace of the model at many more times.
 
     Running the model and saving the output can be accomplished by invoking::
 
-    >>> pm = ParcelModel(initial_aerosols, V, T0, S0, P0)
-    >>> parcel, aerosols = pm.run(z_top, dt)
+    >>> model = pm.ParcelModel(initial_aerosols, V, T0, S0, P0)
+    >>> par_out, aer_out = pm.run(z_top, dt)
 
-    This will yield ``parcel``, a Pandas DataFrame containing the meteorological
-    conditions in the parcel, and ``aerosols``, a dictionary of DataFrames
-    for each species in ``initial_aerosols`` with the appropriately tracked size
+    This will yield `par_out`, a  :class:`pandas.DataFrame` containing the meteorological
+    conditions in the parcel, and `aerosols`, a dictionary of :class:`DataFrame` objects
+    for each species in `initial_aerosols` with the appropriately tracked size
     bins and their evolution over time.
 
-    **Attributes**:
-        * *aerosols* -- A list of AerosolSpecies objects representing the particle distributions to be simulated in the parcel model run.
-        * *V* -- Parcel updraft speed, m/s
-        * *T0* -- Parcel initial temperature, K
-        * *S0* -- Parcel initial supersaturation
-        * *P0* -- Parcel initial pressure, Pa
-        * *console*: Flag indicating whether the model should print diagnostic output to the console while it runs.
+    Parameters
+    ----------
+    aerosols : array_like sequence of :class:`AerosolSpecies`
+        The aerosols contained in the parcel.
+    V, T0, S0, P0 : floats
+        The updraft speed and initial temperature (K), pressure (Pa),
+        supersaturation (percent, with 0.0 = 100% RH).
+    console : boolean, optional
+        Enable some basic debugging output to print to the terminal.
+
+    Attributes
+    ----------
+    V, T0, S0, P0, aerosols : floats
+        Initial parcel settings (see **Parameters**).
+    _r0s : array_like of floats
+        Initial equilibrium droplet sizes.
+    _r_drys : array_like of floats
+        Dry radii of aerosol population.
+    _kappas : array_like of floats
+        Hygroscopicity of each aerosol size.
+    _Nis : array_like of floats
+        Number concentration of each aerosol size.
+    _nr : int
+        Number of aerosol sizes tracked in model.
+    _model_set : boolean
+        Flag indicating whether or not at any given time the model 
+        initialization/equilibration routine has been run with the current
+        model settings.
+    _y0 : array_like
+        Initial state vector.
+
+    Methods
+    -------
+    run(t_end, dt, max_steps=1000, solver="odeint", output="dataframes",\
+        terminate=False, solver_args={})
+        Execute model simulation.     
+    set_initial_conditions(V=None, T0=None, S0=None, P0=None, aerosols=None)   
+        Re-initialize a model simulation in order to run it.
+
     """
 
     def __init__(self, aerosols, V, T0, S0, P0, console=False):
-        """
-        Initialize the model with information about updraft speed and the aerosol
-        distribution.
+        """ Initialize the parcel model.
+
+        During the construction of the parcel model instance, an equilibrium
+        droplet calculation and other basic setup routines will run. 
+
+        Parameters
+        ----------
+        aerosols : array_like sequence of :class:`AerosolSpecies`
+            The aerosols contained in the parcel.
+        V, T0, S0, P0 : floats
+            The updraft speed and initial temperature (K), pressure (Pa),
+            supersaturation (percent, with 0.0 = 100% RH).
+        console : boolean, optional
+            Enable some basic debugging output to print to the terminal.
+
+        Returns
+        -------
+        self : ParcelModel
+            Returns self for running the actual parcel model simulation
+
+        See Also
+        --------
+        _setup_run : companion routine which computes equilibrium droplet sizes
+                     and sets the model's state vectors.
+
         """
         self._model_set = False
         self.console = console
@@ -101,8 +148,43 @@ class ParcelModel(object):
         self._setup_run()
 
     def set_initial_conditions(self, V=None, T0=None, S0=None, P0=None, aerosols=None):
-        """Setup the initial conditions and parameters for a new parcel \
-        model run without having to create a new ``ParcelModel`` instance.
+        """ Set the initial conditions and parameters for a new parcel
+        model run without having to create a new :class:`ParcelModel` instance.
+
+        Based on the aerosol population which has been stored in the model, this
+        method will finish initializing the model. This has three major parts:
+
+        1. Concatenate the aerosol population information (their dry radii, 
+           hygroscopicities, etc) into single arrays which can be placed into the
+           state vector for forward integration.
+        2. Given the initial ambient water vapor concentration (computed from the
+           temperature, pressure, and supersaturation), determine how much water
+           must already be coated on the aerosol particles in order for their
+           size to be in equilibrium.
+        3. Set-up the state vector with these initial conditions.
+
+        Once the state vector has been set up, the setup routine will record 
+        attributes in the parent instance of the :class:`ParcelModel`. 
+
+        Parameters
+        ----------
+        V, T0, S0, P0 : floats
+            The updraft speed and initial temperature (K), pressure (Pa),
+            supersaturation (percent, with 0.0 = 100% RH).
+        aerosols : array_like sequence of :class:`AerosolSpecies`
+            The aerosols contained in the parcel.
+
+        Raises
+        ------
+        ParcelModelError 
+            If an equilibrium droplet size distribution could not be calculated.
+
+        Notes
+        -----
+        The actual setup occurs in the private method `_setup_run()`; this 
+        method is simply an interface that can be used to modify an existing
+        :class:`ParcelModel`.
+
         """
 
         if V:
@@ -120,39 +202,11 @@ class ParcelModel(object):
             self._setup_run()
 
     def _setup_run(self):
-        """Setup the initial parcel state for the run, given the initial
-        temperature (K), pressure (Pa), and supersaturation.
+        """ Perform equilibration and initialization calculations for the
+        parcel model simulation.
 
-        Based on the aerosol population which has been stored in the model, this
-        method will finish initializing the model. This has three major parts:
+        .. note:: See `set_initial_conditions` for full details.
 
-        1. Concatenate the aerosol population information (their dry radii, hygroscopicities, etc) into single arrays which can be placed into the
-            state vector for forward integration.
-        2. Given the initial ambient water vapor concentration (computed from the
-            temperature, pressure, and supersaturation), determine how much water
-            must already be coated on the aerosol particles in order for their
-            size to be in equilibrium.
-        3. Set-up the state vector with these initial conditions.
-
-        Once the state vector has been set up, it will return that vector as well
-            as the aerosol information arrays so that they can be used in the model
-            run. The ``ParcelModel`` instance itself does not save that information
-            for future runs; this method is invoked on every single run of the
-            parcel model.
-
-        **Returns**:
-            A dictionary containing the named arrays:
-
-                * *r_drys* -- an array with all the aerosol dry radii concatenated
-                    together
-                * *kappas* -- an array with all the aerosol hygroscopicities
-                    concatenated together
-                * *Nis* -- an array with all the aerosol number concentrations
-                    for each dry radii concatenated together
-                * *y0* -- the initial state vector used in the parcel model run
-
-        **Raises**:
-            ``ParcelModelError``: An equilibrium droplet size distribution could not be calculated.
         """
         T0, S0, P0 = self.T0, self.S0, self.P0
         z0 = 0.0
@@ -252,8 +306,10 @@ class ParcelModel(object):
             "Initial conditions set successfully."
 
     def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, **kwargs):
-        """
-        DEPRECATED, 7/25/2013
+        """ Integrate the parcel model simulation over discrete height increments.
+
+        .. note:: Deprecated in v1.0
+
         """
 
         V = args[3]
@@ -313,64 +369,74 @@ class ParcelModel(object):
 
     def run(self, t_end, dt, max_steps=1000, solver="odeint", output="dataframes",
             terminate=False, solver_args={}):
-        """Run the parcel model.
+        """ Run the parcel model simulation.
 
-        After initializing the parcel model, it can be immediately run by
-        calling this function. Before the model is integrated, a routine
-        :func:`_setup_run()` is performed to equilibrate the initial aerosol
-        population to the ambient meteorology if it hasn't already been done.
-        Then, the initial conditions are
-        passed to a user-specified solver which integrates the system forward
-        in time. By default, the integrator wraps ODEPACK's LSODA routine through
-        SciPy's :func:`odeint` method, but extensions to use other solvers can be
-        written easily (for instance, two methods from :mod:`odespy` are given
-        below).
+        Once the model has been instantiated, a simulation can immediately be 
+        performed by invoking this method. The numerical details underlying the 
+        simulation and the times over which to integrate can be flexibly set 
+        here.
 
-        The user can specify the timesteps to evaluate the trace of the parcel
-        in one of two ways:
+        **Time** -- The user must specify the timesteps used to evaluate the trace 
+        of the parcel by passng the `dt` arg. Note that this will not necessarily dictate the 
+        numerical timesteps used in the model integration, just the interpolation of
+        the output (depending on which solver was requested).
 
-            #. Setting ``dt`` will automatically specify a timestep to use and \
-                the model will use it to automatically populate the array to \
-                pass to the solver.
-            #. Otherwise, the user can specify ``ts`` as a list or array of the \
-                timesteps where the model should be evaluated.
+        **Numerical Solver** -- By default, the model will use the `odeint` wrapper
+        of LSODA shipped by default with scipy. Some fine-tuning of the solver tolerances
+        is afforded here through the `max_steps`. For other solvers, a set of optional
+        arguments `solver_args` can be passed as a dictionary. 
 
-        **Args**:
-            * *z_top* -- Vertical extent to which the model should be integrated.
-            * *dt* -- Timestep intervals to report model output.
-            * *ts* -- Pre-computed array of timestamps where output is requested.
-            * *max_steps* -- Maximum number of steps allowed by solver to achieve \
-                tolerance during integration.
-            * *solver* -- A string indicating which solver to use:
-                * ``"odeint"``: LSODA implementation from ODEPACK via \
-                    SciPy's ``integrate`` module
-                * ``"lsoda"``: LSODA implementation from ODEPACK via odespy
-                * ``"lsode"``: LSODE implementation from ODEPACK via odespy
-            * *output* -- A string indicating the format in which the output of the run should be returned
+        **Solution Output** -- Several different output formats are available by default. Also,
+        for the LSODA and LSODE solvers accessed via odespy, the flag `terminate` can bet
+        set to *True* so that the solver will stop once it has reached a supersaturation
+        maximum.
 
-        **Returns**:
-            Depending on what was passed to the *output* argument, different
-            types of data might be returned:
-                * ``"dataframes"``: (default) will process the output into \
-                    two pandas DataFrames - the first one containing profiles \
-                    of the meteorological quantities tracked in the model, \
-                    and the second a dictionary of DataFrames with one for \
-                    each AerosolSpecies, tracking the growth in each bin \
-                    for those species.
-                * ``"arrays"``: will return the raw output from the solver \
-                    used internally by the parcel model - the state vector \
-                    ``x`` and the evaluated timesteps converted into height \
-                    coordinates.
-                * ``"smax"``: will only return the maximum supersaturation \
-                    value achieved in the simulation.
+        Parameters
+        ----------
+        z_top : float
+            Vertical distance over which the model should be integrated.
+        dt : float 
+            Timestep intervals to report model output. Typical value is 1/100 to 1/20
+            seconds.
+        max_steps : int 
+            Maximum number of steps allowed by solver to satisfy error tolerances
+            per timestep.
+        solver : {'odeint', 'lsoda', 'lsode', 'vode', cvode'}
+            Choose which numerical solver to use:
+            * `'odeint'`: LSODA implementation from ODEPACK via 
+                SciPy's integrate module
+            * `'lsoda'`: LSODA implementation from ODEPACK via odespy
+            * `'lsode'`: LSODE implementation from ODEPACK via odespy
+            * `'vode'` : VODE implementation from ODEPACK via odespy
+            * `'cvode'` : CVODE implementation from Assimulo
+        output : {'dataframes', 'arrays', 'smax'}
+            Choose format of solution output.
 
-            A tuple whose first element is a DataFrame containing the profiles
-            of the meteorological quantities tracked in the parcel model, and
-            whose second element is a dictionary of DataFrames corresponding to
-            each aerosol species and their droplet sizes.
+        Returns
+        -------
+        Depending on what was passed to the *output* argument, different
+        types of data might be returned:
+            * `'dataframes'`: (default) will process the output into 
+                two pandas DataFrames - the first one containing profiles 
+                of the meteorological quantities tracked in the model, 
+                and the second a dictionary of DataFrames with one for 
+                each AerosolSpecies, tracking the growth in each bin 
+                for those species.
+            * `'arrays'`: will return the raw output from the solver 
+                used internally by the parcel model - the state vector 
+                `y` and the evaluated timesteps converted into height 
+                coordinates.
+            * `'smax'`: will only return the maximum supersaturation 
+                value achieved in the simulation.
 
-        **Raises**:
-            ``ParcelModelError``: The parcel model failed to complete successfully or failed to initialize.
+        Raises
+        ------
+        ParcelModelError 
+            The parcel model failed to complete successfully or failed to initialize.
+
+        See Also
+        --------
+        der : right-hand side derivative evaluated during model integration.
 
         """
         if not output in ["dataframes", "arrays", "smax"]:
@@ -433,7 +499,7 @@ class ParcelModel(object):
                                     output format." % output)
 
     def _convert_to_dataframes(self):
-        """Process the output arrays into DataFrames for returning.
+        """ Process the output arrays into DataFrames for returning.
         """
         x = self.x
         heights = self.heights
@@ -463,7 +529,7 @@ class ParcelModel(object):
         return parcel, aerosol_dfs
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
-        """Write a quick and dirty summary of given parcel model output to the \
+        """ Write a quick and dirty summary of given parcel model output to the 
         terminal.
         """
         ## Check if parent dir of out_filename exists, and if not,
@@ -548,111 +614,128 @@ class ParcelModel(object):
         pass
     '''
 
-def der(y, t, nr, r_drys, Nis, V, kappas):
-    """Calculates the instantaneous time-derivate of the parcel model system.
+    def der(y, t, nr, r_drys, Nis, V, kappas):
+        """ Calculates the instantaneous time-derivate of the parcel model system.
 
-    Given a current state vector ``y`` of the parcel model, computes the tendency
-    of each term including thermodynamic (pressure, temperature, etc) and aerosol
-    terms. The basic aerosol properties used in the model must be passed along
-    with the state vector (i.e. if being used as the callback function in an ODE
-    solver).
+        Given a current state vector `y` of the parcel model, computes the tendency
+        of each term including thermodynamic (pressure, temperature, etc) and aerosol
+        terms. The basic aerosol properties used in the model must be passed along
+        with the state vector (i.e. if being used as the callback function in an ODE
+        solver).
 
-    This function is implemented in NumPy and Python, and is likely *very* slow
-    compared to the available Cython version.
+        This function is implemented in NumPy and Python, and is likely *very* slow
+        compared to the available Cython version.
 
-    **Args**:
-        * *y* -- NumPy array containing the current state of the parcel model system,
-            * y[0] = pressure, Pa
-            * y[1] = temperature, K
-            * y[2] = water vapor mass mixing ratio, kg/kg
-            * y[3] = droplet liquid water mass mixing ratio, kg/kg
-            * y[3] = parcel supersaturation
-            * y[nr:] = aerosol bin sizes (radii), m
-        * *t* -- Current decimal model time
-        * *nr* -- Integer number of aerosol radii being tracked
-        * *r_drys* -- NumPy array with original aerosol dry radii, m
-        * *Nis* -- NumPy array with aerosol number concentrations, m**-3
-        * *V* -- Updraft velocity, m/s
-        * *kappas* -- NumPy array containing all aerosol hygroscopicities
+        Parameters
+        ----------
+        y : array_like
+            Current state of the parcel model system,
+                * y[0] = altitude, m
+                * y[1] = pressure, Pa
+                * y[2] = temperature, K
+                * y[3] = water vapor mass mixing ratio, kg/kg
+                * y[4] = droplet liquid water mass mixing ratio, kg/kg
+                * y[5] = parcel supersaturation
+                * y[`nr`:] = aerosol bin sizes (radii), m
+        t : float
+            Current simulation time, in seconds.
+        nr : Integer
+            Number of aerosol radii being tracked.
+        r_drys : array_like
+            Array recording original aerosol dry radii, m.
+        Nis : array_like
+            Array recording aerosol number concentrations, 1/(m**3).
+        V : float
+            Updraft velocity, m/s.
+        kappas : array_like
+            Array recording aerosol hygroscopicities.
 
-    **Returns**:
-        A NumPy array with the same shape and term order as y, but containing
-            all the computed tendencies at this time-step.
+        Returns
+        -------
+        x : array_like
+            Array of shape (`nr`+6, ) containing the evaluated parcel model
+            instaneous derivative.
 
-    """
-    z = y[0]
-    P = y[1]
-    T = y[2]
-    wv = y[3]
-    wc = y[4]
-    S = y[5]
-    rs = np.array(y[6:])
+        Notes
+        -----
+        This Python sketch of the derivative function shouldn't really be used for
+        any computational purposes. Instead, see the cythonized version in the auxiliary
+        file, **parcel_aux.pyx**.
 
-    pv_sat = es(T-273.15) # saturation vapor pressure
-    #wv_sat = wv/(S+1.) # saturation mixing ratio
-    Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
-    rho_air = P/(Rd*Tv) # current air density accounting for humidity
+        """
+        z = y[0]
+        P = y[1]
+        T = y[2]
+        wv = y[3]
+        wc = y[4]
+        S = y[5]
+        rs = np.array(y[6:])
 
-    ## Calculate tendency terms
-    # 1) Pressure
-    dP_dt = (-g*P*V)/(Rd*Tv)
+        pv_sat = es(T-273.15) # saturation vapor pressure
+        #wv_sat = wv/(S+1.) # saturation mixing ratio
+        Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
+        rho_air = P/(Rd*Tv) # current air density accounting for humidity
 
-    # 2/3) Wet particle growth rates and droplet liquid water
-    drs_dt = np.zeros(shape=(nr, ))
-    dwc_dt = 0.
-    for i in range(nr):
-        r = rs[i]
-        r_dry = r_drys[i]
-        kappa = kappas[i]
+        ## Calculate tendency terms
+        # 1) Pressure
+        dP_dt = (-g*P*V)/(Rd*Tv)
 
-        G_a = (rho_w*R*T)/(pv_sat*dv(T, r, P)*Mw)
-        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
-        G = 1./(G_a + G_b)
+        # 2/3) Wet particle growth rates and droplet liquid water
+        drs_dt = np.zeros(shape=(nr, ))
+        dwc_dt = 0.
+        for i in range(nr):
+            r = rs[i]
+            r_dry = r_drys[i]
+            kappa = kappas[i]
 
-        ## Remove size-dependence from G
-        #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
-        #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
+            G_a = (rho_w*R*T)/(pv_sat*dv(T, r, P)*Mw)
+            G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
+            G = 1./(G_a + G_b)
 
-        delta_S = S - Seq(r, r_dry, T, kappa, 1.0)
+            ## Remove size-dependence from G
+            #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
+            #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
 
-        dr_dt = (G/r)*delta_S
+            delta_S = S - Seq(r, r_dry, T, kappa, 1.0)
 
-        ## ---
+            dr_dt = (G/r)*delta_S
 
-        Ni = Nis[i]
-        dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
-        drs_dt[i] = dr_dt
-    dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
+            ## ---
 
-    # 4) Water vapor content
-    dwv_dt = -dwc_dt
+            Ni = Nis[i]
+            dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
+            drs_dt[i] = dr_dt
+        dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
 
-    # 5) Temperature
-    dT_dt = 0.
-    dT_dt = -g*V/Cp - L*dwv_dt/Cp
+        # 4) Water vapor content
+        dwv_dt = -dwc_dt
 
-    # 6) Supersaturation
+        # 5) Temperature
+        dT_dt = 0.
+        dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
-    ## GHAN (2011) - prefer to use this!
-    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
-    dS_dt = alpha*V - gamma*dwc_dt
+        # 6) Supersaturation
 
-    dz_dt = V
+        ## GHAN (2011) - prefer to use this!
+        alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+        gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+        dS_dt = alpha*V - gamma*dwc_dt
 
-    ## Repackage tendencies for feedback to numerical solver
-    x = np.zeros(shape=(nr+6, ))
-    x[0] = dz_dt
-    x[1] = dP_dt
-    x[2] = dT_dt
-    x[3] = dwv_dt
-    x[4] = dwc_dt
-    x[5] = dS_dt
-    x[6:] = drs_dt[:]
+        dz_dt = V
 
-    ## Kill off unused variables to get rid of numba warnings
-    extra = 0.*t*wc
-    if extra > 1e6:
-        print "used"
+        ## Repackage tendencies for feedback to numerical solver
+        x = np.zeros(shape=(nr+6, ))
+        x[0] = dz_dt
+        x[1] = dP_dt
+        x[2] = dT_dt
+        x[3] = dwv_dt
+        x[4] = dwc_dt
+        x[5] = dS_dt
+        x[6:] = drs_dt[:]
 
-    return x
+        ## Kill off unused variables to get rid of numba warnings
+        extra = 0.*t*wc
+        if extra > 1e6:
+            print "used"
+
+        return x

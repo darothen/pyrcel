@@ -1,22 +1,60 @@
+""" Utilities for driving sets of parcel model integration strategies. 
+
+Occasionally, a pathological set of input parameters to the parcel model
+will really muck up the hidden ODE solver's ability to integrate the model.
+In that case, it would be nice to quietly adjust some of the numerical 
+parameters for the ODE solver and re-submit the job. This module includes a
+workhorse function **iterate_runs** which can serve this purpose and can
+serve as an example for more complex strategies. Alternatively, **run_model** 
+is a useful shortcut for building/running a model, and snagging its output.
+
 """
-.. module:: driver
-    :synopsis: Routines for running/driving the parcel model
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
-
-"""
-
-from parcel import ParcelModel, ParcelModelError
-from activation import fn2005, arg2000
 
 from numpy import empty, nan
 from pandas import DataFrame
 
+from parcel import ParcelModel, ParcelModelError
+from activation import fn2005, arg2000
+
+
 def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000, t_end=500.,
               solver='lsoda', output='smax', solver_args={}):
-    """
-    Setup and run the parcel model with the given set of model and 
-    integrator parameters.
+    """ Setup and run the parcel model with given solver configuration.
+
+    Parameters
+    ----------
+    V, T, P : float
+        Updraft speed and parcel initial temperature and pressure.
+    S0 : float, optional, default 0.0
+        Initial supersaturation, as a percent. Defaults to 100% relative humidity.
+    initial_aerosols : array_like of :class:`AerosolSpecies`
+        Set of aerosol populations contained in the parcel.
+    dt : float
+        Solver timestep, in seconds.
+    max_steps : int, optional, default 1000
+        Maximum number of steps per solver iteration. Defaults to 1000; setting 
+        excessively high could produce extremely long computation times.
+    t_end : float, optional, default 500.0
+        Model time in seconds after which the integration will stop.
+    solver : string, optional, default 'lsoda'
+        Alias of which solver to use; see :class:`Integrator` for all options.
+    output : string, optional, default 'smax'
+        Alias indicating which output format to use; see :class:`ParcelModel` for
+        all options.
+    solver_args : dict, optional
+        Detailed arguments/configuration to pass to the numerical integrator.
+
+    Returns
+    -------
+    Smax : (user-defined)
+        Output from parcel model simulation based on user-specified `output` argument. See
+        :class:`ParcelModel` for details.
+
+    Raises
+    ------
+    ParcelModelError
+        If the model fails to initialize or breaks during runtime.
+
     """
     if V <= 0:
         return 0.
@@ -32,8 +70,39 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000, t_end=500.
 def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2, 
                  t_end=500., max_steps=500, output='smax',
                  fail_easy=True):
-    """
-    Iterate through several different strategies for integrating the parcel model.
+    """ Iterate through several different strategies for integrating the parcel model.
+
+    Parameters
+    ----------
+    V, T, P : float
+        Updraft speed and parcel initial temperature and pressure.
+    S0 : float, optional, default 0.0
+        Initial supersaturation, as a percent. Defaults to 100% relative humidity.
+    initial_aerosols : array_like of :class:`AerosolSpecies`
+        Set of aerosol populations contained in the parcel.
+    dt : float
+        Solver timestep, in seconds.
+    dt_iters : int, optional, default 2
+        Number of times to halve `dt` when attempting **LSODA** solver.
+    max_steps : int, optional, default 1000
+        Maximum number of steps per solver iteration. Defaults to 1000; setting 
+        excessively high could produce extremely long computation times.
+    t_end : float, optional, default 500.0
+        Model time in seconds after which the integration will stop.
+    solver : string, optional, default 'lsoda'
+        Alias of which solver to use; see :class:`Integrator` for all options.
+    output : string, optional, default 'smax'
+        Alias indicating which output format to use; see :class:`ParcelModel` for
+        all options.
+    fail_easy : boolean, optional, default `True`
+        If `True`, then stop after the first strategy (**CVODE**)
+
+    Returns
+    -------
+    Smax : (user-defined)
+        Output from parcel model simulation based on user-specified `output` argument. See
+        :class:`ParcelModel` for details.
+
     """
     aerosols = initial_aerosols
     if V <= 0:
