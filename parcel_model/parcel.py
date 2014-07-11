@@ -16,7 +16,7 @@ from parcel_aux import der
 
 
 class ParcelModelError(Exception):
-    """Custom exception to throw during parcel model execution.
+    """ Custom exception to throw during parcel model execution.
     """
     def __init__(self, error_str):
         self.error_str = error_str
@@ -437,7 +437,7 @@ class ParcelModel(object):
         See Also
         --------
         der : right-hand side derivative evaluated during model integration.
-
+        
         """
         if not output in ["dataframes", "arrays", "smax"]:
             raise ParcelModelError("Invalid value ('%s') specified for output format." % output)

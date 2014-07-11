@@ -117,7 +117,6 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
 #  'bootstrap_version': "3",
 #  'bootswatch_theme': "cosmo", #"yeti"
-    ''
 }
 
 # Add any paths that contain custom themes here, relative to this directory.

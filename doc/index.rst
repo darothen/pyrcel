@@ -1,15 +1,24 @@
 
-Adiabatic cloud parcel model
-============================
+Cloud parcel model
+==================
 
-Overview
---------
+
+This is an implementation of a simple, 0D adiabatic cloud parcel model tool (following `Nenes et al, 2001`_ and `Pruppacher and Klett, 1997`_). It allows flexible descriptions of an initial aerosol population, and simulates the evolution of a proto-cloud droplet population as the parcel ascends adiabatically at either a constant or time/height-dependent updraft speed. Droplet growth within the parcel is tracked on a Lagrangian grid.
+
+.. _Pruppacher and Klett, 1997: http://books.google.com/books?hl=en&lr=&id=1mXN_qZ5sNUC&oi=fnd&pg=PR15&ots=KhdkC6uhB3&sig=PSlNsCeLSB2FvR93Vzo0ptCAnYA#v=onepage&q&f=false
+.. _Nenes et al, 2001: http://onlinelibrary.wiley.com/doi/10.1034/j.1600-0889.2001.d01-12.x/abstract
+
+.. image:: figs/model_example.png
+
+You are invited to use the model (in accordance with the `licensing <https://raw.githubusercontent.com/darothen/parcel_model/master/LICENSE>`_) as long as you get in touch with the author via `e-mail <mailto:darothen@mit.edu>`_ or on `twitter <https://twitter.com/darothen>`_. Up-to-date versions can be obtained through the model's `github repository <https://github.com/darothen/parcel_model>`_ or directly from the author. 
+
+Documentation Outline
+---------------------
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 2
 
-This is an implementation of a simple, 0D adiabatic cloud parcel model tool which should be useful for studying aerosol/droplet activation. To support this, the tool ships with implementations of several well-known activation parameterizations from the literature, and tools for evaluating those schemes against the detailed model. 
-
-You can find a quick overview of the model in the :ref:`model introduction <introduction>`. Eventually, there will be an :ref:`example library <library>` highlighting some simple, common experiments one could perform with this code. Also, there is a :ref:`reference <reference>` section for the various schemes and supporting tools implemented here.
-
-Please, feel free to check out this model's `github repository <https://github.com/darothen/parcel_model>`_. You are invited to use the model (in accordance with the `licensing <https://raw.githubusercontent.com/darothen/parcel_model/master/LICENSE>`_) as long as you get in touch with the author via `e-mail <mailto:darothen@mit.edu>`_ or on `twitter <https://twitter.com/darothen>`_ 
+    sci_descr
+    install
+    examples/basic_run
+    reference
