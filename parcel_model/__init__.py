@@ -8,7 +8,7 @@ on droplet activation.
 
 """
 
-execfile("version.py") # grab version
+from version import __version__
 __author__ = "Daniel Rothenberg <darothen@mit.edu>"
 
 from parcel import *
