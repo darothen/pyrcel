@@ -5,14 +5,13 @@ __docformat__ = 'reStructuredText'
 import os
 import time
 
-import numpy as np
 from scipy.optimize import bisect
-import pandas
+import numpy as np
+import pandas as pd
 
 ## Parcel model imports
 from integrator import Integrator
 from micro import *
-from parcel_aux import der
 
 
 class ParcelModelError(Exception):
@@ -505,7 +504,7 @@ class ParcelModel(object):
         heights = self.heights
         time = self.time
 
-        parcel = pandas.DataFrame( {'P':x[:,1], 'T':x[:,2], 'wv':x[:,3],
+        parcel = pd.DataFrame( {'P':x[:,1], 'T':x[:,2], 'wv':x[:,3],
                                 'wc':x[:,4], 'S':x[:,5], 'z':heights},
                                  index=time)
                                  #index=heights[offset:])
@@ -521,8 +520,8 @@ class ParcelModel(object):
             for i, label in enumerate(labels):
                 radii_dict[label] = x[:,6+species_shift+i]
 
-            aerosol_dfs[species] = pandas.DataFrame( radii_dict,
-                                                     index=time)
+            aerosol_dfs[species] = pd.DataFrame( radii_dict,
+                                                 index=time  )
                                                      #index=heights[offset:])
             species_shift += nr
 
@@ -567,7 +566,7 @@ class ParcelModel(object):
             total_number = 0.0
             total_activated = 0.0
             for aerosol in self.aerosols:
-                act_frac = eq_act_fraction(S_max, T_at_S_max, aerosol.kappa, aerosol.r_drys, aerosol.Nis)
+                act_frac = act_fraction(S_max, T_at_S_max, aerosol.kappa, aerosol.r_drys, aerosol.Nis)
                 act_num = act_frac*aerosol.N
                 out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" % (aerosol.species, act_frac, act_num, aerosol.N))
 
@@ -660,19 +659,23 @@ class ParcelModel(object):
         -----
         This Python sketch of the derivative function shouldn't really be used for
         any computational purposes. Instead, see the cythonized version in the auxiliary
-        file, **parcel_aux.pyx**.
+        file, **parcel_aux.pyx**. In the default configuration, once the code has been
+        built, you can set the environmental variable **OMP_NUM_THREADS** to control
+        the parallel for loop which calculates the condensational growth rate for each
+        bin.
 
         """
-        z = y[0]
-        P = y[1]
-        T = y[2]
+        z  = y[0]
+        P  = y[1]
+        T  = y[2]
         wv = y[3]
         wc = y[4]
-        S = y[5]
-        rs = np.array(y[6:])
+        S  = y[5]
+        rs = np.asarray(y[6:])
 
-        pv_sat = es(T-273.15) # saturation vapor pressure
-        #wv_sat = wv/(S+1.) # saturation mixing ratio
+        T_c = T - 273.15   # convert temperature to Celsius
+        pv_sat = es(T-T_c) # saturation vapor pressure
+        wv_sat = wv/(S+1.) # saturation mixing ratio
         Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
         rho_air = P/(Rd*Tv) # current air density accounting for humidity
 
@@ -711,10 +714,29 @@ class ParcelModel(object):
         dwv_dt = -dwc_dt
 
         # 5) Temperature
-        dT_dt = 0.
         dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
         # 6) Supersaturation
+
+        ''' Alternative methods for calculation supersaturation tendency
+        # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
+        #S_a = (S+1.0)
+
+        ## NENES (2001)
+        #S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
+        #S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
+        #dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
+
+        ## PRUPPACHER (PK 1997)
+        #S_b = dT_dt*0.622*L/(Rd*T**2.)
+        #S_c = g*V/(Rd*T)
+        #dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
+
+        ## SEINFELD (SP 1998)
+        #S_b = L*Mw*dT_dt/(R*T**2.)
+        #S_c = V*g*Ma/(R*T)
+        #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
+        '''
 
         ## GHAN (2011) - prefer to use this!
         alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
@@ -732,10 +754,5 @@ class ParcelModel(object):
         x[4] = dwc_dt
         x[5] = dS_dt
         x[6:] = drs_dt[:]
-
-        ## Kill off unused variables to get rid of numba warnings
-        extra = 0.*t*wc
-        if extra > 1e6:
-            print "used"
 
         return x

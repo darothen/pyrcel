@@ -102,37 +102,53 @@ def der(double[::1] y, double t,
         int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas):
     """ Calculates the instantaneous time-derivate of the parcel model system.
 
-    Given a current state vector ``y`` of the parcel model, computes the tendency
+    Given a current state vector `y` of the parcel model, computes the tendency
     of each term including thermodynamic (pressure, temperature, etc) and aerosol
     terms. The basic aerosol properties used in the model must be passed along
     with the state vector (i.e. if being used as the callback function in an ODE
     solver).
 
-    **Args**:
-        * *y* -- NumPy array containing the current state of the parcel model system,
-            * y[0] = height, m
+    This function is implemented in NumPy and Python, and is likely *very* slow
+    compared to the available Cython version.
+
+    Parameters
+    ----------
+    y : array_like
+        Current state of the parcel model system,
+            * y[0] = altitude, m
             * y[1] = pressure, Pa
             * y[2] = temperature, K
             * y[3] = water vapor mass mixing ratio, kg/kg
             * y[4] = droplet liquid water mass mixing ratio, kg/kg
             * y[5] = parcel supersaturation
-            * y[nr:] = aerosol bin sizes (radii), m
-        * *t* -- Current decimal model time
-        * *nr* -- Integer number of aerosol radii being tracked
-        * *r_drys* -- NumPy array with original aerosol dry radii, m
-        * *Nis* -- NumPy array with aerosol number concentrations, m**-3
-        * *V* -- Updraft velocity, m/s
-        * *kappas* -- NumPy array containing all aerosol hygroscopicities
+            * y[`nr`:] = aerosol bin sizes (radii), m
+    t : float
+        Current simulation time, in seconds.
+    nr : Integer
+        Number of aerosol radii being tracked.
+    r_drys : array_like
+        Array recording original aerosol dry radii, m.
+    Nis : array_like
+        Array recording aerosol number concentrations, 1/(m**3).
+    V : float
+        Updraft velocity, m/s.
+    kappas : array_like
+        Array recording aerosol hygroscopicities.
 
-    **Returns**:
-        A NumPy array with the same shape and term order as y, but containing
-            all the computed tendencies at this time-step.
+    Returns
+    -------
+    x : array_like
+        Array of shape (`nr`+6, ) containing the evaluated parcel model
+        instaneous derivative.
 
-    .. note:: This calculation has been arranged to use a parallelized (via
-        OpenMP) for-loop when possible. Setting the environmental variable
-        **OMP_NUM_THREADS** to an integer greater than 1 will yield
-        multi-threaded computations, but could invoke race conditions and cause
-        slow-down if too many threads are specified.
+    Notes
+    -----
+    This Python sketch of the derivative function shouldn't really be used for
+    any computational purposes. Instead, see the cythonized version in the auxiliary
+    file, **parcel_aux.pyx**. In the default configuration, once the code has been
+    built, you can set the environmental variable **OMP_NUM_THREADS** to control
+    the parallel for loop which calculates the condensational growth rate for each
+    bin.
 
     """
     cdef double z = y[0]
