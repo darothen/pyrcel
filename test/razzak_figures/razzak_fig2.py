@@ -1,6 +1,6 @@
 from lognorm import Lognorm
 from parcel import ParcelModel, AerosolSpecies
-from micro import kohler_crit, Rd, r_eff, activation
+from thermo import kohler_crit, Rd, r_eff, activation
 
 import numpy as np
 from pylab import *

@@ -1,9 +1,4 @@
-"""33
-.. module:: parcel
-    :synopsis: Tool for specifying aerosol distributions.
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
-
+"""
 """
 __docformat__ = 'reStructuredText'
 
@@ -83,6 +78,8 @@ class AerosolSpecies(object):
         Throws a :class:`ValueError` if an unknown type of `distribution` is passed to
         the constructor, or if `bins` isn't present when `distribution` is an instance of
         :class:`parcel_model.lognorm.Lognorm`
+
+    TODO: add class var of total number concentration
 
     """
     def __init__(self, species, distribution, kappa, 

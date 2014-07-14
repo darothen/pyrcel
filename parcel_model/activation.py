@@ -10,7 +10,7 @@ import numpy as np
 from numpy import min as nmin
 from scipy.special import erfc, erf, erfinv
 
-from micro import *
+from thermo import *
 from constants import *
 
 def act_fraction(Smax, T, rs, kappa, r_drys, Nis):

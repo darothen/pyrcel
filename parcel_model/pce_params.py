@@ -3,7 +3,7 @@ from numpy.polynomial import polynomial, hermite_e, legendre
 import numpy as np
 from numpy import array
 
-from parcel_model.micro import kohler_crit
+from parcel_model.thermo import kohler_crit
 from scipy.special import erfc, erf, erfinv
 
 brackets = {'mu': ('uniform_n', 0.01, 0.25), 

@@ -1,6 +1,5 @@
+""" Main
 """
-"""
-__docformat__ = 'reStructuredText'
 
 import os
 import time
@@ -11,7 +10,7 @@ import pandas as pd
 
 ## Parcel model imports
 from integrator import Integrator
-from micro import *
+from thermo import *
 
 
 class ParcelModelError(Exception):
@@ -31,7 +30,7 @@ class ParcelModel(object):
     easy extensibility to different aerosol and meteorological conditions. A
     typical use case would involve specifying the initial conditions such as:
 
-    >>> import parcel_model as pm.
+    >>> import parcel_model as pm
     >>> P0 = 80000.
     >>> T0 = 283.15
     >>> S0 = 0.0

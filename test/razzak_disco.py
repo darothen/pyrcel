@@ -1,6 +1,6 @@
 from lognorm import Lognorm
 from parcel import ParcelModel, AerosolSpecies
-from micro import kohler_crit, Rd, r_eff, activation
+from thermo import kohler_crit, Rd, r_eff, activation
 
 #from disco.core import result_iterator
 #from disco.job import Job
@@ -16,7 +16,7 @@ class ActivatedFractionJob(Job):
                         ('lognorm', "/home/darothen/workspace/parcel_model/lognorm.py"),
                         ('parcel', "/home/darothen/workspace/parcel_model/parcel.py"),
                         ('parcel_aux', "/home/darothen/workspace/parcel_model/parcel_aux.so"),
-                        ('micro', "/home/darothen/workspace/parcel_model/micro.py"),
+                        ('micro', "/home/darothen/workspace/parcel_model/thermo.py"),
                         'collections']
     partitions = 100
 

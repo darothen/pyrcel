@@ -16,6 +16,7 @@ from parcel_aux import *
 from integrator import *
 from aerosol import *
 from lognorm import *
+from thermo import *
 from activation import *
 from driver import *
 

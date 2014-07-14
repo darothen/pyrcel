@@ -10,7 +10,7 @@ import pandas
 import nenes_parcel_aux as npa
 
 from nenes_parcel import AerosolSpecies, ParcelModel
-from micro import Mw, rho_w, kohler_crit
+from thermo import Mw, rho_w, kohler_crit
 from lognorm import Lognorm
 
 from pylab import *

@@ -1,6 +1,6 @@
 from lognorm import Lognorm
 from parcel import ParcelModel, AerosolSpecies
-from micro import kohler_crit
+from thermo import kohler_crit
 
 from pylab import *
 ion()

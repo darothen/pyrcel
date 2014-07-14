@@ -2,7 +2,7 @@ from pylab import *
 ion()
 
 import numpy as np
-from micro import *
+from thermo import *
 
 
 ## Sulfate
