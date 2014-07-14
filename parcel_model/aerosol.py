@@ -4,7 +4,7 @@ __docformat__ = 'reStructuredText'
 
 import numpy as np
 
-from lognorm import Lognorm, MultiModeLognorm
+from distributions import Lognorm, MultiModeLognorm
 
 
 def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):

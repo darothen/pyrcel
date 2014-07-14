@@ -1,7 +1,7 @@
 #!/usr/env python
 
 from aerosol import AerosolSpecies
-from lognorm import Lognorm
+from distributions import Lognorm
 from activation import act_fraction
 from driver import iterate_runs
 from ext.ghan.activation import explicit as ghan_explicit

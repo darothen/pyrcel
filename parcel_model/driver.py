@@ -4,9 +4,9 @@ Occasionally, a pathological set of input parameters to the parcel model
 will really muck up the hidden ODE solver's ability to integrate the model.
 In that case, it would be nice to quietly adjust some of the numerical 
 parameters for the ODE solver and re-submit the job. This module includes a
-workhorse function **iterate_runs** which can serve this purpose and can
-serve as an example for more complex strategies. Alternatively, **run_model** 
-is a useful shortcut for building/running a model, and snagging its output.
+workhorse function :func:`iterate_runs` which can serve this purpose and can
+serve as an example for more complex strategies. Alternatively, :func:`run_model`
+is a useful shortcut for building/running a model and snagging its output.
 
 """
 
@@ -71,6 +71,17 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
                  t_end=500., max_steps=500, output='smax',
                  fail_easy=True):
     """ Iterate through several different strategies for integrating the parcel model.
+
+    As long as `fail_easy` is set to `False`, the strategies this method implements are:
+
+    1. **CVODE** with a 10 second time limit and 2000 step limit.
+    2. **LSODA** with up to `dt_iters` iterations, where the timestep `dt` is
+       halved each time.
+    3. **LSODE** with coarse tolerance and the original timestep.
+
+    If these strategies all fail, the model will print a statement indicating such
+    and return either -9999 if `output` was 'smax', or an empty array or DataFrame
+    accordingly.
 
     Parameters
     ----------
