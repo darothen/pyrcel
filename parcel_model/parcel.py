@@ -604,17 +604,7 @@ class ParcelModel(object):
         for species, data in aerosol_data.iteritems():
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
-    '''
-    TODO: Implement this functionality
     @staticmethod
-    def write_to_hdf(name, parcel_data, aerosol_data, store_loc, meta=None):
-        pass
-
-    @staticmethod
-    def retrieve_from_hdf(store_loc, run_name):
-        pass
-    '''
-
     def der(y, t, nr, r_drys, Nis, V, kappas):
         """ Calculates the instantaneous time-derivate of the parcel model system.
 

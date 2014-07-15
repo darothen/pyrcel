@@ -5,7 +5,17 @@
 Parcel Model Details
 ====================
 
-.. automodule:: parcel_model.parcel
+Below is the documentation for the parcel model, which is useful for debugging
+and development. For a higher-level overview, see the :ref:`scientific description
+<sci_descr>`.
+
+Implementation
+--------------
 
 .. autoclass:: ParcelModel
-    :members: set_initial_conditions, run, der
+    :members: set_initial_conditions, run
+
+Derivative Equation
+-------------------
+
+.. automethod:: ParcelModel.der
