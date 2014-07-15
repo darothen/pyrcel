@@ -1,12 +1,13 @@
 """ Utilities for driving sets of parcel model integration strategies. 
 
 Occasionally, a pathological set of input parameters to the parcel model
-will really muck up the hidden ODE solver's ability to integrate the model.
+will really muck up the ODE solver's ability to integrate the model.
 In that case, it would be nice to quietly adjust some of the numerical 
 parameters for the ODE solver and re-submit the job. This module includes a
 workhorse function :func:`iterate_runs` which can serve this purpose and can
-serve as an example for more complex strategies. Alternatively, :func:`run_model`
-is a useful shortcut for building/running a model and snagging its output.
+serve as an example for more complex integration strategies. Alternatively,
+:func:`run_model`is a useful shortcut for building/running a model and snagging
+its output.
 
 """
 

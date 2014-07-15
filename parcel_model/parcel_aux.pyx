@@ -3,11 +3,7 @@
 #cython: boundscheck=False
 #cython: cdivision=True
 # (embedsignature adds doc-strings accessible by Sphinx)
-"""
-.. module:: parcel
-    :synopsis: Parcel model derivative calculations in Cython for speedup.
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
+""" Parcel model derivative calculations implemented in Cython.
 
 """
 
