@@ -1,4 +1,4 @@
-""" Main
+""" Main implementation of parcel model.
 """
 
 import os
@@ -35,8 +35,9 @@ class ParcelModel(object):
     >>> T0 = 283.15
     >>> S0 = 0.0
     >>> V = 1.0
-    >>> aerosol1 = pm.AerosolSpecies('sulfate', Lognorm(mu=0.025, sigma=1.3, N=2000.), \
-                                        bins=200, kappa=0.54)
+    >>> aerosol1 = pm.AerosolSpecies('sulfate',
+    ...                              Lognorm(mu=0.025, sigma=1.3, N=2000.),
+    ...                              bins=200, kappa=0.54)
     >>> initial_aerosols = [aerosol1, ]
     >>> z_top = 50.
     >>> dt = 0.01
@@ -412,20 +413,22 @@ class ParcelModel(object):
 
         Returns
         -------
-        Depending on what was passed to the *output* argument, different
-        types of data might be returned:
-            * `'dataframes'`: (default) will process the output into 
-                two pandas DataFrames - the first one containing profiles 
-                of the meteorological quantities tracked in the model, 
-                and the second a dictionary of DataFrames with one for 
-                each AerosolSpecies, tracking the growth in each bin 
-                for those species.
-            * `'arrays'`: will return the raw output from the solver 
-                used internally by the parcel model - the state vector 
-                `y` and the evaluated timesteps converted into height 
-                coordinates.
-            * `'smax'`: will only return the maximum supersaturation 
-                value achieved in the simulation.
+        DataFrames, array, or float
+            Depending on what was passed to the *output* argument, different
+            types of data might be returned:
+
+            - `dataframes': (default) will process the output into
+               two pandas DataFrames - the first one containing profiles
+               of the meteorological quantities tracked in the model,
+               and the second a dictionary of DataFrames with one for
+               each AerosolSpecies, tracking the growth in each bin
+               for those species.
+            - 'arrays': will return the raw output from the solver
+               used internally by the parcel model - the state vector
+               `y` and the evaluated timesteps converted into height
+               coordinates.
+            - 'smax': will only return the maximum supersaturation
+               value achieved in the simulation.
 
         Raises
         ------

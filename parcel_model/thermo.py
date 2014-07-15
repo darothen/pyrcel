@@ -425,7 +425,7 @@ def critical_curve(T, r_a, r_b, kappa, approx=False):
 
     See Also
     --------
-    kolher_crit : critical supersaturation calculation
+    kohler_crit : critical supersaturation calculation
 
     """
     crit_func = lambda rd: kohler_crit(T, rd, kappa, approx)
