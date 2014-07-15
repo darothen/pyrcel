@@ -153,7 +153,7 @@ class ParcelModel(object):
         Based on the aerosol population which has been stored in the model, this
         method will finish initializing the model. This has three major parts:
 
-        1. Concatenate the aerosol population information (their dry radii, 
+        1. concatenate the aerosol population information (their dry radii,
            hygroscopicities, etc) into single arrays which can be placed into the
            state vector for forward integration.
         2. Given the initial ambient water vapor concentration (computed from the

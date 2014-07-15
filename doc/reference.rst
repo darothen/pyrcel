@@ -58,7 +58,6 @@ Distributions
     :toctree: generated/
 
     Lognorm
-    MultiModeLognorm
 
 Activation
 ----------

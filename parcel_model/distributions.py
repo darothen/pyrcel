@@ -1,17 +1,119 @@
+""" Representations of aerosol size distributions
 """
-.. module:: parcel
-    :synopsis: Class and utilities for manipulating lognormal distributions.
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
-
-"""
-
-__docformat__ = "reStructuredText"
+from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from scipy.special import erf
 
-class MultiModeLognorm(object):
+class BaseDistribution:
+    """ Interface for distributions, to ensure that they contain a pdf method.
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def pdf(self, x):
+        """ Number density function. """
+
+    @abstractmethod
+    def __repr__(self):
+        """ Representation function. """
+
+class Lognorm(BaseDistribution):
+    """ Lognormal size distribution.
+
+    An instance of :class:`Lognorm` contains a construction of a lognormal distribution
+    and the utilities necessary for computing statistical functions associated
+    with that distribution. The parameters of the constructor are invariant with respect
+    to what length and concentration unit you choose; that is, if you use meters for
+    ``mu`` and cm**-3 for ``N``, then you should keep these in mind when evaluating
+    the :func:`pdf` and :func:`cdf` functions and when interpreting moments.
+
+    Parameters
+    ----------
+    mu : float
+        Median/geometric mean radius, length unit.
+    sigma : float
+        Geometric standard deviation, unitless.
+    N : float, optional (default=1.0)
+        Total number concentration, concentration unit.
+    base : {'e', 10.0} (default='e')
+        Base of logarithm in lognormal distribution.
+
+    Attributes
+    ----------
+    median, mean : float
+        Pre-computed statistical quantities
+
+    Methods
+    -------
+    pdf(x)
+        Evaluate distribution at a particular value
+    cdf(x)
+        Evaluate cumulative distribution at a particular value.
+    moment(k)
+        Compute the *k*-th moment of the lognormal distribution.
+
+    """
+
+    def __init__(self, mu, sigma, N=1.0, base="e"):
+        self.mu = mu
+        self.sigma = sigma
+        self.N = N
+
+        self.base = base
+        if self.base in ["e", np.e]:
+            self.log = np.log
+        elif self.base == 10.:
+            self.log = np.log10
+        else:
+            self.log_base = np.log(self.base)
+            self.log = lambda x: np.log(x)/self.log_base
+
+        # Compute moments
+        self.median = self.mu
+        self.mean = self.mu*np.exp(0.5*self.sigma**2)
+
+    def cdf(self, x):
+        """
+        Cumulative density function
+        """
+        erf_arg = (self.log(x/self.mu))/(np.sqrt(2.0)*self.log(self.sigma))
+        return (self.N/2.0)*(1.0+erf(erf_arg))
+
+    def pdf(self, x):
+        """
+        Probability density function
+        """
+        scaling = self.N/(np.sqrt(2.0*np.pi)*self.log(self.sigma))
+        exponent = ((self.log(x/self.mu))**2)/(2.0*(self.log(self.sigma))**2)
+        return (scaling/x)*np.exp(-exponent)
+
+    def moment(self, k):
+        """
+        Compute the k-th moment of the lognormal distribution
+
+        TODO: need to evaluate and make sure this is right!
+        """
+        geo_number_mean_volume = ((4./3.)*np.pi*self.mu**3)**k
+        exponent = ((9./2.)*(k**2)*(self.log(self.sigma))**2)
+        return geo_number_mean_volume*self.N*np.exp(exponent)
+
+    def stats(self):
+        """
+        Computes relevant statistics for a lognormal distribution
+
+        TODO: Flesh out more basic statistical quantities to report here.
+        """
+        stats_dict = dict()
+        stats_dict['mean'] = self.mu*np.exp(0.5*self.sigma**2)
+
+        return stats_dict
+
+    def __repr__(self):
+        return "Lognorm| mu = %2.2e, sigma = %2.2e, Total = %2.2e |" % \
+               (self.mu, self.sigma, self.N)
+
+class MultiModeLognorm(BaseDistribution):
     """Multimode lognormal distribution class.
 
     Container for multiple Lognorm classes representing a full aerosol size
@@ -46,78 +148,18 @@ class MultiModeLognorm(object):
         return "MultiModeLognorm| mus = %s, sigmas = %s, Totals = %s |" % \
                (mus_str, sigmas_str, Ns_str)
 
-
-class Lognorm(object):
-    """Lognormal distribution class.
-
-    An instance of 'Lognorm' contains a construction of a lognormal distribution
-    and the utilities necessary for computing statistical functions associated
-    with that distribution. Instance variables are fundamental parameters which
-    define specific lognormal distributions.
-
-    :ivar mu:
-        The *mu* (r_i, Nenes et al, 2001) parameter of a lognormal distribution,
-        otherwise the number mode radius.
-
-    :ivar sigma:
-        The characteristic shape parameter *sigma* of a lognormal distribution,
-        otherwise the geometric standard deviation.
-
-    :ivar N:
-        A scaling factor for a lognormal distribution. In log-space, a lognormal
-        distribution's PDF curve should contain an area equal to 1. This optional
-        factor lets one scale the area underneath the lognormal PDF curve. In most
-        cases, this term represents the total aerosol number concentration.
-        Default - 1.0
-    """
-
-    def __init__(self, mu, sigma, N=1.0, base="e"):
-        self.mu = mu
-        self.sigma = sigma
-        self.N = N
-
-        self.base = base
-        if self.base in ["e", np.e]:
-            self.log = np.log
-        elif self.base == 10.:
-            self.log = np.log10
-        else:
-            self.log_base = np.log(self.base)
-            self.log = lambda x: np.log(x)/self.log_base
-
-        # Compute moments
-        self.median = self.mu
-        self.mean = self.mu*np.exp(0.5*self.sigma**2)
-
-    def cdf(self, x):
-        erf_arg = (self.log(x/self.mu))/(np.sqrt(2.0)*self.log(self.sigma))
-        return (self.N/2.0)*(1.0+erf(erf_arg))
-
-    def pdf(self, x):
-        """
-        Probability density function
-        """
-        scaling = self.N/(np.sqrt(2.0*np.pi)*self.log(self.sigma))
-        exponent = ((self.log(x/self.mu))**2)/(2.0*(self.log(self.sigma))**2)
-        #return (scaling/x)*np.exp(-exponent)
-        return (scaling/x)*np.exp(-exponent)
-
-    def moment(self, k):
-        geo_number_mean_volume = ((4./3.)*np.pi*self.mu**3)**k
-        exponent = ((9./2.)*(k**2)*(self.log(self.sigma))**2)
-        return geo_number_mean_volume*self.N*np.exp(exponent)
-
-    def stats(self):
-        """
-        Computes relevant statistics for a lognormal distribution
-        """
-        stats_dict = dict()
-        stats_dict['mean'] = self.mu*np.exp(0.5*self.sigma**2)
-
-        return stats_dict
-
-    def __repr__(self):
-        return "Lognorm| mu = %2.2e, sigma = %2.2e, Total = %2.2e |" % (self.mu, self.sigma, self.N)
+whitby_distributions = {
+    # name: [nucleation, accumulation, coarse]
+    #        mu = micron, N = cm**-3
+    'marine': [Lognorm(0.01/2., 1.6, 340.), Lognorm(0.07/2., 2., 6.0),
+               Lognorm(0.62/2., 2.7, 3.1)],
+    'continental': [Lognorm(0.016/2., 1.6, 1000.), Lognorm(0.068/2., 2.1, 800.),
+                    Lognorm(0.92/2., 2.2, 0.72)],
+    'background': [Lognorm(0.01/2., 1.7, 6400.), Lognorm(0.076/2., 2., 2300.0),
+                   Lognorm(1.02/2., 2.16, 3.2)],
+    'urban': [Lognorm(0.014/2., 1.8, 10600.), Lognorm(0.054/2., 2.16, 32000.0),
+              Lognorm(0.86/2., 2.21, 5.4)]
+}
 
 ## Source = Aerosol-Cloud-Climate Interactions by Peter V. Hobbs, pg. 14
 jaenicke_distributions = {
