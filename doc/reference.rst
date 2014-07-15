@@ -10,6 +10,11 @@ Main Parcel Model
 
 The core of the model has its own documentation page, which you can access :ref:`here <parcel>`.
 
+.. autosummary::
+    :toctree: generated/
+
+    ParcelModel
+
 Driver Tools
 ------------
 
@@ -67,6 +72,7 @@ Activation
 .. autosummary::
     :toctree: generated/
 
+    multi_mode_activation
     act_fraction
 
 Constants

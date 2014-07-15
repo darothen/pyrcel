@@ -1,8 +1,4 @@
-"""
-.. module:: parcel
-    :synopsis: Collection of droplet activation routines
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
+""" Collection of activation parameterizations.
 
 """
 
@@ -13,23 +9,70 @@ from scipy.special import erfc, erf, erfinv
 from thermo import *
 from constants import *
 
-def act_fraction(Smax, T, rs, kappa, r_drys, Nis):
-    """Calculates the equilibrium activated fraction given the details of a population
-    of aerosol sizes.
+def multi_mode_activation(Smax, T, aerosols, rss):
+    """ Compute the activation statistics of a multi-mode aerosol population.
 
-    NOTE - This works for a *single mode*. In order to study the entire aerosol
-    population activated in the parcel model, this will need to be called however
-    many times there are modes for each separate mode.
+    Parameters
+    ----------
+    Smax : float
+        Environmental maximum supersaturation.
+    T : float
+        Environmental temperature.
+    aerosol : array of :class:`AerosolSpecies`
+        The characterizations of the dry aerosols.
+    rss : array of arrays of floats
+        Wet radii corresponding to each aerosol/droplet population.
+
+    Returns
+    -------
+    act_fracs : floats
+        The activated fraction of each aerosol population.
 
     """
+    act_fracs = []
+    for rs, aerosol in zip(rss, aerosols):
+        eq, _ = act_fraction(Smax, T, rs, aerosol)
+        act_fracts.append(eq)
+    return act_fracs
+
+def act_fraction(Smax, T, rs, aerosol):
+    """ Calculates the equilibrium activation statistics of a given aerosol and
+    maximum supersaturation.
+
+    This calculation is only implemented for a single aerosol size. See
+    :func:`multimode_act_frac` for the equivalent calculation carried out
+    over successive modes.
+
+    Parameters
+    ----------
+    Smax : float
+        Environmental maximum supersaturation.
+    T : float
+        Environmental temperature.
+    rs : array of floats
+        Wet radii of aerosol/droplet population.
+    aerosol : :class:`AerosolSpecies`
+        The characterization of the dry aerosol.
+
+    Returns
+    -------
+    eq_frac, kn_frac : floats
+        Equilibrium and kinetic activated aerosol fraction, in units corresponding
+        to those of ``aerosol``'s ``total_N`` attribute.
+
+    """
+
+    kappa = aerosol.kappa
+    r_drys = aerosol.r_drys
+    Nis = aerosol.Nis
+    N_tot = aerosol.total_N
+
     r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in r_drys])
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
     activated_eq = (Smax >= s_crits)
     activated_kn = (rs >= r_crits)
-
-    N_tot = np.sum(Nis)
 
     eq_frac = np.sum(Nis[activated_eq])/N_tot
     kn_frac = np.sum(Nis[activated_kn])/N_tot
