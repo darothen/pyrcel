@@ -5,12 +5,6 @@
 Parcel Model Details
 ====================
 
-Description
------------
-
-Model Reference
----------------
-
 .. automodule:: parcel_model.parcel
 
 .. autoclass:: ParcelModel
