@@ -1,4 +1,10 @@
-""" Representations of aerosol size distributions
+""" Collection of classes for representing aerosol size distributions.
+
+Most commonly, one would use the :class:`Lognorm` distribution. However,
+for the sake of completeness, other canonical distributions will be
+included here, with the notion that this package could be extended to
+describe droplet size distributions or other collections of objects.
+
 """
 from abc import ABCMeta, abstractmethod
 
@@ -74,38 +80,60 @@ class Lognorm(BaseDistribution):
         self.mean = self.mu*np.exp(0.5*self.sigma**2)
 
     def cdf(self, x):
-        """
-        Cumulative density function
+        """ Cumulative density function
+
+        .. math::
+            \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}(\\frac{\log{x/\mu}}{\sqrt{2}\log{\sigma}}) \\right)
+
         """
         erf_arg = (self.log(x/self.mu))/(np.sqrt(2.0)*self.log(self.sigma))
         return (self.N/2.0)*(1.0+erf(erf_arg))
 
     def pdf(self, x):
-        """
-        Probability density function
+        """ Probability density function
+
+        .. math::
+            \\text{PDF} = \\frac{N}{\sqrt{2\pi}\log\sigma x}\exp\\left( -\\frac{\log{x/\mu}^2}{2\log^2\sigma} \\right)
+
         """
         scaling = self.N/(np.sqrt(2.0*np.pi)*self.log(self.sigma))
         exponent = ((self.log(x/self.mu))**2)/(2.0*(self.log(self.sigma))**2)
         return (scaling/x)*np.exp(-exponent)
 
     def moment(self, k):
-        """
-        Compute the k-th moment of the lognormal distribution
+        """ Compute the k-th moment of the lognormal distribution
 
-        TODO: need to evaluate and make sure this is right!
+        .. math::
+            F(k) = N\mu^k\exp\\left( \\frac{k^2}{2} \ln^2 \sigma \\right)
+
         """
-        geo_number_mean_volume = ((4./3.)*np.pi*self.mu**3)**k
-        exponent = ((9./2.)*(k**2)*(self.log(self.sigma))**2)
-        return geo_number_mean_volume*self.N*np.exp(exponent)
+        scaling = (self.mu**k)*self.N
+        exponent = (((k**2)/2.)*(self.log(self.sigma))**2)
+        return scaling*self.N*np.exp(exponent)
 
     def stats(self):
-        """
-        Computes relevant statistics for a lognormal distribution
+        """ Compute useful statistics for a lognormal distribution
 
-        TODO: Flesh out more basic statistical quantities to report here.
+        Returns
+        -------
+        dict
+            Dictionary containing the stats ``mean_radius``, ``total_diameter``,
+            ``total_surface_area``, ``total_volume``, ``mean_surface_area``,
+            ``mean_volume``, and ``effective_radius``
+
         """
         stats_dict = dict()
-        stats_dict['mean'] = self.mu*np.exp(0.5*self.sigma**2)
+        stats_dict['mean_radius'] = self.mu*np.exp(0.5*self.sigma**2)
+
+        stats_dict['total_diameter'] = self.N*stats_dict['mean_radius']
+        stats_dict['total_surface_area'] = 4.*np.pi*self.moment(2.0)
+        stats_dict['total_volume'] = (4.*np.pi/3.)*self.moment(3.0)
+
+        stats_dict['mean_surface_area'] = stats_dict['total_surface_area']/self.N
+        stats_dict['mean_volume'] = stats_dict['total_volume']/self.N
+
+        stats_dict['effective_radius'] = stats_dict['total_volume']/ \
+                                         stats_dict['total_surface_area']
 
         return stats_dict
 

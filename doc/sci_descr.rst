@@ -200,3 +200,5 @@ This representation of the aerosol population is similar to the external
 mixing state assumption. An advantage to using this representation is
 that complex mixing states can be represented by adding various size
 bins, each with their own number concentration and hygroscopicity.
+
+.. topic:: Reference

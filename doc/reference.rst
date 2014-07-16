@@ -50,9 +50,18 @@ Aerosols
 
 .. autosummary::
     :toctree: generated/
+    :template: class.rst
+
+    AerosolSpecies
+
+The following are utility functions which might be useful in studying
+and manipulating aerosol distributions for use in the :ref:`model <parcel>`
+or activation routines.
+
+.. autosummary::
+    :toctree: generated/
 
     dist_to_conc
-    AerosolSpecies
 
 Distributions
 -------------
@@ -61,6 +70,7 @@ Distributions
 
 .. autosummary::
     :toctree: generated/
+    :template: class.rst
 
     Lognorm
 

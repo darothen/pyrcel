@@ -1,9 +1,10 @@
 """ Container class for encapsulating data about aerosol size distributions.
+
 """
 
 import numpy as np
 
-from distributions import Lognorm, MultiModeLognorm
+from distributions import BaseDistribution, Lognorm, MultiModeLognorm
 
 def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
     """ Converts a swath of a size distribution function to an actual number
@@ -194,6 +195,39 @@ class AerosolSpecies(object):
         self.total_N = np.sum(self.Nis)
         self.Nis *= 1e6
         self.nr = len(self.r_drys)
+
+    def stats(self):
+        """ Compute useful statistics about this aerosol's size distribution.
+
+        Returns
+        -------
+        dict
+            Inherits the values from the ``distribution``, and if ``rho``
+            was provided, adds some statistics about the mass and
+            mass-weighted properties.
+
+        Raises
+        ------
+        ValueError
+            If the stored ``distribution`` does not implement a ``stats()``
+            function.
+        """
+
+        if isinstance(self.distribution, BaseDistribution):
+            stats_dict = self.distribution.stats()
+
+            if self.rho:
+
+                stats_dict['total_mass'] = stats_dict['total_volume']*self.rho
+                stats_dict['mean_mass'] = stats_dict['mean_volume']*self.rho
+                stats_dict['specific_surface_area'] = \
+                    stats_dict['total_surface_area']/stats_dict['total_mass']
+
+            return self.rho
+
+        else:
+            raise ValueError("Could not work with size distribution of type %r" % type(self.distribution))
+
 
     def __repr__(self):
         return "%s - %r" % (self.species, self.distribution)

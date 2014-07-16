@@ -61,7 +61,7 @@ html:
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 gen:
-	sphinx-autogen -o generated *.rst
+	sphinx-autogen -t templates -o generated *.rst
 	@echo
 	@echo "auto-generated content finished building in $(BUILDDIR)/generated"
 
