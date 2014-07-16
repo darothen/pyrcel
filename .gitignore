@@ -22,10 +22,12 @@ dist/
 ############################
 doc/_build/
 doc/generated/
+doc/examples/*.rst
+doc/examples/*files/
 
 # Other
 #######
 *~
 *#
 parcel_model.egg-info
-.idea/
+.idea/*
