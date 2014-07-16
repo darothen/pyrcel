@@ -85,6 +85,8 @@ Activation
     multi_mode_activation
     act_fraction
 
+.. _constants:
+
 Constants
 ---------
 

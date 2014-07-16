@@ -61,7 +61,7 @@ copyright = u'2014, Daniel Rothenberg'
 # built documents.
 #
 # The short X.Y version.
-version = execfile("../parcel_model/version.py")
+from parcel_model import __version__ as version
 # The full version, including alpha/beta/rc tags.
 release = version
 

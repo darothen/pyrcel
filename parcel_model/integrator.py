@@ -1,9 +1,4 @@
-"""
-.. module:: parcel
-    :synopsis: Numerical integrators for solving the parcel model.
-
-.. moduleauthor:: Daniel Rothenberg <darothen@mit.edu>
-
+""" Interface to numerical ODE solvers.
 """
 __docformat__ = 'reStructuredText'
 
@@ -40,7 +35,7 @@ class Integrator(object):
     """
     @staticmethod
     def solver(method):
-        """Maps a solver name to a function.
+        """ Maps a solver name to a function.
         """
         solvers = {
             'odeint': Integrator._solve_odeint,

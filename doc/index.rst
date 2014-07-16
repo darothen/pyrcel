@@ -1,5 +1,6 @@
-Cloud parcel model
-==================
+
+Model/Package Overview
+======================
 
 This is an implementation of a simple, 0D adiabatic cloud parcel model tool (following `Nenes et al, 2001`_ and `Pruppacher and Klett, 1997`_). It allows flexible descriptions of an initial aerosol population, and simulates the evolution of a proto-cloud droplet population as the parcel ascends adiabatically at either a constant or time/height-dependent updraft speed. Droplet growth within the parcel is tracked on a Lagrangian grid.
 
