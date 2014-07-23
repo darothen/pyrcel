@@ -149,10 +149,10 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     if not S_max and not fail_easy:
         while dt > dt_orig/(2**dt_iters):
             print " Trying LSODA, dt = %1.3e, max_steps = %d" % (dt, max_steps)
-            S_max = run_model(V, aerosols, T, P, dt, max_steps, solver='lsoda',
-                              t_end=t_end, S0=S0)
+            S_max = run_model(V, aerosols, T, P, dt, S0, max_steps, solver='lsoda',
+                              t_end=t_end)
             if not S_max:
-                dt = dt/2.
+                dt /= 2.
                 print "    Retrying..."
             else:
                 finished = True

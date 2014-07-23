@@ -6,8 +6,74 @@ import numpy as np
 from numpy import min as nmin
 from scipy.special import erfc, erf, erfinv
 
-from thermo import *
-from constants import *
+from thermo import es, rho_air, ka, ka_cont, dv, dv_cont, sigma_w, kohler_crit
+import constants as c
+
+def _unpack_aerosols(aerosols):
+    """ Convert a list of :class:`AerosolSpecies` into lists of aerosol properties.
+
+    Parameters
+    ----------
+    aerosols : list of :class:`AerosolSpecies`
+
+    Returns
+    -------
+    dictionary of lists of aerosol properties
+
+    """
+
+    species, mus, sigmas, kappas, Ns = [], [], [], [], []
+    for a in aerosols:
+        species.append(a.species)
+        mus.append(a.distribution.mu)
+        sigmas.append(a.distribution.sigma)
+        Ns.append(a.distribution.N)
+        kappas.append(a.kappa)
+
+    species = np.asarray(species)
+    mus     = np.asarray(mus)
+    sigmas  = np.asarray(sigmas)
+    kappas  = np.asarray(kappas)
+    Ns      = np.asarray(Ns)
+
+    return dict(species=species, mus=mus, sigmas=sigmas, Ns=Ns, kappas=kappas)
+
+def activate_lognormal_mode(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=True):
+    """ Compute the activated number/fraction from a lognormal mode
+
+    Parameters
+    ----------
+    smax : float
+        Maximum parcel supersaturation
+    mu, sigma, N : floats
+        Lognormal mode parameters; ``mu`` should be in meters
+    kappa : float
+        Hygroscopicity of material in aerosol mode
+    sgi :float, optional
+        Modal critical supersaturation; if not provided, this method will
+        go ahead and compute them, but a temperature ``T`` must also be passed
+    T : float, optional
+        Parcel temperature; only necessary if no ``sgi`` was passed
+    approx : boolean, optional (default=False)
+        If computing modal critical supersaturations, use the approximated
+        Kohler theory
+
+    Returns
+    -------
+    N_act, act_frac : floats
+        Activated number concentration and fraction for the given mode
+
+    """
+
+    if not sgi:
+        assert T
+        _, sgi = kohler_crit(T, mu, kappa, approx)
+
+    ui = 2.*np.log(sgi/smax)/(3.*np.sqrt(2.)*np.log(sigma))
+    N_act = 0.5*N*erfc(ui)
+    act_frac = N_act/N
+
+    return N_act, act_frac
 
 def multi_mode_activation(Smax, T, aerosols, rss):
     """ Compute the activation statistics of a multi-mode aerosol population.
@@ -32,7 +98,7 @@ def multi_mode_activation(Smax, T, aerosols, rss):
     act_fracs = []
     for rs, aerosol in zip(rss, aerosols):
         eq, _ = act_fraction(Smax, T, rs, aerosol)
-        act_fracts.append(eq)
+        act_fracs.append(eq)
     return act_fracs
 
 def act_fraction(Smax, T, rs, aerosol):
@@ -78,6 +144,395 @@ def act_fraction(Smax, T, rs, aerosol):
     kn_frac = np.sum(Nis[activated_kn])/N_tot
 
     return eq_frac, kn_frac
+
+######################################################################
+## Code implementing the Nenes and Seinfeld (2003) parameterization,
+## with improvements from Fountoukis and Nenes (2005), Barahona
+## et al (2010), and Morales Betancourt and Nenes (2014)
+######################################################################
+
+def _vpres(T):
+    """ Polynomial approximation of saturated water vapour pressure as
+    a function of temperature.
+
+    Parameters
+    ----------
+    T : float
+        Ambient temperature, in Kelvin
+
+    Returns
+    -------
+    float
+        Saturated water vapor pressure expressed in mb
+
+    See Also
+    --------
+    es
+
+    """
+    #: Coefficients for vapor pressure approximation
+    A = [ 6.107799610e+0, 4.436518521e-1, 1.428945805e-2,
+          2.650648471e-4, 3.031240396e-6, 2.034080948e-8,
+          6.136820929e-11 ]
+    T = T-273
+    vp = A[-1]*T
+    for ai in reversed(A[1:-1]):
+        vp = (vp + ai)*T
+    vp = vp + A[0]
+    return vp
+
+def _erfp(x):
+    """ Polynomial approximation to error function
+    """
+    AA = [0.278393, 0.230389, 0.000972, 0.078108]
+    y = np.abs(1.0 * x)
+    axx = 1.0 + y*(AA[0] + y*(AA[1] + y*(AA[2] + y*AA[3])))
+    axx = axx*axx
+    axx = axx*axx
+    axx = 1.0 - (1.0/axx)
+
+    if x <= 0.:
+        axx = -1.0*axx
+
+    return axx
+
+def mbn2014(V, T, P, aerosols=[], accom=c.ac,
+            mus=[], sigmas=[], Ns=[], kappas=[],
+            xmin=1e-5, xmax=0.1, tol=1e-6, max_iters=100):
+    """ Computes droplet activation using an iterative scheme.
+
+    This method implements the iterative activation scheme under development by
+    the Nenes' group at Georgia Tech. It encompasses modifications made over a
+    sequence of several papers in the literature, culminating in [MBN2014]. The
+    implementation here overrides some of the default physical constants and
+    thermodynamic calculations to ensure consistency with a reference implementation.
+
+    Parameters
+    ----------
+    V, T, P : floats
+        Updraft speed (m/s), parcel temperature (K) and pressure (Pa)
+    aerosols : list of :class:`AerosolSpecies`
+        List of the aerosol population in the parcel; can be omitted if ``mus``,
+        ``sigmas``, ``Ns``, and ``kappas`` are present. If both supplied, will
+        use ``aerosols``.
+    accom : float, optional (default=:const:`constants.ac`)
+        Condensation/uptake accomodation coefficient
+    mus, sigmas, Ns, kappas : lists of floats
+        Lists of aerosol population parameters; must be present if ``aerosols``
+        is not passed, but ``aerosols`` overrides if both are present
+    xmin, xmax : floats, opional
+        Minimum and maximum supersaturation for bisection
+    tol : float, optional
+        Convergence tolerance threshold for supersaturation, in decimal units
+    max_iters : int, optional
+        Maximum number of bisections before exiting convergence
+
+    Returns
+    -------
+    smax, N_acts, act_fracs : lists of floats
+        Maximum parcel supersaturation and the number concentration/activated
+        fractions for each mode
+
+    .. [MBN2014] Morales Betancourt, R. and Nenes, A.: Droplet activation
+       parameterization: the population splitting concept revisited, Geosci.
+       Model Dev. Discuss., 7, 2903-2932, doi:10.5194/gmdd-7-2903-2014, 2014.
+
+    """
+
+    if aerosols:
+        d = _unpack_aerosols(aerosols)
+        mus    = d['mus']
+        sigmas = d['sigmas']
+        kappas = d['kappas']
+        Ns     = d['Ns']
+    else:
+        ## Assert that the aerosol was already decomposed into component vars
+        assert mus
+        assert sigmas
+        assert Ns
+        assert kappas
+
+    # Convert sizes/number concentrations to diameters + SI units
+    dpgs = 2*(mus*1e-6)
+    Ns   = Ns*1e6
+
+    nmodes = len(Ns)
+
+    # Overriding using Nenes' physical constants, for numerical accuracy comparisons
+    # TODO: Revert to saved 'constants' module
+    c.Ma = 29e-3
+    c.g  = 9.81
+    c.Mw = 18e-3
+    c.R  = 8.31
+    c.rho_w = 1e3
+    c.L  = 2.25e6
+    c.Cp = 1.0061e3
+
+    # Thermodynamic environmental values to be set
+    # TODO: Revert to functions in 'thermo' module
+    #rho_a    = rho_air(T, P, RH=0.0) # MBN2014: could set RH=1.0, account for moisture
+    rho_a    = P*c.Ma/c.R/T
+    aka      = ka_cont(T)             # MBN2014: could use thermo.ka(), include air density
+    #surt     = sigma_w(T)
+    surt     = (0.0761 - 1.55e-4*(T-273.))
+
+    # Compute modal critical supersaturation (Sg) for each mode, corresponding
+    # to the critical supersaturation at the median diameter of each mode
+    A = 4.*c.Mw*surt/c.R/T/c.rho_w
+    # There are three different ways to do this:
+    #    1) original formula from MBN2014
+    f = lambda T, dpg, kappa: np.sqrt((A**3.)*4./27./kappa/(dpg**3.))
+    #    2) detailed kohler calculation
+    #f = lambda T, dpg, kappa: kohler_crit(T, dpg/2., kappa)
+    #    3) approximate kohler calculation
+    #f = lambda T, dpg, kappa: kohler_crit(T, dpg/2., kappa, approx=True)
+    # and the possibility of a correction factor:
+    f2 = lambda T, dpg, kappa: np.exp(f(T, dpg, kappa)) - 1.0
+    sgis = [f2(T, dpg, kappa) for dpg, kappa in zip(dpgs, kappas)]
+
+    # Calculate the correction factor for the water vapor diffusivity.
+    # Note that the Nenes' form is the exact same as the continuum form in this package
+    #dv_orig = dv_cont(T, P)
+    dv_orig = 1e-4*(0.211/(P/1.013e5)*(T/273.)**1.94)
+    dv_big = 5.0e-6
+    dv_low = 1e-6*0.207683*(accom**(-0.33048))
+
+    coef     = (2.*np.pi*c.Mw/(c.R*T))**0.5
+    dv_ave   = (dv_orig/(dv_big-dv_low))*((dv_big-dv_low)-(2*dv_orig/accom)*coef*      \
+               (np.log((dv_big+(2*dv_orig/accom)*coef)/(dv_low+(2*dv_orig/accom)* \
+                coef))))
+
+    ## Setup constants used in supersaturation equation
+    wv_pres_sat = _vpres(T)*(1e5/1e3) # MBN2014: could also use thermo.es()
+    alpha = c.g*c.Mw*c.L/c.Cp/c.R/T/T - c.g*c.Ma/c.R/T
+    beta1 = P*c.Ma/wv_pres_sat/c.Mw + c.Mw*c.L*c.L/c.Cp/c.R/T/T
+    beta2 = c.R*T*c.rho_w/wv_pres_sat/dv_ave/c.Mw/4.0 + \
+            c.L*c.rho_w/4.0/aka/T*(c.L*c.Mw/c.R/T - 1.0)   # this is 1/G
+    beta  = 0.5*np.pi*beta1*c.rho_w/beta2/alpha/V/rho_a
+
+    cf1   = 0.5*np.sqrt((1/beta2)/(alpha*V))
+    cf2   = A/3.0
+
+    def _sintegral(smax):
+        """ Integrate the activation equation, using ``spar`` as the population
+        splitting threshold.
+
+        Inherits the workspace thermodynamic/constant variables from one level
+        of scope higher.
+        """
+
+        zeta_c   = ((16./9.)*alpha*V*beta2*(A**2))**0.25
+        delta    = 1.0 - (zeta_c/smax)**4. # spar -> smax
+        critical = delta <= 0.
+
+        if critical:
+            ratio = (2e7/3.0)*A*(smax**(-0.3824) - zeta_c**(-0.3824)) # Computing sp1 and sp2 (sp1 = sp2)
+            ratio = 1./np.sqrt(2.) + ratio
+
+            if ratio > 1. : ratio = 1. # cap maximum value
+            ssplt2 = smax*ratio
+
+        else:
+            ssplt1 = 0.5*(1. - np.sqrt(delta)) # min root --> sp1
+            ssplt2 = 0.5*(1. + np.sqrt(delta)) # max root --> sp2
+            ssplt1 = np.sqrt(ssplt1)*smax
+            ssplt2 = np.sqrt(ssplt2)*smax
+
+        ssplt = ssplt2 # secondary partitioning supersaturation
+
+        ## Computing the condensation integrals I1 and I2
+        sum_integ1 = 0.0
+        sum_integ2 = 0.0
+
+        integ1 = np.empty(nmodes)
+        integ2 = np.empty(nmodes)
+
+        sqrtwo = np.sqrt(2.)
+        for i in xrange(nmodes):
+            log_sigma    = np.log(sigmas[i])      # ln(sigma_i)
+            log_sgi_smax = np.log(sgis[i]/smax)   # ln(sg_i/smax)
+            log_sgi_sp2  = np.log(sgis[i]/ssplt2) # ln(sg_i/sp2
+
+            u_sp2  = 2.*log_sgi_sp2/(3.*sqrtwo*log_sigma)
+            u_smax = 2.*log_sgi_smax/(3.*sqrtwo*log_sigma)
+            # Subtract off the integrating factor
+            log_factor = 3.*log_sigma/(2.*sqrtwo)
+
+            d_eq = A*2./sgis[i]/3./np.sqrt(3.) # Dpc/sqrt(3) - equilibrium diameter
+
+            erf_u_sp2  = _erfp(u_sp2 - log_factor)  # ERF2
+            erf_u_smax = _erfp(u_smax - log_factor) # ERF3
+
+            integ2[i] = (np.exp(9./8.*log_sigma*log_sigma)*Ns[i]/sgis[i])*(erf_u_sp2 - erf_u_smax)
+
+            if critical:
+                u_sp_plus = sqrtwo*log_sgi_sp2/3./log_sigma
+                erf_u_sp_plus = _erfp(u_sp_plus - log_factor)
+
+                integ1[i] = 0.
+                I_extra_term = Ns[i]*d_eq*np.exp((9./8.)*log_sigma*log_sigma)* \
+                               (1.0 - erf_u_sp_plus)*((beta2*alpha*V)**0.5)     # 'inertially limited' particles
+
+            else:
+                g_i = np.exp((9./2.)*log_sigma*log_sigma)
+                log_sgi_sp1 = np.log(sgis[i]/ssplt1)                     # ln(sg_i/sp1)
+
+                int1_partial2  = Ns[i]*smax                              # building I1(0, sp2), eq (B4)
+                int1_partial2 *= ((1. - _erfp(u_sp2)) - 0.5*((sgis[i]/smax)**2.)*g_i* \
+                                  (1. - _erfp(u_sp2 + 3.*log_sigma/sqrtwo)))
+
+                u_sp1 = 2.*log_sgi_sp1/(3.*sqrtwo*log_sigma)
+                int1_partial1  = Ns[i]*smax                              # building I1(0, sp1), eq (B4)
+                int1_partial1 *= ((1. - _erfp(u_sp1)) - 0.5*((sgis[i]/smax)**2.)*g_i*\
+                                  (1. - _erfp(u_sp1 + 3.*log_sigma/sqrtwo)))
+
+                integ1[i] = int1_partial2 - int1_partial1                # I1(sp1, sp2)
+
+                u_sp1_inertial = sqrtwo*log_sgi_sp1/3./log_sigma
+                erf_u_sp1 = _erfp(u_sp1_inertial - log_factor)
+                I_extra_term = Ns[i]*d_eq*np.exp((9./8.)*log_sigma*log_sigma)* \
+                               (1.0 - erf_u_sp1)*((beta2*alpha*V)**0.5) # 'inertially limited' particles
+
+            ## Compute total integral values
+            sum_integ1 += integ1[i] + I_extra_term
+            sum_integ2 += integ2[i]
+
+        return sum_integ1, sum_integ2
+
+    ## Bisection routine
+    # Initial calculation
+    x1 = xmin # min cloud super sat -> 0.
+    integ1, integ2 = _sintegral(x1)
+    # Note that we ignore the contribution from the FHH integral term in this
+    # implementation
+    y1 = (integ1*cf1 + integ2*cf2)*beta*x1 - 1.0
+
+    x2 = xmax # max cloud super sat
+    integ1, integ2 = _sintegral(x2)
+    y2 = (integ1*cf1 + integ2*cf2)*beta*x2 - 1.0
+
+    # Iteration of bisection routine to convergence
+    iter_count = 0
+    for i in xrange(max_iters):
+        iter_count += 1
+
+        x3 = 0.5*(x1 + x2)
+        integ1, integ2 = _sintegral(x3)
+        y3 = (integ1*cf1 + integ2*cf2)*beta*x3 - 1.0
+
+        if (y1*y3) <= 0. : # different signs
+            y2 = y3
+            x2 = x3
+        else:
+            y1 = y3
+            x1 = x3
+        if np.abs(x2 - x1 <= tol*x1): break
+        #raw_input("continue")
+
+    ## Finalize bisection with one more intersection
+    x3 = 0.5*(x1 + x2)
+    integ1, integ2 = _sintegral(x3)
+    y3 = (integ1*cf1 + integ2*cf2)*beta*x3 - 1.0
+
+    smax = x3
+
+    n_acts, act_fracs = [], []
+    for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, sgis):
+        N_act, act_frac = activate_lognormal_mode(smax, mu*1e-6, sigma, N, kappa, sgi)
+        n_acts.append(N_act)
+        act_fracs.append(act_frac)
+
+    return smax, n_acts, act_fracs
+
+def arg2000(V, T, P, aerosols=[], accom=c.ac,
+            mus=[], sigmas=[], Ns=[], kappas=[]):
+    """ Computes droplet activation using a psuedo-analytical scheme.
+
+    This method implements the psuedo-analytical scheme of [ARG2000] to
+    calculate droplet activation an an adiabatically ascending parcel. It
+    includes the extension to multiple lognormal modes.
+
+    Parameters
+    ----------
+    V, T, P : floats
+        Updraft speed (m/s), parcel temperature (K) and pressure (Pa)
+    aerosols : list of :class:`AerosolSpecies`
+        List of the aerosol population in the parcel; can be omitted if ``mus``,
+        ``sigmas``, ``Ns``, and ``kappas`` are present. If both supplied, will
+        use ``aerosols``.
+    accom : float, optional (default=:const:`constants.ac`)
+        Condensation/uptake accomodation coefficient
+    mus, sigmas, Ns, kappas : lists of floats
+        Lists of aerosol population parameters; must be present if ``aerosols``
+        is not passed, but ``aerosols`` overrides if both are present.
+
+    Returns
+    -------
+    smax, N_acts, act_fracs : lists of floats
+        Maximum parcel supersaturation and the number concentration/activated
+        fractions for each mode
+
+    .. [ARG2000] Abdul-Razzak, H., and S. J. Ghan (2000), A parameterization of
+       aerosol activation: 2. Multiple aerosol types, J. Geophys. Res., 105(D5),
+       6837-6844, doi:10.1029/1999JD901161.
+
+    """
+
+    if aerosols:
+        d = _unpack_aerosols(aerosols)
+        mus    = d['mus']
+        sigmas = d['sigmas']
+        kappas = d['kappas']
+        Ns     = d['Ns']
+    else:
+        ## Assert that the aerosol was already decomposed into component vars
+        assert mus
+        assert sigmas
+        assert Ns
+        assert kappas
+
+    ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
+    alpha = (c.g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (c.g*c.Ma)/(c.R*T)
+    gamma = (c.R*T)/(es(T-273.15)*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
+
+    ## Condensation effects
+    G_a = (c.rho_w*c.R*T)/(es(T-273.15)*dv_cont(T, P)*c.Mw)
+    G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka_cont(T)*T)
+    G = 1./(G_a + G_b)
+
+    Smis = []
+    Sparts = []
+    for (mu, sigma, N, kappa) in zip(mus, sigmas, Ns, kappas):
+
+        am = mu*1e-6
+        N = N*1e6
+
+        fi = 0.5*np.exp(2.5*(np.log(sigma)**2))
+        gi = 1.0 + 0.25*np.log(sigma)
+
+        A = (2.*sigma_w(T)*c.Mw)/(c.rho_w*c.R*T)
+        _, Smi2 = kohler_crit(T, am, kappa)
+
+        zeta = (2./3.)*A*(np.sqrt(alpha*V/G))
+        etai = ((alpha*V/G)**(3./2.))/(N*gamma*c.rho_w*2.*np.pi)
+
+        ##
+        Spa = fi*((zeta/etai)**(1.5))
+        Spb = gi*(((Smi2**2)/(etai + 3.*zeta))**(0.75))
+        S_part = (1./(Smi2**2))*(Spa + Spb)
+
+        Smis.append(Smi2)
+        Sparts.append(S_part)
+
+    smax = 1./np.sqrt(np.sum(Sparts))
+
+    n_acts, act_fracs = []
+    for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, Smis):
+        N_act, act_frac = activate_lognormal_mode(smax, mu*1e-6, sigma, N, kappa, sgi)
+        n_acts.append(N_act)
+        act_fracs.append(act_frac)
+
+    return smax, n_acts, act_fracs
 
 def shipwayabel2010(V, T, P, aerosol):
     """ Activation scheme following Shipway and Abel, 2010 
@@ -226,304 +681,6 @@ def ming2006(V, T, P, aerosol):
 
     return Smax, None
 
-def arg2000(V, T, P, aerosols):
-
-    ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
-    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-    gamma = (R*T)/(es(T-273.15)*Mw) + (Mw*(L**2))/(Cp*Ma*T*P)
-
-    ## Condensation effects
-    G_a = (rho_w*R*T)/(es(T-273.15)*dv_cont(T, P)*Mw)
-    G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_cont(T)*T)
-    G = 1./(G_a + G_b)
-
-    Smis = []
-    Sparts = []
-    for aerosol in aerosols:
-
-        sigma = aerosol.distribution.sigma
-        am = aerosol.distribution.mu*1e-6
-        N = aerosol.distribution.N*1e6
-        kappa = aerosol.kappa
-
-        fi = 0.5*np.exp(2.5*(np.log(sigma)**2))
-        gi = 1.0 + 0.25*np.log(sigma)
-
-
-        A = (2.*sigma_w(T)*Mw)/(rho_w*R*T)
-        _, Smi2 = kohler_crit(T, am, kappa)
-
-        zeta = (2./3.)*A*(np.sqrt(alpha*V/G))
-        etai = ((alpha*V/G)**(3./2.))/(N*gamma*rho_w*2.*np.pi)
-
-        ##
-        Spa = fi*((zeta/etai)**(1.5))
-        Spb = gi*(((Smi2**2)/(etai + 3.*zeta))**(0.75))
-        S_part = (1./(Smi2**2))*(Spa + Spb)
-
-        Smis.append(Smi2)
-        Sparts.append(S_part)
-
-    Smax = 1./np.sqrt(np.sum(Sparts))
-
-    act_fracs = []
-    for Smi, aerosol in zip(Smis, aerosols):
-        ui = 2.*np.log(Smi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
-        N_act = 0.5*aerosol.distribution.N*erfc(ui)
-        act_fracs.append(N_act/aerosol.distribution.N)
-
-    return Smax, act_fracs
-
-def fn2005(V, T, P, aerosols, tol=1e-6, max_iters=100):
-    """
-    NS 2003 algorithm + FN 2005 corrections for diffusive growth rate
-    """
-    #aer = aerosols[0]
-
-    A = (4.*Mw*sigma_w(T))/(R*T*rho_w)
-    ## Compute rho_air by assuming air is saturated at given T, P
-    # Petty (3.41)
-    qsat = 0.622*(es(T-273.15)/P)
-    Tv = T*(1.0 + 0.61*qsat)
-    rho_air = P/Rd/Tv # air density
-    #print "rho_air", rho_air
-
-    Dp_big = 5e-6
-    Dp_low = np.min([0.207683*(ac**-0.33048), 5.0])*1e-5
-    Dp_B = 2.*dv_cont(T, P)*np.sqrt(2*np.pi*Mw/R/T)/ac
-    Dp_diff = Dp_big - Dp_low
-    Dv_ave = (dv_cont(T, P)/Dp_diff)*(Dp_diff - Dp_B*np.log((Dp_big + Dp_B)/(Dp_low+Dp_B)))
-
-    G_a = (rho_w*R*T)/(es(T-273.15)*Dv_ave*Mw)
-    G_b = (L*rho_w)*(L*Mw/R/T - 1.0)/(ka_cont(T)*T)
-    G = 4./(G_a + G_b)
-
-    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
-
-    ## Compute sgi of each mode
-    sgis = []
-    for aerosol in aerosols:
-        _, sgi = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
-        sgis.append(sgi)
-    #print "--"*20
-
-    def S_integral(Smax):
-        delta = Smax**4 - (16./9.)*(A*A*alpha*V/G)
-        #delta = 1.0 - (16./9.)*alpha*V*(1./G)*((A/(Smax**2))**2)
-
-        if delta > 0:
-            sp_sm_sq = 0.5*(1.0 + np.sqrt(delta))
-            sp_sm = np.sqrt(sp_sm_sq)
-        else:
-            arg = (2e7*A/3.)*Smax**(-0.3824)
-            sp_sm = np.min([arg, 1.0])
-
-        Spart = sp_sm*Smax
-        #print "Spart", Smax, Spart, delta
-
-        I1s, I2s = 0.0, 0.0
-        for aerosol, sgi in zip(aerosols, sgis):
-
-            log_sig = np.log(aerosol.distribution.sigma)
-            Ni = aerosol.distribution.N*1e6
-
-            upart = 2.*np.log(sgi/Spart)/(3.*np.sqrt(2)*log_sig)
-            umax = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2)*log_sig)
-
-            def I1(Smax):
-                A1 = (Ni/2.)*((G/alpha/V)**0.5)
-                A2 = Smax
-                C1 = erfc(upart)
-                C2 = 0.5*((sgi/Smax)**2)
-                C3a = np.exp(9.*(log_sig**2)/2.)
-                C3b = erfc(upart + 3.*log_sig/np.sqrt(2.))
-                return A1*A2*(C1 - C2*C3a*C3b)
-
-            def I2(Smax):
-                A1 = A*Ni/3./sgi
-                A2 = np.exp(9.*(log_sig**2.)/8.)
-                C1 = erf(upart - 3.*log_sig/(2.*np.sqrt(2.)))
-                C2 = erf(umax - 3.*log_sig/(2.*np.sqrt(2.)))
-                return A1*A2*(C1 - C2)
-
-            beta = 0.5*np.pi*gamma*rho_w*G/alpha/V/rho_air
-            #beta = 0.5*np.pi*gamma*rho_w/bet2_par/alpha/V/rho_air
-            #print "++", Smax, I1(Smax), I2(Smax)
-
-            I1s += I1(Smax)
-            I2s += I2(Smax)
-
-        return Smax*beta*(I1s + I2s) - 1.0
-
-    x1 = 1e-5
-    y1 = S_integral(x1)
-    x2 = 1.0
-    y2 = S_integral(x2)
-
-    #print (x1, y1), (x2, y2)
-
-    #print "BISECTION"
-    #print "--"*20
-    for i in xrange(max_iters):
-
-        ## Bisection
-        #y1, y2 = S_integral(x1), S_integral(x2)
-        x3 = 0.5*(x1+x2)
-        y3 = S_integral(x3)
-        #print "--", x3, y3, "--"
-
-        if np.sign(y1)*np.sign(y3) <= 0.:
-            x2 = x3
-            y2 = y3
-        else:
-            x1 = x3
-            y1 = y3
-
-        if np.abs(x2-x1) < tol*x1: break
-
-        #print i, (x1, y1), (x2, y2)
-
-    ## Converged ; return
-    x3 = 0.5*(x1 + x2)
-
-    Smax = x3
-    #print "Smax = %f (%f)" % (Smax, 0.0)
-
-    act_fracs = []
-    for aerosol, sgi in zip(aerosols, sgis):
-        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
-        N_act = 0.5*aerosol.distribution.N*erfc(ui)
-        act_fracs.append(N_act/aerosol.distribution.N)
-
-    return Smax, act_fracs
-
-
-def ns2003(V, T, P, aerosols, tol=1e-6, max_iters=100):
-    """Sketch implementation of Nenes and Seinfeld (2003) parameterization
-    """
-
-    nmd_par = len(aerosols) # number of modes
-    vhfi = 3.0 # van't hoff factor (ions/molecule)
-
-    ## Setup constants
-    akoh_par = 4.0*Mw*sigma_w(T)/R/T/rho_w
-    ## Compute rho_air by assuming air is saturated at given T, P
-    # Petty (3.41)
-    qsat = 0.622*(es(T-273.15)/P)
-    Tv = T*(1.0 + 0.61*qsat)
-    rho_air = P/Rd/Tv # air density
-
-    alpha = g*Mw*L/Cp/R/T/T - g*Ma/R/T
-    gamma = P*Ma/es(T-273.15)/Mw + Mw*L*L/Cp/R/T/T
-
-    bet2_par = R*T*rho_w/es(T-273.15)/Dv/Mw/4. + L*rho_w/4./Ka/T*(L*Mw/R/T - 1.0)
-    beta = 0.5*np.pi*gamma*rho_w/bet2_par/alpha/V/rho_air
-
-    cf1  = 0.5*(((1/bet2_par)/(alpha*V))**0.5)
-    cf2  = akoh_par/3.0
-
-    sgis = []
-    for aerosol in aerosols:
-        _, sgi = kohler_crit(T, aerosol.distribution.mu*1e-6, aerosol.kappa)
-        sgis.append(sgi)
-
-    def sintegral(spar):
-        ## descriminant criterion
-        descr = 1.0 - (16./9.)*alpha*V*bet2_par*((akoh_par/(spar**2))**2)
-
-        if descr <= 0.0:
-            crit2 = True
-            ratio = (2e7/3.)*akoh_par*spar**(-0.3824)
-            if ratio > 1.0: ratio = 1.0
-            ssplt2 = spar*ratio
-        else:
-            crit2 = False
-            ssplt1 = 0.5*(1.0 - np.sqrt(descr)) # min root of both
-            ssplt2 = 0.5*(1.0 + np.sqrt(descr)) # max root of both
-            ssplt1 = np.sqrt(ssplt1)*spar # multiply ratios with smax
-            ssplt2 = np.sqrt(ssplt2)*spar
-        ssplt = ssplt2 # store ssplit in common
-
-        summ, summat, summa = 0, 0, 0
-
-        sqtwo = np.sqrt(2.0)
-
-        for aerosol, sgi in zip(aerosols, sgis):
-
-            sg_par = sgi
-            tpi = aerosol.distribution.N*1e6
-
-            dlgsg = np.log(aerosol.distribution.sigma)
-            dlgsp = np.log(sg_par/spar)
-
-            orism1 = 2.0*np.log(sg_par/ssplt2)/(3.*sqtwo*dlgsg)
-            orism2 = orism1 - 3.0*dlgsg/(2.0*sqtwo)
-
-            orism3 = 2.0*dlgsp/(3.0*sqtwo*dlgsg) - 3.0*dlgsg/(2.0*sqtwo)
-            orism4 = orism1 + 3.0*dlgsg/sqtwo
-
-            orism5 = 2.0*dlgsp/(3*sqtwo*dlgsg)
-            ekth = np.exp((9./2.)*dlgsg*dlgsg)
-
-            integ1 = tpi*spar*((1-erf(orism1)) - 0.5*((sg_par/spar)**2)*ekth*(1.0-erf(orism4)))
-            integ2 = (np.exp((9./8.)*dlgsg*dlgsg)*tpi/sg_par)*(erf(orism2) - erf(orism3))
-
-            nd = (tpi/2.)*(1.0 - erf(orism5))
-
-            summ += integ1
-            summat += integ2
-            summa += nd
-
-        return summa, summ, summat
-
-    ## Initial values for bisection
-    x1 = 1e-5 # min cloud supersaturation
-    ndrpl, sinteg1, sinteg2 = sintegral(x1)
-    print ndrpl, sinteg1, sinteg2
-    y1 = (sinteg1*cf1 + sinteg2*cf2)*beta*x1 - 1.0
-
-    x2 = 1.0 # max cloud supersaturation
-    ndrpl, sinteg1, sinteg2 = sintegral(x2)
-    print ndrpl, sinteg1, sinteg2
-    y2 = (sinteg1*cf1 + sinteg2*cf2)*beta*x2 - 1.0
-
-    print (x1, y1), (x2, y2)
-
-    print "BISECTION"
-    print "--"*20
-    ## Perform bisection
-    for i in xrange(max_iters):
-        x3 = 0.5*(x1 + x2)
-        ndrpl, sinteg1, sinteg3 = sintegral(x3)
-        y3 = (sinteg1*cf1 + sinteg2*cf2)*beta*x3 - 1.0
-
-        if np.sign(y1)*np.sign(y3) <= 0.:
-            y2 = y3
-            x2 = x3
-        else:
-            y1 = y3
-            x1 = x3
-
-        if np.abs(x2-x1) <= tol*x1: break
-
-        print i, (x1, y1), (x2, y2)
-
-    ## Converged ; return
-    x3 = 0.5*(x1 + x2)
-    ndrpl, sinteg1, sinteg3 = sintegral(x3)
-    y3 = (sinteg1*cf1 + sinteg2*cf2)*beta*x3 - 1.0
-
-    Smax = x3
-    print "Smax = %f (%f)" % (Smax, 0.0)
-
-    act_fracs = []
-    for aerosol, sgi in zip(aerosols, sgis):
-        ui = 2.*np.log(sgi/Smax)/(3.*np.sqrt(2.)*np.log(aerosol.distribution.sigma))
-        N_act = 0.5*aerosol.distribution.N*erfc(ui)
-        act_fracs.append(N_act/aerosol.distribution.N)
-
-    return Smax, act_fracs
 
 ### PCE Parameterization
 
@@ -573,7 +730,6 @@ def pce_agu_param(V, T, P, aerosols):
         act_fracs.append(N_act/aerosol.distribution.N)
 
     return Smax, act_fracs
-
 
 def _pce_fit(N, mu, sigma, kappa, V, T, P):
     ## P in Pa
