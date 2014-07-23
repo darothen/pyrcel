@@ -82,8 +82,11 @@ Activation
 .. autosummary::
     :toctree: generated/
 
+    activate_lognormal_mode
     multi_mode_activation
     act_fraction
+    arg2000
+    mbn2014
 
 .. _constants:
 

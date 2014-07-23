@@ -20,6 +20,7 @@ Documentation Outline
     sci_descr
     install
     examples/basic_run
+    examples/activate
     parcel
     reference
 

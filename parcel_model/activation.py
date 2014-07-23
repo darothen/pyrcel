@@ -131,7 +131,7 @@ def act_fraction(Smax, T, rs, aerosol):
     kappa = aerosol.kappa
     r_drys = aerosol.r_drys
     Nis = aerosol.Nis
-    N_tot = aerosol.total_N
+    N_tot = np.sum(Nis)
 
     r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in r_drys])
     s_crits = np.array(s_crits)
@@ -526,7 +526,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     smax = 1./np.sqrt(np.sum(Sparts))
 
-    n_acts, act_fracs = []
+    n_acts, act_fracs = [], []
     for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, Smis):
         N_act, act_frac = activate_lognormal_mode(smax, mu*1e-6, sigma, N, kappa, sgi)
         n_acts.append(N_act)
