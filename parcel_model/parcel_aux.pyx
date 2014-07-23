@@ -48,13 +48,13 @@ cdef inline double ka(double T, double r, double rho) nogil:
     denom = 1.0 + (ka_cont/(at*r*rho*Cp))*sqrt((2*PI*Ma)/(R*T))
     return ka_cont/denom
 
-cdef inline double dv(double T, double r, double P) nogil:
+cdef inline double dv(double T, double r, double P, double accom) nogil:
     """See :func:`parcel_model.micro.dv` for full documentation
     """
     cdef double denom, dv_cont, P_atm
     P_atm = P*1.01325e-5 # Pa -> atm
     dv_cont = 1e-4*(0.211/P_atm)*((T/273.)**1.94)
-    denom = 1.0 + (dv_cont/(ac*r))*sqrt((2*PI*Mw)/(R*T))
+    denom = 1.0 + (dv_cont/(accom*r))*sqrt((2*PI*Mw)/(R*T))
     return dv_cont/denom
 
 cdef inline double es(double T):
@@ -95,7 +95,8 @@ def jac(double[::1] y, double t,
 
 ## RHS Derivative callback function
 def der(double[::1] y, double t,
-        int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas):
+        int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas,
+        double accom):
     """ Calculates the instantaneous time-derivate of the parcel model system.
 
     Given a current state vector `y` of the parcel model, computes the tendency
@@ -186,7 +187,7 @@ def der(double[::1] y, double t,
 
         ## Non-continuum diffusivity/thermal conductivity of air near
         ## near particle
-        dv_r = dv(T, r, P)
+        dv_r = dv(T, r, P, accom)
         ka_r = ka(T, r, rho_air)
 
         ## Condensation coefficient

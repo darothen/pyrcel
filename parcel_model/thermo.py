@@ -40,7 +40,7 @@ def dv_cont(T, P):
     P_atm = P*1.01325e-5 # Pa -> atm
     return 1e-4*(0.211/P_atm)*((T/273.)**1.94)
 
-def dv(T, r, P):
+def dv(T, r, P, accom=ac):
     """ Diffusivity of water vapor in air, modified for non-continuum effects.
 
     The diffusivity of water vapor in air as a function of temperature and pressure
@@ -69,8 +69,10 @@ def dv(T, r, P):
         ambient temperature of air surrounding droplets, K
     r : float
         radius of aerosol/droplet, m
-    P :
+    P : float
         ambient pressure of surrounding air, Pa
+    accom : float, optional (default=:const:`constants.ac`)
+        condensation coefficient
 
     Returns
     -------
@@ -88,10 +90,8 @@ def dv(T, r, P):
     dv_cont : neglecting correction for non-continuum effects
 
     """
-    #P_atm = P*1.01325e-5 # Pa -> atm
-    #dv_t = 1e-4*(0.211/P_atm)*((T/273.)**1.94)
     dv_t = dv_cont(T, P)
-    denom = 1.0 + (dv_t/(ac*r))*np.sqrt((2.*np.pi*Mw)/(R*T))
+    denom = 1.0 + (dv_t/(accom*r))*np.sqrt((2.*np.pi*Mw)/(R*T))
     return dv_t/denom
 
 def rho_air(T, P, RH=1.0):

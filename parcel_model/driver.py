@@ -15,7 +15,7 @@ from numpy import empty, nan
 from pandas import DataFrame
 
 from parcel import ParcelModel, ParcelModelError
-from activation import fn2005, arg2000
+from activation import mbn2014, arg2000
 
 
 def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000, t_end=500.,
@@ -131,8 +131,8 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
                 new_aerosols.append(initial_aerosols[i])
         aerosols = new_aerosols[:]
 
-    S_max_arg, _ = arg2000(V, T, P, aerosols)
-    S_max_fn, _ = fn2005(V, T, P, aerosols)
+    S_max_arg, _, _ = arg2000(V, T, P, aerosols)
+    S_max_fn, _, _ = mbn2014(V, T, P, aerosols)
 
     dt_orig = dt*1.
     finished = False

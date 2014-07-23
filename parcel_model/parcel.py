@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 ## Parcel model imports
+import constants as c
 from integrator import Integrator
 from thermo import *
 
@@ -69,6 +70,8 @@ class ParcelModel(object):
         supersaturation (percent, with 0.0 = 100% RH).
     console : boolean, optional
         Enable some basic debugging output to print to the terminal.
+    accom : float, optional (default=:const:`constants.ac`)
+        Condensation coefficient
 
     Attributes
     ----------
@@ -101,7 +104,7 @@ class ParcelModel(object):
 
     """
 
-    def __init__(self, aerosols, V, T0, S0, P0, console=False):
+    def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac):
         """ Initialize the parcel model.
 
         During the construction of the parcel model instance, an equilibrium
@@ -116,6 +119,8 @@ class ParcelModel(object):
             supersaturation (percent, with 0.0 = 100% RH).
         console : boolean, optional
             Enable some basic debugging output to print to the terminal.
+        accom : float, optional (default=:const:`constants.ac`)
+            condensation coefficient
 
         Returns
         -------
@@ -136,6 +141,7 @@ class ParcelModel(object):
         self.S0 = S0
         self.P0 = P0
         self.aerosols = aerosols
+        self.accom = accom
 
         ## To be set by call to "self._setup_run()"
         self._r0s    = None
@@ -304,7 +310,7 @@ class ParcelModel(object):
         if self.console:
             "Initial conditions set successfully."
 
-    def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, **kwargs):
+    def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, solver='odeint', **kwargs):
         """ Integrate the parcel model simulation over discrete height increments.
 
         .. note:: Deprecated in v1.0
@@ -464,16 +470,17 @@ class ParcelModel(object):
             print "Could not load Cython derivative; using Python version."
             from parcel import der as der_fcn
 
-        args = (nr, r_drys, Nis, self.V, kappas)
+        args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator = Integrator.solver(solver)
 
         ## Is the updraft speed a function?
         v_is_func = hasattr(self.V, '__call__')
         if v_is_func: # Re-wrap the function to correctly figure out V            
             orig_der_fcn = der_fcn
-            def der_fcn(y, t, nr, r_drys, Nis, V, kappas):
+            def der_fcn(y, t, *args):
                 V_t = self.V(t)
-                return orig_der_fcn(y, t, nr, r_drys, Nis, V_t, kappas)
+                args[3] = V_t
+                return orig_der_fcn(y, t, *args)
 
         try:
             x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate,
@@ -533,6 +540,7 @@ class ParcelModel(object):
         """ Write a quick and dirty summary of given parcel model output to the 
         terminal.
         """
+        from activation import activate_lognormal_mode
         ## Check if parent dir of out_filename exists, and if not,
         ## create it
         out_dir = os.path.dirname(out_filename)
@@ -568,7 +576,9 @@ class ParcelModel(object):
             total_number = 0.0
             total_activated = 0.0
             for aerosol in self.aerosols:
-                act_frac = act_fraction(S_max, T_at_S_max, aerosol.kappa, aerosol.r_drys, aerosol.Nis)
+                act_frac = activate_lognormal_mode(S_max, aerosol.mu*1e-6,
+                                                   aerosol.N, aerosol.kappa,
+                                                   T=T_at_S_max)
                 act_num = act_frac*aerosol.N
                 out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" % (aerosol.species, act_frac, act_num, aerosol.N))
 
@@ -605,7 +615,7 @@ class ParcelModel(object):
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
     @staticmethod
-    def der(y, t, nr, r_drys, Nis, V, kappas):
+    def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
         """ Calculates the instantaneous time-derivate of the parcel model system.
 
         Given a current state vector `y` of the parcel model, computes the tendency
@@ -640,6 +650,8 @@ class ParcelModel(object):
             Updraft velocity, m/s.
         kappas : array_like
             Array recording aerosol hygroscopicities.
+        accom : float, optional (default=:const:`constants.ac`)
+            Condensation coefficient.
 
         Returns
         -------
@@ -683,7 +695,7 @@ class ParcelModel(object):
             r_dry = r_drys[i]
             kappa = kappas[i]
 
-            G_a = (rho_w*R*T)/(pv_sat*dv(T, r, P)*Mw)
+            G_a = (rho_w*R*T)/(pv_sat*dv(T, r, P, accom)*Mw)
             G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
             G = 1./(G_a + G_b)
 
