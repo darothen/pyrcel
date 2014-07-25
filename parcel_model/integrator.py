@@ -57,8 +57,10 @@ class Integrator(object):
                      **kwargs):
         """Wrapper for odespy.odepack.Lsode
         """
-        nr, r_drys, Nis, V, kappas = args
-        kwargs = { 'atol':1e-15, 'rtol':1e-12, 'nsteps':max_steps }
+        nr = args[0]
+        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
+        rtol = 1e-7
+        kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
         f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no -1][5]
         solver = Lsode(f_w_args, **kwargs)
@@ -81,8 +83,11 @@ class Integrator(object):
                      **kwargs):
         """Wrapper for odespy.odepack.Lsoda
         """
-        nr, r_drys, Nis, V, kappas = args
-        kwargs = { 'atol':1e-15, 'rtol':1e-12, 'nsteps':max_steps }
+        nr = args[0]
+        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
+        rtol = 1e-7
+
+        kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
         f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no-1][5]
         solver = Lsoda(f_w_args, **kwargs)
@@ -105,10 +110,14 @@ class Integrator(object):
                      **kwargs):
         """Wrapper for odespy.Vode
         """
-        nr, r_drys, Nis, V, kappas = args
+        nr = args[0]
+        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
+        rtol = 1e-7
+
         #kwargs = { 'atol':1e-10, 'rtol':1e-8, 'nsteps':max_steps,
         #           'adams_or_bdf': 'bdf',  'order':5}
-        kwargs = { 'nsteps': max_steps, 'adams_or_bdf': 'bdf', 'order': 5 }
+        kwargs = { 'nsteps': max_steps, 'adams_or_bdf': 'bdf', 'order': 5,
+                   'atol': atol, 'rtol': rtol }
         f_w_args = lambda u, t: f(u, t, *args)
         f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no-1][5]
         solver = Vode(f_w_args, **kwargs)
@@ -133,37 +142,6 @@ class Integrator(object):
         """
         def rhs(t, u):
             return f(u, t, *args)
-
-        '''
-        ## You can try to build the Jacobian of the parcel model equations,
-        ## but it's wicked difficult task.
-        def jac(t, u): ## Jacobian of derivative
-            z  = u[0]
-            P  = u[1]
-            T  = u[2]
-            wv = u[3]
-            wc = u[4]
-            S  = u[5]
-            rs = u[6:]
-
-            nr = args[0]
-            V = args[3]
-
-            T_c = T-273.15 # convert temperature to Celsius
-            pv_sat = es(T_c) # saturation vapor pressure
-            wv_sat = wv/(S+1.) # saturation mixing ratio
-            Tv = (1.+0.61*wv)*T
-            rho_air = P/(Rd*Tv)
-
-            j = zeros((nr, nr))
-
-            ## Z 
-            #j[0, :] = zeros(nr) 
-            ## P
-            j[1, 1] = -g*V/(Rd*T*(1. + 0.61*wv))
-
-            return j
-        '''
 
         ## Setup solver
         prob = Explicit_Problem(rhs, y0)
@@ -217,8 +195,12 @@ class Integrator(object):
                      **kwargs):
         """Wrapper for scipy.integrate.odeint
         """
+        nr = args[0]
+        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
+        rtol = 1e-7
+
         x, info = odeint(f, y0, t, args=args, full_output=1, mxhnil=0,
-                         mxstep=max_steps, atol=1e-15, rtol=1e-12)
+                         mxstep=max_steps, atol=atol, rtol=rtol)
 
         success = info['message'] == "Integration successful."
 

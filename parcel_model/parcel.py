@@ -483,6 +483,10 @@ class ParcelModel(object):
                 return orig_der_fcn(y, t, *args)
 
         try:
+            ## Pack args as tuple for solvers
+            args = tuple(args)
+
+            ## Call integration routine
             x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate,
                                        **solver_args)
         except ValueError, e:
