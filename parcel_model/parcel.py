@@ -391,10 +391,7 @@ class ParcelModel(object):
         is afforded here through the `max_steps`. For other solvers, a set of optional
         arguments `solver_args` can be passed as a dictionary. 
 
-        **Solution Output** -- Several different output formats are available by default. Also,
-        for the LSODA and LSODE solvers accessed via odespy, the flag `terminate` can bet
-        set to *True* so that the solver will stop once it has reached a supersaturation
-        maximum.
+        **Solution Output** -- Several different output formats are available by default.
 
         Parameters
         ----------
@@ -413,9 +410,14 @@ class ParcelModel(object):
             * `'lsoda'`: LSODA implementation from ODEPACK via odespy
             * `'lsode'`: LSODE implementation from ODEPACK via odespy
             * `'vode'` : VODE implementation from ODEPACK via odespy
-            * `'cvode'` : CVODE implementation from Assimulo
+            * `'cvode'` : CVODE implementation from Sundials via Assimulo
+            * `'lsodar'` : LSODAR implementation from Sundials via Assimulo
         output : {'dataframes', 'arrays', 'smax'}
             Choose format of solution output.
+        terminate : boolean
+            End simulation at or shortly after a maximum supersaturation has been achieved
+        solver_args : dict
+            Additional arguments to pass to the numerical ODE solver
 
         Returns
         -------
