@@ -450,7 +450,8 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     This method implements the psuedo-analytical scheme of [ARG2000] to
     calculate droplet activation an an adiabatically ascending parcel. It
-    includes the extension to multiple lognormal modes.
+    includes the extension to multiple lognormal modes, and the correction
+    for non-unity condensation coefficient [GHAN2011].
 
     Parameters
     ----------
@@ -476,6 +477,10 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
        aerosol activation: 2. Multiple aerosol types, J. Geophys. Res., 105(D5),
        6837-6844, doi:10.1029/1999JD901161.
 
+    .. [GHAN2011] Ghan, S. J. et al (2011) Droplet Nucleation: Physically-based
+       Parameterization and Comparative Evaluation, J. Adv. Model. Earth Syst.,
+       3, doi:10.1029/2011MS000074
+
     """
 
     if aerosols:
@@ -492,13 +497,15 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
         assert kappas
 
     ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
+    wv_sat = es(T-273.15)
     alpha = (c.g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (c.g*c.Ma)/(c.R*T)
-    gamma = (c.R*T)/(es(T-273.15)*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
+    gamma = (c.R*T)/(wv_sat*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
 
-    ## Condensation effects
-    G_a = (c.rho_w*c.R*T)/(es(T-273.15)*dv_cont(T, P)*c.Mw)
+    ## Condensation effects - base calculation
+    G_a = (c.rho_w*c.R*T)/(wv_sat*dv_cont(T, P)*c.Mw)
     G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka_cont(T)*T)
-    G = 1./(G_a + G_b)
+    G_0 = 1./(G_a + G_b) # reference, no kinetic effects
+
 
     Smis = []
     Sparts = []
@@ -511,12 +518,32 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
         gi = 1.0 + 0.25*np.log(sigma)
 
         A = (2.*sigma_w(T)*c.Mw)/(c.rho_w*c.R*T)
-        _, Smi2 = kohler_crit(T, am, kappa)
+        rc_mode, Smi2 = kohler_crit(T, am, kappa, approx=True)
 
+        ## Scale ``G`` to account for differences in condensation coefficient
+        if accom == 1.0:
+            G = G_0
+        else:
+            ## Scale using the formula from [GHAN2011]
+            # G_ac - estimate using critical radius of number mode radius,
+            #        and new value for condensation coefficient
+            G_a = (c.rho_w*c.R*T)/(wv_sat*dv(T, rc_mode, P, accom)*c.Mw)
+            G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka_cont(T)*T)
+            G_ac = 1./(G_a + G_b)
+
+            # G_ac1 - estimate using critical radius of number mode radius,
+            #         unity condensation coefficient; re_use G_b (no change)
+            G_a = (c.rho_w*c.R*T)/(wv_sat*dv(T, rc_mode, P, accom=1.0)*c.Mw)
+            G_ac1 = 1./(G_a + G_b)
+
+            # Combine using scaling formula (40) from [GHAN2011]
+            G = G_0*G_ac/G_ac1
+
+        ## Parameterization integral solutions
         zeta = (2./3.)*A*(np.sqrt(alpha*V/G))
         etai = ((alpha*V/G)**(3./2.))/(N*gamma*c.rho_w*2.*np.pi)
 
-        ##
+        ## Contributions to maximum supersaturation
         Spa = fi*((zeta/etai)**(1.5))
         Spb = gi*(((Smi2**2)/(etai + 3.*zeta))**(0.75))
         S_part = (1./(Smi2**2))*(Spa + Spb)
