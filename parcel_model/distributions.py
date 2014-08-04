@@ -176,6 +176,24 @@ class MultiModeLognorm(BaseDistribution):
         return "MultiModeLognorm| mus = %s, sigmas = %s, Totals = %s |" % \
                (mus_str, sigmas_str, Ns_str)
 
+## Single mode aerosols
+
+FN2005_single_modes = {
+    'SM1': Lognorm(0.025/2, 1.3,  100.0),
+    'SM2': Lognorm(0.025/2, 1.3,  500.0),
+    'SM3': Lognorm( 0.05/2, 1.8,  500.0),
+    'SM4': Lognorm( 0.25/2, 1.8,  100.0),
+    'SM5': Lognorm( 0.75/2, 1.8, 1000.0),
+}
+
+NS2003_single_modes = {
+    'SM1': Lognorm(0.02/2, 2.5,   200.0),
+    'SM2': Lognorm(0.02/2, 2.5,  1000.0),
+    'SM3': Lognorm(0.02/2, 1.5,  1000.0),
+    'SM4': Lognorm( 0.2/2, 2.5,   200.0),
+    'SM5': Lognorm(0.02/2, 2.5, 10000.0),
+}
+
 whitby_distributions = {
     # name: [nucleation, accumulation, coarse]
     #        mu = micron, N = cm**-3

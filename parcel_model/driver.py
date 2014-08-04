@@ -18,8 +18,8 @@ from parcel import ParcelModel, ParcelModelError
 from activation import mbn2014, arg2000
 
 
-def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000, t_end=500.,
-              solver='lsoda', output='smax', solver_args={}):
+def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, accom=1.0, max_steps=1000, t_end=500.,
+              solver='lsoda', output='smax', terminate=False, solver_args={}):
     """ Setup and run the parcel model with given solver configuration.
 
     Parameters
@@ -61,9 +61,9 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000, t_end=500.
         return 0.
 
     try: 
-        model = ParcelModel(initial_aerosols, V, T, S0, P)
+        model = ParcelModel(initial_aerosols, V, T, S0, P, accom=accom)
         Smax = model.run(t_end, dt, max_steps, solver=solver, 
-                         output=output, solver_args=solver_args)
+                         output=output, terminate=terminate, solver_args=solver_args)
     except ParcelModelError:
         return None
     return Smax
