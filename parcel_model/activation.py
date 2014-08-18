@@ -253,6 +253,9 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
         assert kappas
 
     # Convert sizes/number concentrations to diameters + SI units
+    mus = np.asarray(mus)
+    Ns = np.asarray(Ns)
+
     dpgs = 2*(mus*1e-6)
     Ns   = Ns*1e6
 
