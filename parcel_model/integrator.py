@@ -141,7 +141,7 @@ class Integrator(object):
         return x, t, True
 
     @staticmethod
-    def _solve_with_assimulo(f, t, y0, args, console=False, max_steps=1000, terminate=False, 
+    def _solve_with_assimulo(f, t, y0, args, console=False, max_steps=1000, terminate=True, 
                              method='cvode', **kwargs):
         """ Wrapper for Assimulo's solver routines
         """
@@ -179,7 +179,7 @@ class Integrator(object):
 
                 t_cutoff_event = t - self.t_cutoff
 
-                return np.array([smax_event, t_cutoff_event])
+                return np.array([smax_event > 0, t_cutoff_event < 0])
 
             # Event handling function
             def handle_event(self, solver, event_info):
@@ -243,15 +243,34 @@ class Integrator(object):
         t_end = t[-1]
         steps = len(t)
 
-        try:
-            #print t_end, steps
-            t, x = sim.simulate(t_end, steps)
-        except CVodeError, e:
-            raise ValueError("Something broke in CVode: %r" % e)
-            return None, None, False
-        except TimeLimitExceeded, e:
-            raise ValueError("CVode took too long to complete")
-            return None, None, False
+        if terminate: # Incremental solver
+            t_increment = 60.
+            t_current = t[0]
+            n_steps = len(t[t <= t_increment])
+            txs, xxs = [], []
+            while t_current <= t_end:
+                tx, xx = sim.simulate(t_current + t_increment, n_steps)
+
+                txs.append(tx[:-1])
+                xxs.append(xx[:-1])
+                t_current = tx[-1]
+
+                # Has the max been found and can we terminate?
+                if not sim.sw[0]:
+                    break
+            t = np.concatenate(txs)
+            x = np.concatenate(xxs)
+
+        else:
+            try:
+                #print t_end, steps
+                t, x = sim.simulate(t_end, steps)
+            except CVodeError, e:
+                raise ValueError("Something broke in CVode: %r" % e)
+                return None, None, False
+            except TimeLimitExceeded, e:
+                raise ValueError("CVode took too long to complete")
+                return None, None, False
 
         return x, t, True
 
