@@ -137,11 +137,18 @@ def act_fraction(Smax, T, rs, aerosol):
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
+    ## Equilibrium calculation - all aerosol whose critical supersaturation is
+    ##                           less than the environmental supersaturation
     activated_eq = (Smax >= s_crits)
-    activated_kn = (rs >= r_crits)
-
     eq_frac = np.sum(Nis[activated_eq])/N_tot
-    kn_frac = np.sum(Nis[activated_kn])/N_tot
+
+    ## Kinetic calculation - find the aerosol with the smallest dry radius which has
+    ##                       grown past its critical radius, and count this aerosol and
+    ##                       all larger ones as activated. This will include some large
+    ##                       particles which haven't grown to critical size yet.
+    is_kn_large = rs >= r_crits
+    smallest_ind = np.where(is_kn_large)[0][0]
+    kn_frac = np.sum(Nis[smallest_ind:])/N_tot
 
     return eq_frac, kn_frac
 
