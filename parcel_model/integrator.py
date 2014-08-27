@@ -243,34 +243,30 @@ class Integrator(object):
         t_end = t[-1]
         steps = len(t)
 
-        if terminate: # Incremental solver
-            t_increment = 60.
-            t_current = t[0]
-            n_steps = len(t[t <= t_increment])
-            txs, xxs = [], []
-            while t_current <= t_end:
-                tx, xx = sim.simulate(t_current + t_increment, n_steps)
-
-                txs.append(tx[:-1])
-                xxs.append(xx[:-1])
-                t_current = tx[-1]
-
-                # Has the max been found and can we terminate?
-                if not sim.sw[0]:
-                    break
-            t = np.concatenate(txs)
-            x = np.concatenate(xxs)
-
-        else:
+        ## Incremental solver
+        t_increment = 60.
+        t_current = t[0]
+        n_steps = len(t[t <= t_increment])
+        txs, xxs = [], []
+        while t_current <= t_end:
             try:
-                #print t_end, steps
-                t, x = sim.simulate(t_end, steps)
+                tx, xx = sim.simulate(t_current + t_increment, n_steps)
             except CVodeError, e:
                 raise ValueError("Something broke in CVode: %r" % e)
                 return None, None, False
             except TimeLimitExceeded, e:
                 raise ValueError("CVode took too long to complete")
                 return None, None, False
+
+            txs.append(tx[:-1])
+            xxs.append(xx[:-1])
+            t_current = tx[-1]
+
+            # Has the max been found and can we terminate?
+            if terminate:
+                if not sim.sw[0]: break
+        t = np.concatenate(txs)
+        x = np.concatenate(xxs)
 
         return x, t, True
 

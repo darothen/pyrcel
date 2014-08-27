@@ -75,6 +75,73 @@ def activate_lognormal_mode(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=
 
     return N_act, act_frac
 
+def kinetic_activation(Smax, T, rs, aerosol):
+    """ Following Nenes et al, 2001 compute the kinetic limitation statistics
+    for a given wetted aerosol.
+
+    Parameters
+    ----------
+    Smax : float
+        Environmental maximum supersaturation.
+    T : float
+        Environmental temperature.
+    rs : array of floats
+        Wet radii of aerosol/droplet population.
+    aerosol : :class:`AerosolSpecies`
+        The characterization of the dry aerosol.
+
+    Returns
+    -------
+    eq, kn: floats
+        Activated fractions
+    alpha : float
+        N_kn / N_eq
+    phi : float
+        N_unact / N_kn
+
+    """
+    kappa = aerosol.kappa
+    r_drys = aerosol.r_drys
+    Nis = aerosol.Nis
+    N_tot = np.sum(Nis)
+
+    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, True) for r_dry in r_drys])
+    s_crits = np.array(s_crits)
+    r_crits = np.array(r_crits)
+
+    ## Equilibrium calculation - all aerosol whose critical supersaturation is
+    ##                           less than the environmental supersaturation
+    activated_eq = (Smax >= s_crits)
+    N_eq = np.sum(Nis[activated_eq])
+    eq_frac = N_eq/N_tot
+
+    ## Kinetic calculation - find the aerosol with the smallest dry radius which has
+    ##                       grown past its critical radius, and count this aerosol and
+    ##                       all larger ones as activated. This will include some large
+    ##                       particles which haven't grown to critical size yet.
+    is_r_large = rs >= r_crits
+    if not np.any(is_r_large):
+        N_kn, kn_frac = 0., 0.
+        phi = 1.0
+    else:
+        smallest_ind = np.where(is_r_large)[0][0]
+        N_kn = np.sum(Nis[smallest_ind:])
+        kn_frac = N_kn/N_tot
+
+        ## Unactivated - all droplets smaller than their critical size
+        droplets = range(smallest_ind, len(Nis))
+        Nis_drops = Nis[droplets]
+        r_crits_drops = r_crits[droplets]
+        rs_drops = rs[droplets]
+        too_small = rs_drops < r_crits_drops
+
+        N_unact = np.sum(Nis_drops[too_small])
+        phi = N_unact/N_kn
+
+    alpha = N_kn/N_eq
+
+    return eq_frac, kn_frac, alpha, phi
+
 def multi_mode_activation(Smax, T, aerosols, rss):
     """ Compute the activation statistics of a multi-mode aerosol population.
 
@@ -91,15 +158,15 @@ def multi_mode_activation(Smax, T, aerosols, rss):
 
     Returns
     -------
-    act_fracs : floats
-        The activated fraction of each aerosol population.
+    eqs, kns : lists of floats
+        The activated fractions of each aerosol population.
 
     """
     act_fracs = []
     for rs, aerosol in zip(rss, aerosols):
-        eq, _ = act_fraction(Smax, T, rs, aerosol)
-        act_fracs.append(eq)
-    return act_fracs
+        eq, kn = act_fraction(Smax, T, rs, aerosol)
+        act_fracs.append([eq, kn])
+    return zip(*act_fracs)
 
 def act_fraction(Smax, T, rs, aerosol):
     """ Calculates the equilibrium activation statistics of a given aerosol and
@@ -133,7 +200,7 @@ def act_fraction(Smax, T, rs, aerosol):
     Nis = aerosol.Nis
     N_tot = np.sum(Nis)
 
-    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in r_drys])
+    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, True) for r_dry in r_drys])
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
@@ -146,9 +213,13 @@ def act_fraction(Smax, T, rs, aerosol):
     ##                       grown past its critical radius, and count this aerosol and
     ##                       all larger ones as activated. This will include some large
     ##                       particles which haven't grown to critical size yet.
-    is_kn_large = rs >= r_crits
-    smallest_ind = np.where(is_kn_large)[0][0]
-    kn_frac = np.sum(Nis[smallest_ind:])/N_tot
+    is_r_large = rs >= r_crits
+    if not np.any(is_r_large):
+        N_kn, kn_frac = 0., 0.
+    else:
+        smallest_ind = np.where(is_r_large)[0][0]
+        N_kn = np.sum(Nis[smallest_ind:])
+        kn_frac = N_kn/N_tot
 
     return eq_frac, kn_frac
 
