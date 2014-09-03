@@ -252,7 +252,7 @@ class ParcelModel(object):
         # b) find equilibrium wet particle radius
         # wrapper function for quickly computing deviation from chosen
         # equilibrium supersaturation given current size and dry size
-        f = lambda r, r_dry, kappa: (Seq(r, r_dry, T0, kappa) - S0)
+        f = lambda r, r_dry, kappa: Seq(r, r_dry, T0, kappa) - S0
         ## Compute the equilibrium wet particle radii
         r0s = []
         #r_b, _ = kohler_crit(T0, r_drys[-1], kappas[-1])
@@ -262,10 +262,9 @@ class ParcelModel(object):
             r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
-            r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30)
+            r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-15)
             r0s.append(r0)
 
-            r_b = r0
         r0s = np.array(r0s[::-1])
 
         ## Console logging output, if requested, of the equilibrium calcuations. Useful for
