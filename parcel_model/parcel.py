@@ -10,9 +10,9 @@ import pandas as pd
 
 ## Parcel model imports
 import constants as c
+from aerosol import AerosolSpecies
 from integrator import Integrator
 from thermo import *
-
 
 class ParcelModelError(Exception):
     """ Custom exception to throw during parcel model execution.
@@ -22,7 +22,6 @@ class ParcelModelError(Exception):
 
     def __str__(self):
         return repr(self.error_str)
-
 
 class ParcelModel(object):
     """ Wrapper class for instantiating and running the parcel model.
@@ -140,7 +139,7 @@ class ParcelModel(object):
         self.T0 = T0
         self.S0 = S0
         self.P0 = P0
-        self.aerosols = aerosols
+        self.aerosols = self._replace_aerosol(aerosols)
         self.accom = accom
 
         ## To be set by call to "self._setup_run()"
@@ -201,10 +200,48 @@ class ParcelModel(object):
         if S0:
             self.S0 = S0
         if aerosols:
-            self.aerosols = aerosols
+            self.aerosols = self._replace_aerosol(aerosols)
 
         if T0 or P0 or S0 or aerosols:
             self._setup_run()
+
+    def _replace_aerosol(self, aerosols, smallest_rdry=1e-10):
+        """ Truncates the bins with the samllest particles to that none
+        have a dry radius of less than 0.1 nm.
+
+        Parameters
+        ----------
+        aerosols : array_like sequence of :class:`AerosolSpecies`
+            The aerosols contained in the parcel.
+        smallest_rdry: float
+            Smallest allowable dry radius bin.
+
+        Returns
+        -------
+        fixed_aerosols : array_like sequence of :class:`AerosolSpecies`
+            The modified sequence of aerosols.
+
+        """
+        fixed_aerosols = []
+
+        for aer in aerosols:
+            N_old = np.sum(aer.Nis)
+            bin_count = np.count_nonzero(aer.r_drys[aer.r_drys < smallest_rdry])
+            if bin_count > 0:
+                aer_new = AerosolSpecies(aer.species,
+                                         aer.distribution, 
+                                         kappa=aer.kappa, 
+                                         bins=aer.bins, 
+                                         r_min=smallest_rdry*1e6)
+                N_new = np.sum(aer_new.Nis)
+                if self.console:
+                    print "%s: Removed %03d bins, N change: %5.1f -> %5.1f (%2.1f%%)" % \
+                          (aer.species, bin_count, N_old, N_new, (N_new-N_old)/N_new)
+                fixed_aerosols.append(aer_new)
+            else:
+                fixed_aerosols.append(aer)
+
+        return fixed_aerosols
 
     def _setup_run(self):
         """ Perform equilibration and initialization calculations for the
@@ -262,7 +299,7 @@ class ParcelModel(object):
             r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
-            r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-15)
+            r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30, maxiter=500)
             r0s.append(r0)
 
         r0s = np.array(r0s[::-1])
@@ -272,11 +309,11 @@ class ParcelModel(object):
         raised = False
         for (r,  r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
             ss = Seq(r, r_dry, T0, kappa)
-            rc, _ = kohler_crit(T0, r_dry, kappa)
+            #rc, _ = kohler_crit(T0, r_dry, kappa)
             if r < 0:
                 if self.console: print "Found bad r", r, r_dry, sp
                 raised = True
-            if np.abs(ss-S0) > 1e-8:
+            if np.abs(ss-S0) > 1e-4:
                 if self.console: print "Found S discrepancy", ss, S0, r_dry
                 raised = True
         if raised:

@@ -152,11 +152,14 @@ class AerosolSpecies(object):
             if isinstance(bins, (list, np.ndarray)):
                 self.rs = bins[:]
             else:
-                if not r_min and not r_max:
+                if not r_min:
                     lr = np.log10(distribution.mu/(10.*distribution.sigma))
+                else: 
+                    lr = np.log10(r_min)
+                if not r_max:
                     rr = np.log10(distribution.mu*10.*distribution.sigma)
                 else:
-                    lr, rr = np.log10(r_min), np.log10(r_max)
+                    rr = np.log10(r_max)
                 self.rs = np.logspace(lr, rr, num=bins+1)[:]
 
             nbins = len(self.rs)
@@ -176,10 +179,14 @@ class AerosolSpecies(object):
             if isinstance(bins, (list, np.ndarray)):
                 self.rs = bins[:]
             else:
-                if not r_min and not r_max:
-                    lr, rr = np.log10(small_mu/(10.*small_sigma)), np.log10(big_mu*10.*big_sigma)
+                if not r_min:
+                    lr = np.log10(small_mu/(10.*small_sigma))
                 else:
-                    lr, rr = np.log10(r_min), np.log10(r_max)
+                    lr = np.log10(r_min)
+                if not r_max: 
+                    rr = np.log10(big_mu*10.*big_sigma)
+                else:
+                    rr = np.log10(r_max)
 
                 self.rs = np.logspace(lr, rr, num=bins+1)[:]
             nbins = len(self.rs)
