@@ -103,7 +103,8 @@ class ParcelModel(object):
 
     """
 
-    def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac):
+    def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac, 
+                 truncate_aerosols=False):
         """ Initialize the parcel model.
 
         During the construction of the parcel model instance, an equilibrium
@@ -120,6 +121,8 @@ class ParcelModel(object):
             Enable some basic debugging output to print to the terminal.
         accom : float, optional (default=:const:`constants.ac`)
             condensation coefficient
+        truncate_aerosols : boolean, optional (default=**False**)
+            Eliminate extremely small aerosol which will cause numerical problems
 
         Returns
         -------
@@ -134,12 +137,16 @@ class ParcelModel(object):
         """
         self._model_set = False
         self.console = console
+        self.trunc = truncate_aerosols
 
         self.V  = V
         self.T0 = T0
         self.S0 = S0
         self.P0 = P0
-        self.aerosols = self._replace_aerosol(aerosols)
+        if self.trunc:
+            self.aerosols = self._replace_aerosol(aerosols)
+        else:
+            self.aerosols = aerosols
         self.accom = accom
 
         ## To be set by call to "self._setup_run()"
@@ -200,7 +207,10 @@ class ParcelModel(object):
         if S0:
             self.S0 = S0
         if aerosols:
-            self.aerosols = self._replace_aerosol(aerosols)
+            if self.trunc:
+                self.aerosols = self._replace_aerosol(aerosols)
+            else:
+                self.aerosols = aerosols
 
         if T0 or P0 or S0 or aerosols:
             self._setup_run()
