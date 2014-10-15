@@ -519,7 +519,7 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
 
     n_acts, act_fracs = [], []
     for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, sgis):
-        N_act, act_frac = activate_lognormal_mode(smax, mu*1e-6, sigma, N, kappa, sgi)
+        N_act, act_frac = activate_lognormal_mode(smax, mu*1e-6, sigma, N*1e-6, kappa, sgi)
         n_acts.append(N_act)
         act_fracs.append(act_frac)
 
