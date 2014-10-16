@@ -113,11 +113,10 @@ def der(double[::1] y, double t,
     y : array_like
         Current state of the parcel model system,
             * y[0] = altitude, m
-            * y[1] = pressure, Pa
-            * y[2] = temperature, K
-            * y[3] = water vapor mass mixing ratio, kg/kg
-            * y[4] = droplet liquid water mass mixing ratio, kg/kg
-            * y[5] = parcel supersaturation
+            * y[1] = temperature, K
+            * y[2] = water vapor mass mixing ratio, kg/kg
+            * y[3] = droplet liquid water mass mixing ratio, kg/kg
+            * y[4] = parcel supersaturation
             * y[`nr`:] = aerosol bin sizes (radii), m
     t : float
         Current simulation time, in seconds.
@@ -149,18 +148,20 @@ def der(double[::1] y, double t,
 
     """
     cdef double z = y[0]
-    cdef double P = y[1]
-    cdef double T = y[2]
-    cdef double wv = y[3]
-    cdef double wc = y[4]
-    cdef double S = y[5]
-    #cdef np.ndarray[double, ndim=1] rs = y[5:]
-    cdef double[::1] rs = y[6:]
+    cdef double T = y[1]
+    cdef double wv = y[2]
+    cdef double wc = y[3]
+    cdef double S = y[4]
+    cdef double[::1] rs = y[5:]
 
     cdef double T_c = T-273.15 # convert temperature to Celsius
     cdef double pv_sat = es(T_c) # saturation vapor pressure
     cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
     cdef double Tv = (1.+0.61*wv)*T
+    ## Compute pressure by noting that RH ~ e/e_s, and using this e in the formal
+    ## definition of mixing ratio, w = epsilon*e/(p-e)
+    cdef double e = (S + 1.)*pv_sat
+    cdef double P = e*(0.622 + wv)/wv
     cdef double rho_air = P/(Rd*Tv)
 
     ## Begin computing tendencies

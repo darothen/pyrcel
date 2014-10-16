@@ -26,6 +26,9 @@ from functools import partial
 from scipy.integrate import odeint
 import numpy as np
 
+state_atol = [1e-4, 1e-4, 1e-10, 1e-10, 1e-8]
+state_rtol = 1e-7
+
 class Integrator(object):
     """
     Container class for the various integrators to use in the parcel model.
@@ -63,8 +66,8 @@ class Integrator(object):
         """Wrapper for odespy.odepack.Lsode
         """
         nr = args[0]
-        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
-        rtol = 1e-7
+        atol = state_atol + [1e-12]*nr
+        rtol = state_rtol
         kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
         f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no -1][5]
@@ -89,8 +92,6 @@ class Integrator(object):
         """Wrapper for odespy.odepack.Lsoda
         """
         nr = args[0]
-        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
-        rtol = 1e-7
 
         kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
@@ -116,8 +117,8 @@ class Integrator(object):
         """Wrapper for odespy.Vode
         """
         nr = args[0]
-        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
-        rtol = 1e-7
+        atol = state_atol + [1e-12]*nr
+        rtol = state_rtol
 
         #kwargs = { 'atol':1e-10, 'rtol':1e-8, 'nsteps':max_steps,
         #           'adams_or_bdf': 'bdf',  'order':5}
@@ -232,8 +233,8 @@ class Integrator(object):
         ## Setup tolerances
         nr = args[0]
         #ny = 6 + nr # z, P, T, wv, wc, S, *droplet_sizes        
-        sim.rtol = 1e-7
-        sim.atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
+        sim.rtol = state_rtol
+        sim.atol = state_atol + [1e-12]*nr
 
         if not console:
             sim.verbosity = 50
@@ -276,8 +277,8 @@ class Integrator(object):
         """Wrapper for scipy.integrate.odeint
         """
         nr = args[0]
-        atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-8] + [1e-12]*nr
-        rtol = 1e-7
+        atol = state_atol + [1e-12]*nr
+        rtol = state_rtol
 
         x, info = odeint(f, y0, t, args=args, full_output=1, mxhnil=0,
                          mxstep=max_steps, atol=atol, rtol=rtol)

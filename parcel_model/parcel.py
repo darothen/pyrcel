@@ -294,7 +294,7 @@ class ParcelModel(object):
 
         ## 2) Setup parcel initial conditions
         # a) water vapor
-        wv0 = (1.-S0)*0.622*es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
+        wv0 = (S0 + 1.)*0.622* es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
         # wrapper function for quickly computing deviation from chosen
@@ -334,7 +334,7 @@ class ParcelModel(object):
         wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
 
         # d) concatenate into initial conditions arrays
-        y0 = [z0, P0, T0, wv0, wc0, S0]
+        y0 = [z0, T0, wv0, wc0, S0]
         if self.console:
             print "PARCEL INITIAL CONDITIONS"
             print "    {:>8} {:>8} {:>8} {:>8} {:>8}".format("P (hPa)", "T (K)", "wv", "wc", "S")
@@ -722,12 +722,11 @@ class ParcelModel(object):
 
         """
         z  = y[0]
-        P  = y[1]
-        T  = y[2]
-        wv = y[3]
-        wc = y[4]
-        S  = y[5]
-        rs = np.asarray(y[6:])
+        T  = y[1]
+        wv = y[2]
+        wc = y[3]
+        S  = y[4]
+        rs = np.asarray(y[5:])
 
         T_c = T - 273.15   # convert temperature to Celsius
         pv_sat = es(T-T_c) # saturation vapor pressure
