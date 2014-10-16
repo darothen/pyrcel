@@ -38,6 +38,7 @@ class Integrator(object):
     whose second value is a boolean indicating whether the model run was successful.
 
     """
+
     @staticmethod
     def solver(method):
         """ Maps a solver name to a function.
@@ -92,6 +93,9 @@ class Integrator(object):
         """Wrapper for odespy.odepack.Lsoda
         """
         nr = args[0]
+
+        atol = state_atol + [1e-12]*nr
+        rtol = state_rtol
 
         kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
@@ -152,9 +156,10 @@ class Integrator(object):
 
         class Extended_Problem(Explicit_Problem):
 
-            name  = 'Parcel model ODEs'
-            sw0   = [True,  # Normal integration switch
-                     False, # Past cut-off switch
+            name = 'Parcel model ODEs'
+            sw0  = [
+                True,  # Normal integration switch
+                False, # Past cut-off switch
             ] 
             t_cutoff = 1e5
             dS_dt = 1.0
@@ -162,9 +167,9 @@ class Integrator(object):
             def rhs(self, t, y, sw):
                 if not sw[1]: # Normal integration before cutoff
                     dode_dt = f(y, t, *args)
-                    self.dS_dt = dode_dt[5]
+                    self.dS_dt = dode_dt[4]
                 else:
-                    dode_dt = np.zeros(6 + args[0])
+                    dode_dt = np.zeros(5 + args[0])
                 return dode_dt
 
             # The event function
@@ -173,7 +178,7 @@ class Integrator(object):
                 supersaturation is decreasing or not. """
                 if sw[0]: 
                     #dode_dt = f(y, t, *args)
-                    #smax_event = dode_dt[5]
+                    #smax_event = dode_dt[4]
                     smax_event = self.dS_dt
                 else:
                     smax_event = -1.0
