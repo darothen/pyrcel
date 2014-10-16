@@ -294,7 +294,7 @@ class ParcelModel(object):
 
         ## 2) Setup parcel initial conditions
         # a) water vapor
-        wv0 = (S0 + 1.)*0.622* es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
+        wv0 = (S0 + 1.)*0.622*es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
         # wrapper function for quickly computing deviation from chosen
@@ -565,8 +565,8 @@ class ParcelModel(object):
         heights = self.heights
         time = self.time
 
-        parcel = pd.DataFrame( {'P':x[:,1], 'T':x[:,2], 'wv':x[:,3],
-                                'wc':x[:,4], 'S':x[:,5], 'z':heights},
+        parcel = pd.DataFrame( {'T':x[:,1], 'wv':x[:,2],
+                                'wc':x[:,5], 'S':x[:,4], 'z':heights},
                                  index=time)
                                  #index=heights[offset:])
 
@@ -579,7 +579,7 @@ class ParcelModel(object):
             labels = ["r%03d" % i for i in xrange(nr)]
             radii_dict = dict()
             for i, label in enumerate(labels):
-                radii_dict[label] = x[:,6+species_shift+i]
+                radii_dict[label] = x[:,5+species_shift+i]
 
             aerosol_dfs[species] = pd.DataFrame( radii_dict,
                                                  index=time  )
@@ -684,12 +684,11 @@ class ParcelModel(object):
         y : array_like
             Current state of the parcel model system,
                 * y[0] = altitude, m
-                * y[1] = pressure, Pa
-                * y[2] = temperature, K
-                * y[3] = water vapor mass mixing ratio, kg/kg
-                * y[4] = droplet liquid water mass mixing ratio, kg/kg
-                * y[5] = parcel supersaturation
-                * y[`nr`:] = aerosol bin sizes (radii), m
+                * y[1] = temperature, K
+                * y[2] = water vapor mass mixing ratio, kg/kg
+                * y[3] = droplet liquid water mass mixing ratio, kg/kg
+                * y[4] = parcel supersaturation
+                * y[5:] = aerosol bin sizes (radii), m
         t : float
             Current simulation time, in seconds.
         nr : Integer
@@ -732,13 +731,10 @@ class ParcelModel(object):
         pv_sat = es(T-T_c) # saturation vapor pressure
         wv_sat = wv/(S+1.) # saturation mixing ratio
         Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
+        P = pv_sat*(1. + 0.622*(S + 1.)/wv)
         rho_air = P/(Rd*Tv) # current air density accounting for humidity
 
-        ## Calculate tendency terms
-        # 1) Pressure
-        dP_dt = (-g*P*V)/(Rd*Tv)
-
-        # 2/3) Wet particle growth rates and droplet liquid water
+        # 1/2) Wet particle growth rates and droplet liquid water
         drs_dt = np.zeros(shape=(nr, ))
         dwc_dt = 0.
         for i in range(nr):
@@ -765,13 +761,13 @@ class ParcelModel(object):
             drs_dt[i] = dr_dt
         dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
 
-        # 4) Water vapor content
+        # 3) Water vapor content
         dwv_dt = -dwc_dt
 
-        # 5) Temperature
+        # 4) Temperature
         dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
-        # 6) Supersaturation
+        # 5) Supersaturation
 
         ''' Alternative methods for calculation supersaturation tendency
         # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
@@ -801,13 +797,12 @@ class ParcelModel(object):
         dz_dt = V
 
         ## Repackage tendencies for feedback to numerical solver
-        x = np.zeros(shape=(nr+6, ))
+        x = np.zeros(shape=(nr+5, ))
         x[0] = dz_dt
-        x[1] = dP_dt
-        x[2] = dT_dt
-        x[3] = dwv_dt
-        x[4] = dwc_dt
-        x[5] = dS_dt
-        x[6:] = drs_dt[:]
+        x[1] = dT_dt
+        x[2] = dwv_dt
+        x[3] = dwc_dt
+        x[4] = dS_dt
+        x[5:] = drs_dt[:]
 
         return x

@@ -72,27 +72,6 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
     cdef double returnval = exp(A)*B - 1.0
     return returnval
 
-## Jacobian of derivative
-def jac(double[::1] y, double t,
-        int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas):
-
-    cdef double z = y[0]
-    cdef double P = y[1]
-    cdef double T = y[2]
-    cdef double wv = y[3]
-    cdef double wc = y[4]
-    cdef double S = y[5]
-    #cdef np.ndarray[double, ndim=1] rs = y[5:]
-    cdef double[::1] rs = y[6:]
-
-    cdef double T_c = T-273.15 # convert temperature to Celsius
-    cdef double pv_sat = es(T_c) # saturation vapor pressure
-    cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
-    cdef double Tv = (1.+0.61*wv)*T
-    cdef double rho_air = P/(Rd*Tv)
-
-    return 
-
 ## RHS Derivative callback function
 def der(double[::1] y, double t,
         int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas,
@@ -117,7 +96,7 @@ def der(double[::1] y, double t,
             * y[2] = water vapor mass mixing ratio, kg/kg
             * y[3] = droplet liquid water mass mixing ratio, kg/kg
             * y[4] = parcel supersaturation
-            * y[`nr`:] = aerosol bin sizes (radii), m
+            * y[5:] = aerosol bin sizes (radii), m
     t : float
         Current simulation time, in seconds.
     nr : Integer
@@ -134,8 +113,8 @@ def der(double[::1] y, double t,
     Returns
     -------
     x : array_like
-        Array of shape (`nr`+6, ) containing the evaluated parcel model
-        instaneous derivative.
+        Array of shape (`nr`+5, ) containing the evaluated parcel model
+        instantaneous derivative.
 
     Notes
     -----
@@ -158,18 +137,14 @@ def der(double[::1] y, double t,
     cdef double pv_sat = es(T_c) # saturation vapor pressure
     cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
     cdef double Tv = (1.+0.61*wv)*T
-    ## Compute pressure by noting that RH ~ e/e_s, and using this e in the formal
-    ## definition of mixing ratio, w = epsilon*e/(p-e)
-    cdef double e = (S + 1.)*pv_sat
-    cdef double P = e*(0.622 + wv)/wv
+    cdef double P = pv_sat*(1. + 0.622*(S + 1.)/wv)
     cdef double rho_air = P/(Rd*Tv)
 
     ## Begin computing tendencies
     cdef:
-        double dP_dt, dwc_dt, dwv_dt, dT_dt, dS_dt
+        double dwc_dt, dwv_dt, dT_dt, dS_dt
         double[::1] drs_dt, x
 
-    dP_dt = (-g*P*V)/(Rd*Tv)
     dwc_dt = 0.0
     drs_dt = np.empty(shape=(nr), dtype="d")
 
@@ -240,13 +215,12 @@ def der(double[::1] y, double t,
     gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
-    x = np.empty(shape=(nr+6), dtype='d')
+    x = np.empty(shape=(nr+5), dtype='d')
     x[0] = dz_dt
-    x[1] = dP_dt
-    x[2] = dT_dt
-    x[3] = dwv_dt
-    x[4] = dwc_dt
-    x[5] = dS_dt
-    x[6:] = drs_dt[:]
+    x[1] = dT_dt
+    x[2] = dwv_dt
+    x[3] = dwc_dt
+    x[4] = dS_dt
+    x[5:] = drs_dt[:]
 
     return x
