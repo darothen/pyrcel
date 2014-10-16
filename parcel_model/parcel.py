@@ -569,6 +569,9 @@ class ParcelModel(object):
                                 'wc':x[:,5], 'S':x[:,4], 'z':heights},
                                  index=time)
                                  #index=heights[offset:])
+        ## Add some thermodynamic output to the parcel model dataframe
+        ess = es(parcel['T'] - 273.15)
+        parcel['P'] = ess*(1. + 0.622*(parcel['S'] + 1.)/parcel['wv'])
 
         aerosol_dfs = {}
         species_shift = 0 # increment by nr to select the next aerosol's radii
