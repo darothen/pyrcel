@@ -325,10 +325,10 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
         Ns     = d['Ns']
     else:
         ## Assert that the aerosol was already decomposed into component vars
-        assert mus
-        assert sigmas
-        assert Ns
-        assert kappas
+        assert mus is not None
+        assert sigmas is not None
+        assert Ns is not None
+        assert kappas is not None
 
     # Convert sizes/number concentrations to diameters + SI units
     mus = np.asarray(mus)
@@ -572,10 +572,10 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
         Ns     = d['Ns']
     else:
         ## Assert that the aerosol was already decomposed into component vars
-        assert mus
-        assert sigmas
-        assert Ns
-        assert kappas
+        assert mus is not None
+        assert sigmas is not None
+        assert Ns is not None
+        assert kappas is not None
 
     ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
     wv_sat = es(T-273.15)
