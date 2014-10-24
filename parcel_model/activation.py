@@ -526,13 +526,25 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
     return smax, n_acts, act_fracs
 
 def arg2000(V, T, P, aerosols=[], accom=c.ac,
-            mus=[], sigmas=[], Ns=[], kappas=[]):
+            mus=[], sigmas=[], Ns=[], kappas=[], min_smax=False):
     """ Computes droplet activation using a psuedo-analytical scheme.
 
     This method implements the psuedo-analytical scheme of [ARG2000] to
     calculate droplet activation an an adiabatically ascending parcel. It
     includes the extension to multiple lognormal modes, and the correction
     for non-unity condensation coefficient [GHAN2011].
+
+    To deal with multiple aerosol modes, the scheme includes an expression
+    trained on the mode std deviations, :math:`\sigma_i`
+
+    .. math::
+
+        S_\\text{max} = 1 \bigg/ \sqrt{\sum \\frac{1}{S^2_\text{mi}}\left[H(f_i, g_i)\right]}
+
+    This effectively combines the supersaturation maximum for each mode into
+    a single value representing competition between modes. An alternative approach,
+    which assumes the mode which produces the smallest predict Smax sets a 
+    first-order control on the activation, is also available
 
     Parameters
     ----------
@@ -547,6 +559,9 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
     mus, sigmas, Ns, kappas : lists of floats
         Lists of aerosol population parameters; must be present if ``aerosols``
         is not passed, but ``aerosols`` overrides if both are present.
+    min_smax : boolean, optional
+        If `True`, will use alternative formulation for parameterizing competition
+        described above.
 
     Returns
     -------
@@ -632,7 +647,14 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
         Smis.append(Smi2)
         Sparts.append(S_part)
 
-    smax = 1./np.sqrt(np.sum(Sparts))
+    if min_smax:
+        smax = 1e20
+        for i in xrange(len(mus)):
+            mode_smax = 1./np.sqrt(Sparts[i])
+            if mode_smax < smax: 
+                smax = mode_smax
+    else: ## Use default competition parameterization
+        smax = 1./np.sqrt(np.sum(Sparts))
 
     n_acts, act_fracs = [], []
     for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, Smis):
