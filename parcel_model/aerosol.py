@@ -102,7 +102,7 @@ class AerosolSpecies(object):
     rs : array of floats of length ``nr + 1``
         Edges of bins in discretized aerosol distribution representation, m.
     Nis : array of floats of length ``nr``
-        Number concentration of aerosol of each representative size, cm**-3.
+        Number concentration of aerosol of each representative size, m**-3.
     total_N : float
         Total number concentration of aerosol in this species, cm**-3.
 
