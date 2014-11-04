@@ -38,7 +38,7 @@ def _unpack_aerosols(aerosols):
 
     return dict(species=species, mus=mus, sigmas=sigmas, Ns=Ns, kappas=kappas)
 
-def activate_lognormal_mode(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=True):
+def lognormal_activation(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=True):
     """ Compute the activated number/fraction from a lognormal mode
 
     Parameters
@@ -75,9 +75,10 @@ def activate_lognormal_mode(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=
 
     return N_act, act_frac
 
-def kinetic_activation(Smax, T, rs, aerosol):
-    """ Following Nenes et al, 2001 compute the kinetic limitation statistics
-    for a given wetted aerosol.
+def binned_activation(Smax, T, rs, aerosol):
+    """ Compute the activation statistics of a given aerosol, its transient
+    size distribution, and updraft characteristics. Following Nenes et al, 2001
+    also compute the kinetic limitation statistics for the aerosol.
 
     Parameters
     ----------
@@ -143,7 +144,8 @@ def kinetic_activation(Smax, T, rs, aerosol):
     return eq_frac, kn_frac, alpha, phi
 
 def multi_mode_activation(Smax, T, aerosols, rss):
-    """ Compute the activation statistics of a multi-mode aerosol population.
+    """ Compute the activation statistics of a multi-mode, binned_activation
+    aerosol population.
 
     Parameters
     ----------
@@ -164,64 +166,9 @@ def multi_mode_activation(Smax, T, aerosols, rss):
     """
     act_fracs = []
     for rs, aerosol in zip(rss, aerosols):
-        eq, kn = act_fraction(Smax, T, rs, aerosol)
+        eq, kn, _, _ = binned_activation(Smax, T, rs, aerosol)
         act_fracs.append([eq, kn])
     return zip(*act_fracs)
-
-def act_fraction(Smax, T, rs, aerosol):
-    """ Calculates the equilibrium activation statistics of a given aerosol and
-    maximum supersaturation.
-
-    This calculation is only implemented for a single aerosol size. See
-    :func:`multimode_act_frac` for the equivalent calculation carried out
-    over successive modes.
-
-    Parameters
-    ----------
-    Smax : float
-        Environmental maximum supersaturation.
-    T : float
-        Environmental temperature.
-    rs : array of floats
-        Wet radii of aerosol/droplet population.
-    aerosol : :class:`AerosolSpecies`
-        The characterization of the dry aerosol.
-
-    Returns
-    -------
-    eq_frac, kn_frac : floats
-        Equilibrium and kinetic activated aerosol fraction, in units corresponding
-        to those of ``aerosol``'s ``total_N`` attribute.
-
-    """
-
-    kappa = aerosol.kappa
-    r_drys = aerosol.r_drys
-    Nis = aerosol.Nis
-    N_tot = np.sum(Nis)
-
-    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, True) for r_dry in r_drys])
-    s_crits = np.array(s_crits)
-    r_crits = np.array(r_crits)
-
-    ## Equilibrium calculation - all aerosol whose critical supersaturation is
-    ##                           less than the environmental supersaturation
-    activated_eq = (Smax >= s_crits)
-    eq_frac = np.sum(Nis[activated_eq])/N_tot
-
-    ## Kinetic calculation - find the aerosol with the smallest dry radius which has
-    ##                       grown past its critical radius, and count this aerosol and
-    ##                       all larger ones as activated. This will include some large
-    ##                       particles which haven't grown to critical size yet.
-    is_r_large = rs >= r_crits
-    if not np.any(is_r_large):
-        N_kn, kn_frac = 0., 0.
-    else:
-        smallest_ind = np.where(is_r_large)[0][0]
-        N_kn = np.sum(Nis[smallest_ind:])
-        kn_frac = N_kn/N_tot
-
-    return eq_frac, kn_frac
 
 ######################################################################
 ## Code implementing the Nenes and Seinfeld (2003) parameterization,
