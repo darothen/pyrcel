@@ -6,6 +6,8 @@ module aerosol
 
     implicit none
 
+    real (kind=dp), parameter :: min_rad = 5d-3
+
 contains
 
     subroutine aerosol_bins( mu, sigma, N, r_drys, Nis )
@@ -20,10 +22,9 @@ contains
 
         nbins = size(r_drys)
 
-        ! left-right extent
-        !lr = log10(mu/10d0/sigma)
-        !rr = log10(mu*10d0*sigma)        
+        ! left-right extent     
         lr = mu/10d0/sigma
+        if (lr < min_rad) lr = min_rad
         rr = mu*10d0*sigma
 
         ! populate the log of the bins
@@ -56,12 +57,12 @@ contains
         !------------------
         integer :: i, count, nbins
         real (kind=dp) :: a, b, c, fa, fb, fc
-        integer, parameter :: max_n = 100
+        integer, parameter :: max_n = 500
         real (kind=dp), parameter :: tol = 1d-10
 
         nbins = size(r_drys)
 
-        write (*,"('computing wet equilibrium radii for',I2,' bins')") nbins
+        write (*,"('computing wet equilibrium radii for',I5,' bins')") nbins
         do i = 1, nbins
             !write (*,*) "bin", i
 
@@ -79,7 +80,7 @@ contains
             do while (abs(fc) > tol)      
                 !write (*,*) "   ", count, a, b, abs(fc)
                 if (count > max_n) then
-                    write (*,*) "bisection failed on element", count
+                    write (*,*) "bisection failed on element", i
                     stop
                 endif
                 

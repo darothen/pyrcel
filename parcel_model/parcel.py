@@ -216,7 +216,7 @@ class ParcelModel(object):
             self._setup_run()
 
     def _replace_aerosol(self, aerosols, smallest_rdry=1e-10):
-        """ Truncates the bins with the samllest particles to that none
+        """ Truncates the bins with the smallest particles so that none
         have a dry radius of less than 0.1 nm.
 
         Parameters
@@ -762,6 +762,14 @@ class ParcelModel(object):
             Ni = Nis[i]
             dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
             drs_dt[i] = dr_dt
+
+           # if i == nr-1:
+           #     print 1, r, r_dry, Ni
+           #     print 2, dv(T, r, P, accom), ka(T, rho_air, r)
+           #     print 3, G_a, G_b
+           #     print 4, Seq(r, r_dry, T, kappa, 1.0)
+           #     print 5, dr_dt
+
         dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
 
         # 3) Water vapor content

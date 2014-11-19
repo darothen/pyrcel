@@ -1,0 +1,11 @@
+FOBJ=aerosol.o constants.o main.o model.o thermo.o util.o dvode_f90_m.o
+
+main: $(FOBJ)
+	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(FOBJ) $(LIBS)
+
+aerosol.o : aerosol.f90 util.o thermo.o constants.o 
+constants.o : constants.f90 
+main.o : main.f90 util.o thermo.o model.o constants.o aerosol.o 
+model.o : model.f90 thermo.o constants.o aerosol.o dvode_f90_m.o
+thermo.o : thermo.f90 constants.o 
+util.o : util.f90 constants.o 
