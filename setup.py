@@ -1,6 +1,6 @@
-#! /usr/bin/enb python
+#! /usr/bin/env python
 #
-# Copyright (C) 2014 Daniel Rothenberg <darothen@mit.edu>
+# Copyright (C) 2015 Daniel Rothenberg <darothen@mit.edu>
 
 DESCRIPTION = "parcel_model: 0D adiabatic cloud parcel model"
 LONG_DESCRIPTION = """\
@@ -13,7 +13,9 @@ they would like to run with the model.
 
 DISTNAME = "parcel_model"
 MAINTAINER = "Daniel Rothenberg"
+AUTHOR = MAINTAINER
 MAINTAINER_EMAIL = "darothen@mit.edu"
+AUTHOR_EMAIL = MAINTAINER_EMAIL
 URL = "https://github.com/darothen/parcel_model"
 LICENSE = "New BSD (3-clause)"
 DOWNLOAD_URL = "https://github.com/darothen/parcel_model"
@@ -55,6 +57,8 @@ if __name__ == "__main__":
 
     setup(
         name = DISTNAME,
+        author = AUTHOR,
+        author_email = AUTHOR_EMAIL,
         maintainer = MAINTAINER,
         maintainer_email = MAINTAINER_EMAIL,
         description = DESCRIPTION,
@@ -64,8 +68,21 @@ if __name__ == "__main__":
         version = VERSION,
         download_url = DOWNLOAD_URL,
 
+        install_requires = ['numpy', 'scipy', 'odespy', 'assimulo', ]
         packages = ["parcel_model", ],
         ext_modules = extensions,
         cmdclass = {'build_ext': build_ext},
 
+        classifiers=[
+            'Development Status :: 5 - Production/Stable', 
+            'Environment :: Console',
+            'Intended Audience :: Science/Research',
+            'License :: OSI Approved :: MIT License',
+            'Natural Language :: English',
+            'Operating System :: Unix',
+            'Programming Language :: Python :: 2.6',
+            'Programming Language :: Python :: 2.7',
+            'Programming Language :: Fortran',
+            'Topic :: Scientific/Engineering :: Atmospheric Science',
+        ],
     )
