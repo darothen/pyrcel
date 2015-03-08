@@ -25,7 +25,7 @@ Please fork this repository if you intend to develop the model further so that t
 
 ## License
 
-[All scientific code should be licensed](http://www.astrobetter.com/the-whys-and-hows-of-licensing-scientific-code/). This code is released under the New BSD (3-clause) [license](LICENSE).
+[All scientific code should be licensed](http://www.astrobetter.com/the-whys-and-hows-of-licensing-scientific-code/). This code is released under the New BSD (3-clause) [license](LICENSE.md).
 
 [author_email]: mailto:darothen@mit.edu
 

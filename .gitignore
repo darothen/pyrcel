@@ -5,6 +5,8 @@
 *.c
 *.h
 *.exe
+*.o
+*.mod
 build/
 dist/
 
@@ -31,3 +33,4 @@ doc/examples/*files/
 *#
 parcel_model.egg-info
 .idea/*
+*.dat
