@@ -17,7 +17,7 @@ program main
     real (kind=dp), dimension(nVs) :: Vs, Smaxes
     
     nbins = 200
-    nmodes = 2
+    nmodes = 1
 
 !----- Allocate run-time variables ---------
     allocate( aer_mus(nmodes)      )
@@ -29,21 +29,26 @@ program main
     allocate( r_drys(nbins*nmodes) )
     allocate( r0s(nbins*nmodes)    )
 
-    V = 0.5d0 ! setting module-level variable in model.mod
+    V = 0.2d0 ! setting module-level variable in model.mod
     T0 = 283d0
     P0 = 85000d0
     S0 = -0.01d0
 
     ! Aerosol modes
+    !aer_mus  (1) = 0.2d0
+    !aer_sigs (1) = 1.59d0
+    !aer_Ns   (1) = 400d0
+    !aer_kaps (1) = 0.507d0
     aer_mus  (1) = 0.2d0
     aer_sigs (1) = 1.59d0
     aer_Ns   (1) = 400d0
     aer_kaps (1) = 0.507d0
 
-    aer_mus  (2) = 0.055d0
-    aer_sigs (2) = 2.0d0
-    aer_Ns   (2) = 4000d0
-    aer_kaps (2) = 0.25d0
+
+    !aer_mus  (2) = 0.055d0
+    !aer_sigs (2) = 2.0d0
+    !aer_Ns   (2) = 4000d0
+    !aer_kaps (2) = 0.25d0
 
     if (nVs > 1) then
         call logspace ( 1d-1, 10d0, Vs)
