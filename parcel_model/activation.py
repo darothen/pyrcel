@@ -287,26 +287,25 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
     nmodes = len(Ns)
 
     # Overriding using Nenes' physical constants, for numerical accuracy comparisons
-    # TODO: Revert to saved 'constants' module
-    c.Ma = 29e-3
-    c.g  = 9.81
-    c.Mw = 18e-3
-    c.R  = 8.31
-    c.rho_w = 1e3
-    c.L  = 2.25e6
-    c.Cp = 1.0061e3
+    Ma    = c.Ma # 29e-3
+    g     = c.g  # 9.81
+    Mw    = c.Mw # 18e-3
+    R     = c.R  # 8.31
+    Rho_w = c.rho_w # 1e3
+    L     = c.L  # 2.25e6
+    Cp    = c.Cp # 1.0061e3
 
     # Thermodynamic environmental values to be set
     # TODO: Revert to functions in 'thermo' module
     #rho_a    = rho_air(T, P, RH=0.0) # MBN2014: could set RH=1.0, account for moisture
-    rho_a    = P*c.Ma/c.R/T
+    rho_a    = P*Ma/R/T
     aka      = ka_cont(T)             # MBN2014: could use thermo.ka(), include air density
     #surt     = sigma_w(T)
     surt     = (0.0761 - 1.55e-4*(T-273.))
 
     # Compute modal critical supersaturation (Sg) for each mode, corresponding
     # to the critical supersaturation at the median diameter of each mode
-    A = 4.*c.Mw*surt/c.R/T/c.rho_w
+    A = 4.*Mw*surt/R/T/Rho_w
     # There are three different ways to do this:
     #    1) original formula from MBN2014
     f = lambda T, dpg, kappa: np.sqrt((A**3.)*4./27./kappa/(dpg**3.))
@@ -325,18 +324,18 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
     dv_big = 5.0e-6
     dv_low = 1e-6*0.207683*(accom**(-0.33048))
 
-    coef     = (2.*np.pi*c.Mw/(c.R*T))**0.5
+    coef     = (2.*np.pi*Mw/(R*T))**0.5
     dv_ave   = (dv_orig/(dv_big-dv_low))*((dv_big-dv_low)-(2*dv_orig/accom)*coef*      \
                (np.log((dv_big+(2*dv_orig/accom)*coef)/(dv_low+(2*dv_orig/accom)* \
                 coef))))
 
     ## Setup constants used in supersaturation equation
     wv_pres_sat = _vpres(T)*(1e5/1e3) # MBN2014: could also use thermo.es()
-    alpha = c.g*c.Mw*c.L/c.Cp/c.R/T/T - c.g*c.Ma/c.R/T
-    beta1 = P*c.Ma/wv_pres_sat/c.Mw + c.Mw*c.L*c.L/c.Cp/c.R/T/T
-    beta2 = c.R*T*c.rho_w/wv_pres_sat/dv_ave/c.Mw/4.0 + \
-            c.L*c.rho_w/4.0/aka/T*(c.L*c.Mw/c.R/T - 1.0)   # this is 1/G
-    beta  = 0.5*np.pi*beta1*c.rho_w/beta2/alpha/V/rho_a
+    alpha = g*Mw*L/Cp/R/T/T - g*Ma/R/T
+    beta1 = P*Ma/wv_pres_sat/Mw + Mw*L*L/Cp/R/T/T
+    beta2 = R*T*Rho_w/wv_pres_sat/dv_ave/Mw/4.0 + \
+            L*Rho_w/4.0/aka/T*(L*Mw/R/T - 1.0)   # this is 1/G
+    beta  = 0.5*np.pi*beta1*Rho_w/beta2/alpha/V/rho_a
 
     cf1   = 0.5*np.sqrt((1/beta2)/(alpha*V))
     cf2   = A/3.0
@@ -541,7 +540,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
     wv_sat = es(T-273.15)
-    alpha = (c.g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (c.g*c.Ma)/(c.R*T)
+    alpha = (g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (g*c.Ma)/(c.R*T)
     gamma = (c.R*T)/(wv_sat*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
 
     ## Condensation effects - base calculation
@@ -697,8 +696,10 @@ def ming2006(V, T, P, aerosol):
 
         Smax_large = (Smax > Sc) # if(Smax>Sc(count1,count2))
         WetDp = np.zeros_like(Dpc)
-        #WetDp[Smax_large] = np.sqrt(Dpc[Smax_large]**2. + 1e12*(G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
-        WetDp[Smax_large] = 1e6*np.sqrt((Dpc[Smax_large]*1e-6)**2. + (G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
+        #WetDp[Smax_large] = np.sqrt(Dpc[Smax_large]**2. + \
+        #            1e12*(G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
+        WetDp[Smax_large] = 1e6*np.sqrt((Dpc[Smax_large]*1e-6)**2. + \
+                            (G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
 
         #print Dpc
         #print WetDp/DryDp
