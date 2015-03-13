@@ -10,6 +10,7 @@ import pandas as pd
 
 ## Parcel model imports
 import constants as c
+import io
 from aerosol import AerosolSpecies
 from integrator import Integrator
 from thermo import *
@@ -71,6 +72,8 @@ class ParcelModel(object):
         Enable some basic debugging output to print to the terminal.
     accom : float, optional (default=:const:`constants.ac`)
         Condensation coefficient
+    truncate_aerosols : boolean, optional (default=**False**)
+        Eliminate extremely small aerosol which will cause numerical problems
 
     Attributes
     ----------
@@ -101,38 +104,16 @@ class ParcelModel(object):
     set_initial_conditions(V=None, T0=None, S0=None, P0=None, aerosols=None)   
         Re-initialize a model simulation in order to run it.
 
+    See Also
+    --------
+    _setup_run : companion routine which computes equilibrium droplet sizes
+                 and sets the model's state vectors.
+
     """
 
     def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac, 
                  truncate_aerosols=False):
-        """ Initialize the parcel model.
-
-        During the construction of the parcel model instance, an equilibrium
-        droplet calculation and other basic setup routines will run. 
-
-        Parameters
-        ----------
-        aerosols : array_like sequence of :class:`AerosolSpecies`
-            The aerosols contained in the parcel.
-        V, T0, S0, P0 : floats
-            The updraft speed and initial temperature (K), pressure (Pa),
-            supersaturation (percent, with 0.0 = 100% RH).
-        console : boolean, optional
-            Enable some basic debugging output to print to the terminal.
-        accom : float, optional (default=:const:`constants.ac`)
-            condensation coefficient
-        truncate_aerosols : boolean, optional (default=**False**)
-            Eliminate extremely small aerosol which will cause numerical problems
-
-        Returns
-        -------
-        self : ParcelModel
-            Returns self for running the actual parcel model simulation
-
-        See Also
-        --------
-        _setup_run : companion routine which computes equilibrium droplet sizes
-                     and sets the model's state vectors.
+        """ Initialize the parcel model. 
 
         """
         self._model_set = False
@@ -437,7 +418,9 @@ class ParcelModel(object):
         is afforded here through the `max_steps`. For other solvers, a set of optional
         arguments `solver_args` can be passed as a dictionary. 
 
-        **Solution Output** -- Several different output formats are available by default.
+        **Solution Output** -- Several different output formats are available by default. 
+        Additionally, the output arrays are saved with the `ParcelModel` instance so they
+        can be used later.
 
         Parameters
         ----------
@@ -548,7 +531,7 @@ class ParcelModel(object):
         self.time = t
 
         if output == "dataframes":
-            return self._convert_to_dataframes()
+            return io.parcel_to_dataframes(self)
         elif output == "arrays":
             return self.x, self.heights
         elif output == "smax":
@@ -558,38 +541,7 @@ class ParcelModel(object):
             raise ParcelModelError("Invalid value (%s) specified for \
                                     output format." % output)
 
-    def _convert_to_dataframes(self):
-        """ Process the output arrays into DataFrames for returning.
-        """
-        x = self.x
-        heights = self.heights
-        time = self.time
-
-        parcel = pd.DataFrame( {'T':x[:,1], 'wv':x[:,2],
-                                'wc':x[:,5], 'S':x[:,4], 'z':heights},
-                                 index=time)
-                                 #index=heights[offset:])
-        ## Add some thermodynamic output to the parcel model dataframe
-        ess = es(parcel['T'] - 273.15)
-        parcel['P'] = ess*(1. + 0.622*(parcel['S'] + 1.)/parcel['wv'])
-
-        aerosol_dfs = {}
-        species_shift = 0 # increment by nr to select the next aerosol's radii
-        for aerosol in self.aerosols:
-            nr = aerosol.nr
-            species = aerosol.species
-
-            labels = ["r%03d" % i for i in xrange(nr)]
-            radii_dict = dict()
-            for i, label in enumerate(labels):
-                radii_dict[label] = x[:,5+species_shift+i]
-
-            aerosol_dfs[species] = pd.DataFrame( radii_dict,
-                                                 index=time  )
-                                                     #index=heights[offset:])
-            species_shift += nr
-
-        return parcel, aerosol_dfs
+    
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
         """ Write a quick and dirty summary of given parcel model output to the 
