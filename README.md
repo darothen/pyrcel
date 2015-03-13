@@ -1,6 +1,9 @@
-# Parcel Model
+Parcel Model
+============
 
 ![sample parcel model run](doc/figs/model_example.png)
+
+[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.16031.svg)](http://dx.doi.org/10.5281/zenodo.16031)
 
 This is an implementation of a simple, adiabatic cloud parcel model for use in aerosol-cloud interaction studies. It is based on the model used by [Nenes et al (2001)][Nenes2001], but with several key modifications:
 
@@ -17,7 +20,8 @@ Updated code can be found the project [github repository](https://github.com/dar
 
 [Detailed documentation is available](http://mit.edu/~darothen/parcel_model/), including a [scientific description](http://mit.edu/~darothen/parcel_model/sci_descr.html), [installation details](http://mit.edu/~darothen/parcel_model/install.html), and a [basic example](http://mit.edu/~darothen/parcel_model/examples/basic_run.html) which produces a figure like the plot at the top of this page. 
 
-## Requirements
+Requirements
+------------
 
 **Required**
 
@@ -36,13 +40,15 @@ The following packages are used for better numerics (ODE solving), handling data
 
 The easiest way to satisfy the basic requirements for building and running the model is to use the [Anaconda](http://continuum.io/downloads) scientific Python distribution. 
 
-## Development
+Development
+-----------
 
 [http://github.com/darothen/parcel_model]()
 
 Please fork this repository if you intend to develop the model further so that the code's provenance can be maintained.
 
-## License
+License
+-------
 
 [All scientific code should be licensed](http://www.astrobetter.com/the-whys-and-hows-of-licensing-scientific-code/). This code is released under the New BSD (3-clause) [license](LICENSE.md).
 
