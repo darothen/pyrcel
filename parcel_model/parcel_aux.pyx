@@ -116,29 +116,26 @@ def der(double[::1] y, double t,
         Array of shape (`nr`+5, ) containing the evaluated parcel model
         instantaneous derivative.
 
-    Notes
-    -----
-    This Python sketch of the derivative function shouldn't really be used for
-    any computational purposes. Instead, see the cythonized version in the auxiliary
-    file, **parcel_aux.pyx**. In the default configuration, once the code has been
-    built, you can set the environmental variable **OMP_NUM_THREADS** to control
-    the parallel for loop which calculates the condensational growth rate for each
-    bin.
-
     """
-    cdef double z = y[0]
-    cdef double T = y[1]
+    cdef double z  = y[0]
+    cdef double T  = y[1]
     cdef double wv = y[2]
     cdef double wc = y[3]
-    cdef double S = y[4]
+    cdef double S  = y[4]
     cdef double[::1] rs = y[5:]
 
     cdef double T_c = T-273.15 # convert temperature to Celsius
     cdef double pv_sat = es(T_c) # saturation vapor pressure
     cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
     cdef double Tv = (1.+0.61*wv)*T
-    cdef double P = pv_sat*(1. + 0.622*(S + 1.)/wv)
-    cdef double rho_air = P/(Rd*Tv)
+
+    ## Compute pressure from current state
+    cdef double e = (1. + S)*pv_sat
+    cdef double P = e*(0.622 + wv)/wv
+
+    ## Compute air densities from current state
+    cdef double rho_air = P//Rd/Tv
+    cdef double rho_air_dry = (P-e)/Rd/T
 
     ## Begin computing tendencies
     cdef:
@@ -179,9 +176,9 @@ def der(double[::1] y, double t,
         dr_dt = (G/r)*delta_S
         dwc_dt += Ni*r*r*dr_dt # Contribution to liq. water tendency due to growth
         drs_dt[i] = dr_dt
-    dwc_dt *= (4.*PI*rho_w/rho_air) # Hydrated aerosol size -> water mass
-
-    dwv_dt = -dwc_dt
+    dwc_dt *= (4.*PI*rho_w/rho_air_dry) # Hydrated aerosol size -> water mass
+                        # use rho_air_dry for mixing ratio definition consistency
+    dwv_dt = -1.*dwc_dt
 
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
 

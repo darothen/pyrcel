@@ -26,7 +26,7 @@ from functools import partial
 from scipy.integrate import odeint
 import numpy as np
 
-state_atol = [1e-4, 1e-4, 1e-10, 1e-10, 1e-8]
+state_atol = [1e-4, 1e-4, 1e-10, 1e-15, 1e-8]
 state_rtol = 1e-7
 
 class Integrator(object):
