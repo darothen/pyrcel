@@ -275,7 +275,8 @@ class ParcelModel(object):
 
         ## 2) Setup parcel initial conditions
         # a) water vapor
-        wv0 = (S0 + 1.)*0.622*es(T0-273.15)/(P0-es(T0-273.15)) # Water Vapor mixing ratio, kg/kg
+        #        RH    * (Rd/Rv = epsilon) * ( es / P - es ) 
+        wv0 = (S0 + 1.)*(c.epsilon*es(T0-273.15)/(P0-es(T0-273.15))) # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
         # wrapper function for quickly computing deviation from chosen
@@ -313,6 +314,7 @@ class ParcelModel(object):
 
         # c) compute equilibrium droplet water content
         wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
+        wc0 /= rho_air(T0, P0, 0.)
 
         # d) concatenate into initial conditions arrays
         y0 = [z0, T0, wv0, wc0, S0]

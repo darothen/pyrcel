@@ -1,5 +1,6 @@
 
 from datetime import datetime as ddt
+import cPickle
 import time
 import os.path
 
@@ -7,7 +8,8 @@ import numpy as np
 import pandas as pd
 import xray
 
-from thermo import es
+from thermo import es, rho_air
+from version import __version__ as ver
 
 #: Acceptable output formats
 OUTPUT_FORMATS = [ 'nc', 'obj', 'csv', ]
@@ -27,6 +29,14 @@ def write_parcel_output(parcel, filename=None, format=None):
 
     Parameters
     ----------
+    parcel : ParcelModel
+        A ParcelModel which has already been integrated at least once
+    filename : str (optional)
+        Full filename to write output; if not supplied, will default
+        to the current timestamp
+    format : str (optional)
+        Format to use from ``OUTPUT_FORMATS``; must be supplied if no
+        filename is provided
 
     """
 
@@ -68,7 +78,10 @@ def write_parcel_output(parcel, filename=None, format=None):
         parcel_df, aerosol_dfs = parcel_to_dataframes(parcel)
 
         ## Construct xray datastructure to write to netCDF
-        ds = xray.Dataset()
+        ds = xray.Dataset(attrs={
+            'Conventions': "CF-1.0",
+            'source': "parcel_model v%s" % ver,
+        })
 
         ds.coords['time'] = ('time', parcel.time, 
             { 'units': 'seconds', 'long_name': 'simulation time' })
@@ -116,13 +129,19 @@ def write_parcel_output(parcel, filename=None, format=None):
                 { 'units': 'kg/kg', 'long_name': "Liquid water mixing ratio" })
         ds['height'] = (('time', ), parcel_df['z'], 
                 { 'units': "meters", 'long_name': "Parcel height above start" })
+        ds['rho'] = (('time', ), parcel_df['rho'],
+                { 'units': "kg/m3", 'long_name': "Air density"})
 
-        ds['w_tot'] = (('time', ), parcel_df['wv'] + parcel_df['wc'],
+        ds['wtot'] = (('time', ), parcel_df['wv'] + parcel_df['wc'],
                 { 'units': 'kg/kg', 'long_name': "Total water mixing ratio" })
 
         ## Save to disk
         ds.to_netcdf(basename+".nc")
 
+    # 3) obj (pickle)
+    else:
+        with open(basename+".obj", 'w') as f:
+            cPickle.dump(parcel, f)
 
 def parcel_to_dataframes(parcel):
     """ Convert model simulation to dataframe. 
@@ -158,11 +177,13 @@ def parcel_to_dataframes(parcel):
     time = parcel.time
 
     parcel_out = pd.DataFrame( {'T':x[:,1], 'wv':x[:,2],
-                               'wc':x[:,5], 'S':x[:,4], 'z':heights},
+                                'wc':x[:,3], 'S':x[:,4], 'z':heights},
                                 index=time)
     ## Add some thermodynamic output to the parcel model dataframe
     ess = es(parcel_out['T'] - 273.15)
     parcel_out['P'] = ess*(1. + 0.622*(parcel_out['S'] + 1.)/parcel_out['wv'])
+    parcel_out['rho'] = rho_air(parcel_out['T'], parcel_out['P'], 
+                                parcel_out['S'] + 1.)
 
     aerosol_dfs = {}
     species_shift = 0 # increment by nr to select the next aerosol's radii
