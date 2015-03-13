@@ -4,7 +4,7 @@
 
 This is an implementation of a simple, adiabatic cloud parcel model for use in aerosol-cloud interaction studies. It is based on the model used by [Nenes et al (2001)][Nenes2001], but with several key modifications:
 
-* Implementation of kappa-Kohler theory for condensation physics ([Petters and Kreidenweis, 2007)][pk2007]
+* Implementation of $\kappa$-Kohler theory for condensation physics ([Petters and Kreidenweis, 2007)][pk2007]
 * Extension of model to handle arbitrary sectional representations of aerosol populations, based on user-controlled empirical or parameterized size distributions
 * Improved, modular numerical framework for integrating the model, including bindings to several different stiff integrators:
  * `lsoda` - [scipy ODEINT wrapper](http://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html)
@@ -17,6 +17,25 @@ Updated code can be found the project [github repository](https://github.com/dar
 
 [Detailed documentation is available](http://mit.edu/~darothen/parcel_model/), including a [scientific description](http://mit.edu/~darothen/parcel_model/sci_descr.html), [installation details](http://mit.edu/~darothen/parcel_model/install.html), and a [basic example](http://mit.edu/~darothen/parcel_model/examples/basic_run.html) which produces a figure like the plot at the top of this page. 
 
+## Requirements
+
+**Required**
+
+* Python 2.7 (Python 3+ is not supported yet)
+* [NumPy](http://www.numpy.org) - v1.7+
+* [SciPy](http://www.scipy.org) - v0.14.0+
+
+**Optional**
+
+The following packages are used for better numerics (ODE solving), handling data in memory, or saving output. 
+
+* [pandas](http://pandas.pydata.org) - v0.13+
+* [odespy](http://hplgit.github.io/odespy/doc/web/index.html)
+* [Assimulo](http://www.jmodelica.org/assimulo)
+* [xray](http://xray.readthedocs.org/en/stable/)
+
+The easiest way to satisfy the basic requirements for building and running the model is to use the [Anaconda](http://continuum.io/downloads) scientific Python distribution. 
+
 ## Development
 
 [http://github.com/darothen/parcel_model]()
@@ -28,7 +47,6 @@ Please fork this repository if you intend to develop the model further so that t
 [All scientific code should be licensed](http://www.astrobetter.com/the-whys-and-hows-of-licensing-scientific-code/). This code is released under the New BSD (3-clause) [license](LICENSE.md).
 
 [author_email]: mailto:darothen@mit.edu
-
 [nenes2001]: http://nenes.eas.gatech.edu/Preprints/KinLimitations_TellusPP.pdf
 [pk2007]: http://www.atmos-chem-phys.net/7/1961/2007/acp-7-1961-2007.html
 [hplgit]: https://github.com/hplgit/odespy
