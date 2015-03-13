@@ -30,13 +30,8 @@ except ImportError:
     from distutils.core import setup
 
 # Must have Cython!!
-try:
-    from Cython.Distutils import build_ext
-except ImportError:
-    print "Could not find Cython"
-
+from Cython.Distutils import build_ext
 from distutils.extension import Extension
-
 import numpy
 
 extensions = [
