@@ -3,7 +3,7 @@ Parcel Model
 
 ![sample parcel model run](doc/figs/model_example.png)
 
-[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.16031.svg)](http://dx.doi.org/10.5281/zenodo.16031)
+[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.16031.svg)](http://dx.doi.org/10.5281/zenodo.16031)[![Build Status](https://travis-ci.org/darothen/parcel_model.svg?branch=master)](https://travis-ci.org/darothen/parcel_model)
 
 This is an implementation of a simple, adiabatic cloud parcel model for use in aerosol-cloud interaction studies. It is based on the model used by [Nenes et al (2001)][Nenes2001], but with several key modifications:
 
