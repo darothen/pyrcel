@@ -16,7 +16,3 @@
         + Already does for Assimulo; 1-minute chunks reporting at the desired timestep
 
 5. Build basic testing package for coverge
-
-6. Add travis CI hooks
-
-7. Get zenodo DOI for final implementation of all above
