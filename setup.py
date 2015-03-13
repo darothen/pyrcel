@@ -68,7 +68,7 @@ if __name__ == "__main__":
         version = VERSION,
         download_url = DOWNLOAD_URL,
 
-        install_requires = ['numpy', 'scipy', 'odespy', 'assimulo', ]
+        install_requires = ['numpy', 'scipy', 'odespy', 'assimulo', ],
         packages = ["parcel_model", ],
         ext_modules = extensions,
         cmdclass = {'build_ext': build_ext},
