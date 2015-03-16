@@ -313,15 +313,21 @@ class ParcelModel(object):
         out['r0s'] = r0s
 
         # c) compute equilibrium droplet water content
-        wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
+        wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni \
+                                                                in zip(r0s, r_drys, Nis)])
         wc0 /= rho_air(T0, P0, 0.)
 
-        # d) concatenate into initial conditions arrays
-        y0 = [z0, T0, wv0, wc0, S0]
+        # d) compute initial ice water content
+        wi0 = 0.0
+
+        # e) concatenate into initial conditions arrays
+        y0 = [z0, T0, wv0, wc0, wi0, S0]
         if self.console:
             print "PARCEL INITIAL CONDITIONS"
-            print "    {:>8} {:>8} {:>8} {:>8} {:>8}".format("P (hPa)", "T (K)", "wv", "wc", "S")
-            print "      %4.1f   %3.2f  %3.1e   %3.1e   %01.3f" % (P0/100., T0, wv0, wc0, S0)
+            print ("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)", 
+                                               "wc (g/kg)", "wi (g/kg)", "S")
+            print  "    " + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
+                            P0/100.,    T0, wv0*1e3, wc0*1e3, wi0*1e3,    S0 )
         y0.extend(r0s)
         y0 = np.array(y0)
         out['y0'] = y0
@@ -338,68 +344,6 @@ class ParcelModel(object):
 
         if self.console:
             "Initial conditions set successfully."
-
-    def _integrate_increment(self, der_fcn, y0, dt, args, integrator, console=False, max_steps=1000, solver='odeint', **kwargs):
-        """ Integrate the parcel model simulation over discrete height increments.
-
-        .. note:: Deprecated in v1.0
-
-        """
-
-        V = args[3]
-        t_meter = 1./V # time to travel 1 meter
-        z = 0.0
-        t0 = 0.0
-
-        xs, ts = [], []
-        S_old = y0[4]
-
-        if console:
-            print           "SIMULATION STATUS"
-            print           "    z (m) |    T (K) |        S |  time elapsed (s)"
-            status_format = " %8.3f | %8.2f | %8.5f | %8.2f/%-9.2f"
-
-        # Loop over 1 meter increments until S begins to decrease
-        S_increasing = True
-        initial_time = time.time()
-        while S_increasing:
-
-            if console and z == 0:
-                print status_format % (z, y0[0], S_old, 0.0, 0.0)
-
-            t = np.arange(t0, t0+t_meter+dt, dt)
-
-            begin = time.time()
-            try:
-                x, success = integrator(der_fcn, t, y0, args, console, max_steps)
-            except ValueError, e:
-                raise ParcelModelError("Solver '%s' failed; check console output" % solver)
-            end = time.time()
-            elapsed = end-begin
-            total = end-initial_time
-
-            xs.append(x[:-1])
-            ts.append(t[:len(x)-1]) # If we terminate early, don't append
-                                    # unused timesteps!
-            t0 = t[-1]
-
-            # Check if S is still increasing
-            S_new = x[-1, 4]
-            T_new = x[-1, 0]
-
-            #print S_new, S_old
-            S_increasing = S_new > S_old
-            S_old = S_new
-
-            y0 = x[-1, :].copy()
-
-            z += 1.0
-            if console:
-                print status_format % (z, T_new, S_new, elapsed, total)
-
-        x = np.concatenate(xs)
-        t = np.concatenate(ts)
-        return t, x
 
     def run(self, t_end, dt, max_steps=1000, solver="odeint", output="dataframes",
             terminate=False, solver_args={}):
@@ -589,12 +533,14 @@ class ParcelModel(object):
                                                    aerosol.N, aerosol.kappa,
                                                    T=T_at_S_max)
                 act_num = act_frac*aerosol.N
-                out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" % (aerosol.species, act_frac, act_num, aerosol.N))
+                out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" % \
+                               (aerosol.species, act_frac, act_num, aerosol.N))
 
                 total_number += aerosol.N
                 total_activated += act_num
             total_act_frac = total_activated/total_number
-            out_file.write("Total activated fraction = %f (%3.2f/%3.2f)\n" % (total_act_frac, total_activated, total_number))
+            out_file.write("Total activated fraction = %f (%3.2f/%3.2f)\n" % \
+                            (total_act_frac, total_activated, total_number))
 
     def save(self, filename=None, format="nc"):
         io.write_parcel_output(self, filename, format=format)        
@@ -646,9 +592,10 @@ class ParcelModel(object):
                 * y[0] = altitude, m
                 * y[1] = temperature, K
                 * y[2] = water vapor mass mixing ratio, kg/kg
-                * y[3] = droplet liquid water mass mixing ratio, kg/kg
-                * y[4] = parcel supersaturation
-                * y[5:] = aerosol bin sizes (radii), m
+                * y[3] = cloud liquid water mass mixing ratio, kg/kg
+                * y[4] = cloud ice water mass mixing ratio, kg/kg
+                * y[5] = parcel supersaturation
+                * y[6:] = aerosol bin sizes (radii), m
         t : float
             Current simulation time, in seconds.
         nr : Integer
@@ -667,7 +614,7 @@ class ParcelModel(object):
         Returns
         -------
         x : array_like
-            Array of shape (`nr`+6, ) containing the evaluated parcel model
+            Array of shape (``nr``+7, ) containing the evaluated parcel model
             instaneous derivative.
 
         Notes
@@ -684,8 +631,9 @@ class ParcelModel(object):
         T  = y[1]
         wv = y[2]
         wc = y[3]
-        S  = y[4]
-        rs = np.asarray(y[5:])
+        wi = y[4]
+        S  = y[5]
+        rs = np.asarray(y[c.N_STATE_VARS:])
 
         T_c = T - 273.15   # convert temperature to Celsius
         pv_sat = es(T-T_c) # saturation vapor pressure
@@ -732,10 +680,13 @@ class ParcelModel(object):
         # 3) Water vapor content
         dwv_dt = -dwc_dt
 
-        # 4) Temperature
+        # 4) ice water content
+        dwi_dt = 0.0
+
+        # 5) Temperature
         dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
-        # 5) Supersaturation
+        # 6) Supersaturation
 
         ''' Alternative methods for calculation supersaturation tendency
         # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
@@ -765,12 +716,13 @@ class ParcelModel(object):
         dz_dt = V
 
         ## Repackage tendencies for feedback to numerical solver
-        x = np.zeros(shape=(nr+5, ))
+        x = np.zeros(shape=(nr+c.N_STATE_VARS, ))
         x[0] = dz_dt
         x[1] = dT_dt
         x[2] = dwv_dt
         x[3] = dwc_dt
-        x[4] = dS_dt
-        x[5:] = drs_dt[:]
+        x[4] = dwi_dt
+        x[5] = dS_dt
+        x[c.N_STATE_VARS:] = drs_dt[:]
 
         return x

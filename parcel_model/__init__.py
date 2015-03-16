@@ -19,5 +19,6 @@ from distributions import *
 from thermo import *
 from activation import *
 from driver import *
+from vis import *
 
 import constants

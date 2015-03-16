@@ -24,6 +24,7 @@ cdef:
     double R = c.R          #: Universal gas constant, J/(mol K)
     double rho_w = c.rho_w  #: Density of water, kg/m**3
     double Rd = c.Rd        #: Gas constant for dry air, J/(kg K)
+    double Rv = c.Rv        #: Gas constant for water vapor, J/(kg K)
     double g = c.g          #: Gravitational constant, m/s**2
     double Dv = c.Dv        #: Diffusivity of water vapor in air, m^2/s
     double ac = c.ac        #: Condensation Constant
@@ -32,6 +33,8 @@ cdef:
     double L = c.L          #: Latent heat of condensation, J/kg
     double Cp = c.Cp        #: Specific heat of dry air at constant pressure, J/kg
     double PI = 3.14159265358979323846264338328 #: Pi, constant
+
+    int N_STATE_VARS = c.N_STATE_VARS #: number of thermodynamic state variables
 
 ## Auxiliary, single-value calculations with GIL released for derivative
 ## calculations
@@ -76,53 +79,16 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
 def der(double[::1] y, double t,
         int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas,
         double accom):
-    """ Calculates the instantaneous time-derivate of the parcel model system.
-
-    Given a current state vector `y` of the parcel model, computes the tendency
-    of each term including thermodynamic (pressure, temperature, etc) and aerosol
-    terms. The basic aerosol properties used in the model must be passed along
-    with the state vector (i.e. if being used as the callback function in an ODE
-    solver).
-
-    This function is implemented in NumPy and Python, and is likely *very* slow
-    compared to the available Cython version.
-
-    Parameters
-    ----------
-    y : array_like
-        Current state of the parcel model system,
-            * y[0] = altitude, m
-            * y[1] = temperature, K
-            * y[2] = water vapor mass mixing ratio, kg/kg
-            * y[3] = droplet liquid water mass mixing ratio, kg/kg
-            * y[4] = parcel supersaturation
-            * y[5:] = aerosol bin sizes (radii), m
-    t : float
-        Current simulation time, in seconds.
-    nr : Integer
-        Number of aerosol radii being tracked.
-    r_drys : array_like
-        Array recording original aerosol dry radii, m.
-    Nis : array_like
-        Array recording aerosol number concentrations, 1/(m**3).
-    V : float
-        Updraft velocity, m/s.
-    kappas : array_like
-        Array recording aerosol hygroscopicities.
-
-    Returns
-    -------
-    x : array_like
-        Array of shape (`nr`+5, ) containing the evaluated parcel model
-        instantaneous derivative.
+    """See :func:`parcel_model.parcel.der` for full documentation
 
     """
     cdef double z  = y[0]
     cdef double T  = y[1]
     cdef double wv = y[2]
     cdef double wc = y[3]
-    cdef double S  = y[4]
-    cdef double[::1] rs = y[5:]
+    cdef double wi = y[4]
+    cdef double S  = y[5]
+    cdef double[::1] rs = y[N_STATE_VARS:]
 
     cdef double T_c = T-273.15 # convert temperature to Celsius
     cdef double pv_sat = es(T_c) # saturation vapor pressure
@@ -134,12 +100,12 @@ def der(double[::1] y, double t,
     cdef double P = e*(0.622 + wv)/wv
 
     ## Compute air densities from current state
-    cdef double rho_air = P//Rd/Tv
+    cdef double rho_air     = P/Rd/Tv
     cdef double rho_air_dry = (P-e)/Rd/T
 
     ## Begin computing tendencies
     cdef:
-        double dwc_dt, dwv_dt, dT_dt, dS_dt
+        double dwc_dt, dwv_dt, dwi_dt, dT_dt, dS_dt
         double[::1] drs_dt, x
 
     dwc_dt = 0.0
@@ -178,8 +144,13 @@ def der(double[::1] y, double t,
         drs_dt[i] = dr_dt
     dwc_dt *= (4.*PI*rho_w/rho_air_dry) # Hydrated aerosol size -> water mass
                         # use rho_air_dry for mixing ratio definition consistency
-    dwv_dt = -1.*dwc_dt
+    # No freezing implemented yet
+    dwi_dt = 0.0 
 
+    ## MASS BALANCE CONSTRAINT
+    dwv_dt = -1.*(dwc_dt + dwi_dt)
+
+    ## ADIABATIC COOLING
     dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
     dz_dt = V
@@ -212,12 +183,13 @@ def der(double[::1] y, double t,
     gamma = (P*Ma)/(Mw*pv_sat) + (Mw*L*L)/(Cp*R*T*T)
     dS_dt = alpha*V - gamma*dwc_dt
 
-    x = np.empty(shape=(nr+5), dtype='d')
+    x = np.empty(shape=(nr+N_STATE_VARS), dtype='d')
     x[0] = dz_dt
     x[1] = dT_dt
     x[2] = dwv_dt
     x[3] = dwc_dt
-    x[4] = dS_dt
-    x[5:] = drs_dt[:]
+    x[4] = dwi_dt
+    x[5] = dS_dt
+    x[N_STATE_VARS:] = drs_dt[:]
 
     return x

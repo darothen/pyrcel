@@ -10,6 +10,7 @@ import xray
 
 from thermo import es, rho_air
 from version import __version__ as ver
+import constants as c
 
 #: Acceptable output formats
 OUTPUT_FORMATS = [ 'nc', 'obj', 'csv', ]
@@ -127,6 +128,8 @@ def write_parcel_output(parcel, filename=None, format=None):
                 { 'units': 'kg/kg', 'long_name': "Water vapor mixing ratio" })
         ds['wc'] = (('time', ), parcel_df['wc'],
                 { 'units': 'kg/kg', 'long_name': "Liquid water mixing ratio" })
+        ds['wi'] = (('time', ), parcel_df['wi'],
+                { 'units': 'kg/kg', 'long_name': "Ice water mixing ratio" })
         ds['height'] = (('time', ), parcel_df['z'], 
                 { 'units': "meters", 'long_name': "Parcel height above start" })
         ds['rho'] = (('time', ), parcel_df['rho'],
@@ -176,9 +179,9 @@ def parcel_to_dataframes(parcel):
     heights = parcel.heights
     time = parcel.time
 
-    parcel_out = pd.DataFrame( {'T':x[:,1], 'wv':x[:,2],
-                                'wc':x[:,3], 'S':x[:,4], 'z':heights},
-                                index=time)
+
+    parcel_out = pd.DataFrame({ var: x[:, i] for i, var in enumerate(c.STATE_VARS) },
+                              index=time)
     ## Add some thermodynamic output to the parcel model dataframe
     ess = es(parcel_out['T'] - 273.15)
     parcel_out['P'] = ess*(1. + 0.622*(parcel_out['S'] + 1.)/parcel_out['wv'])
@@ -194,7 +197,7 @@ def parcel_to_dataframes(parcel):
         labels = ["r%03d" % i for i in xrange(nr)]
         radii_dict = dict()
         for i, label in enumerate(labels):
-            radii_dict[label] = x[:,5+species_shift+i]
+            radii_dict[label] = x[:,c.N_STATE_VARS+species_shift+i]
 
         aerosol_dfs[species] = pd.DataFrame( radii_dict, index=time  )
         species_shift += nr

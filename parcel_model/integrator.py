@@ -26,7 +26,9 @@ from functools import partial
 from scipy.integrate import odeint
 import numpy as np
 
-state_atol = [1e-4, 1e-4, 1e-10, 1e-15, 1e-8]
+import constants as c
+
+state_atol = [1e-4, 1e-4, 1e-10, 1e-15, 1e-4, 1e-8]
 state_rtol = 1e-7
 
 class Integrator(object):
@@ -44,12 +46,13 @@ class Integrator(object):
         """ Maps a solver name to a function.
         """
         solvers = {
+            # SciPy interfaces
             'odeint': Integrator._solve_odeint,
-            'lsoda': Integrator._solve_lsoda,
-            'lsode': Integrator._solve_lsode,
-            'vode': Integrator._solve_vode,
-            #'cvode': Integrator._solve_cvode,
-            #'lsodar': Integrator._solve_lsodar,
+            # ODESPY interfaces
+            'lsoda': partial(Integrator._solve_with_odespy, method='lsoda'),
+            'lsode': partial(Integrator._solve_with_odespy, method='lsode'),
+            'vode': partial(Integrator._solve_with_odespy, method='vode'),
+            # Assimulo interfaces
             'cvode': partial(Integrator._solve_with_assimulo, method='cvode'),
             'lsodar': partial(Integrator._solve_with_assimulo, method='lsodar'),
         }
@@ -61,18 +64,31 @@ class Integrator(object):
             ## it is unavailable
             raise ValueError("integrator for %s is not available" % method)
 
-    @staticmethod
-    def _solve_lsode(f, t, y0, args, console=False, max_steps=1000, terminate=False, 
-                     **kwargs):
-        """Wrapper for odespy.odepack.Lsode
+    @staticmethod 
+    def _solve_with_odespy(f, t, y0, args, console=False, max_steps=1000, terminate=False,
+                           method='lsoda', **kwargs):
+        """ Wrapper for odespy interfaces
         """
         nr = args[0]
         atol = state_atol + [1e-12]*nr
         rtol = state_rtol
         kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
         f_w_args = lambda u, t: f(u, t, *args)
-        f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no -1][5]
-        solver = Lsode(f_w_args, **kwargs)
+        S_ind = c.STATE_VAR_MAP['S']
+        f_terminate = lambda u, t, step_no: u[step_no][S_ind] < u[step_no -1][S_ind]
+
+        ## Set solver and additional arguments
+        if method == 'lsoda':
+            solver = Lsoda(f_w_args, **kwargs)
+        elif method == 'lsode':
+            solver = Lsode(f_w_args, **kwargs)
+        elif method == 'vode':
+            kwargs['adams_or_bdf'] = 'bdf'
+            kwargs['order'] = 5
+            solver = Vode(f_w_args, **kwargs)
+        else:
+            raise ValueError("Unknown ODESPY method '%r'" % method)
+
         solver.set_initial_condition(y0)
         #solver.set(f_args=args)
 
@@ -88,66 +104,9 @@ class Integrator(object):
         return x, t, True
 
     @staticmethod
-    def _solve_lsoda(f, t, y0, args, console=False, max_steps=1000, terminate=False, 
-                     **kwargs):
-        """Wrapper for odespy.odepack.Lsoda
-        """
-        nr = args[0]
-
-        atol = state_atol + [1e-12]*nr
-        rtol = state_rtol
-
-        kwargs = { 'atol': atol, 'rtol': rtol, 'nsteps':max_steps }
-        f_w_args = lambda u, t: f(u, t, *args)
-        f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no-1][5]
-        solver = Lsoda(f_w_args, **kwargs)
-        solver.set_initial_condition(y0)
-        #solver.set(f_args=args)
-
-        try:
-            if terminate:
-                x, t = solver.solve(t, f_terminate)
-            else:
-                x, t = solver.solve(t)
-        except ValueError, e:
-            raise ValueError("something broke in LSODA: %r" % e)
-            return None, None, False
-
-        return x, t, True
-
-    @staticmethod
-    def _solve_vode(f, t, y0, args, console=False, max_steps=1000, terminate=False, 
-                     **kwargs):
-        """Wrapper for odespy.Vode
-        """
-        nr = args[0]
-        atol = state_atol + [1e-12]*nr
-        rtol = state_rtol
-
-        #kwargs = { 'atol':1e-10, 'rtol':1e-8, 'nsteps':max_steps,
-        #           'adams_or_bdf': 'bdf',  'order':5}
-        kwargs = { 'nsteps': max_steps, 'adams_or_bdf': 'bdf', 'order': 5,
-                   'atol': atol, 'rtol': rtol }
-        f_w_args = lambda u, t: f(u, t, *args)
-        f_terminate = lambda u, t, step_no: u[step_no][5] < u[step_no-1][5]
-        solver = Vode(f_w_args, **kwargs)
-        solver.set_initial_condition(y0)
-        #solver.set(f_args=args)
-
-        try:
-            if terminate:
-                x, t = solver.solve(t, f_terminate)
-            else:
-                x, t = solver.solve(t)
-        except ValueError, e:
-            raise ValueError("something broke in LSODA: %r" % e)
-            return None, None, False
-
-        return x, t, True
-
-    @staticmethod
     def _solve_with_assimulo(f, t, y0, args, console=False, max_steps=1000, terminate=True, 
-                             method='cvode', **kwargs):
+                             method='cvode', maxh=0.1, minh=0.001, 
+                             **kwargs):
         """ Wrapper for Assimulo's solver routines
         """
         def user_rhs(t, y):
@@ -167,9 +126,9 @@ class Integrator(object):
             def rhs(self, t, y, sw):
                 if not sw[1]: # Normal integration before cutoff
                     dode_dt = f(y, t, *args)
-                    self.dS_dt = dode_dt[4]
+                    self.dS_dt = dode_dt[c.N_STATE_VARS - 1]
                 else:
-                    dode_dt = np.zeros(5 + args[0])
+                    dode_dt = np.zeros(c.N_STATE_VARS + args[0])
                 return dode_dt
 
             # The event function
@@ -211,6 +170,8 @@ class Integrator(object):
             sim = CVode(prob)
             sim.discr = 'BDF'
             sim.maxord = 5 
+            sim.maxh = maxh
+            sim.minh = minh
 
             if "iter" in kwargs:
                 sim.iter = kwargs['iter']
@@ -243,16 +204,18 @@ class Integrator(object):
 
         if not console:
             sim.verbosity = 50
-        #sim.verbosity = 10
-        #sim.report_continuously = True
+        else:
+            sim.verbosity = 40
+        #sim.report_continuously = False
 
         t_end = t[-1]
         steps = len(t)
+        print steps
 
         ## Incremental solver
         t_increment = 60.
         t_current = t[0]
-        n_steps = len(t[t <= t_increment])
+        n_steps = len(t[t < t_increment])
         txs, xxs = [], []
         while t_current <= t_end:
             try:

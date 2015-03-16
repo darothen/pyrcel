@@ -9,7 +9,8 @@ describe droplet size distributions or other collections of objects.
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
-from scipy.special import erf
+from scipy.special import erf, erfinv
+#from scipy.optimize import bisect
 
 class BaseDistribution:
     """ Interface for distributions, to ensure that they contain a pdf method.
@@ -17,12 +18,23 @@ class BaseDistribution:
     __metaclass__ = ABCMeta
 
     @abstractmethod
+    def cdf(self, x):
+        """ Cumulative density function """
+
+    @abstractmethod
     def pdf(self, x):
-        """ Number density function. """
+        """ Probability density function. """
 
     @abstractmethod
     def __repr__(self):
         """ Representation function. """
+
+class Gamma(BaseDistribution):
+    """ Gamma size distribution 
+
+    """
+
+    pass
 
 class Lognorm(BaseDistribution):
     """ Lognormal size distribution.
@@ -78,6 +90,19 @@ class Lognorm(BaseDistribution):
         # Compute moments
         self.median = self.mu
         self.mean = self.mu*np.exp(0.5*self.sigma**2)
+
+    def invcdf(self, pct):
+        """ Inverse of cumulative density function
+
+        """
+
+        if (np.any(pct) < 0) or (np.any(pct) > 1):
+            raise ValueError("pct must be between (0, 1)")
+
+        erfinv_arg = 2.*pct/self.N - 1.
+        return self.mu*np.exp( np.log(self.sigma) * \
+                               np.sqrt(2.) * erfinv(erfinv_arg) )
+
 
     def cdf(self, x):
         """ Cumulative density function
