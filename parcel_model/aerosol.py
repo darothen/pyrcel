@@ -140,7 +140,17 @@ class AerosolSpecies(object):
         self.distribution = distribution
         if isinstance(distribution, dict):
             self.r_drys = np.array(distribution['r_drys'])*1e-6
-            self.rs = np.array([self.r_drys[0]*0.9, self.r_drys[0]*1.1, ])*1e6
+
+            ## Compute boundaries for bins. To do this, assume the right
+            ## edge of the first bin is the geometric mean of the two smallest
+            ## dry radii. Then, always assume that r_dry is the geometric mean
+            ## of a bin and use that to back out all other edges in sequence 
+            mid1 = np.sqrt(self.r_drys[0]*self.r_drys[1])
+            lr = (self.r_drys[0]**2.) / mid1
+            rs = [lr, mid1, ]
+            for r_dry in self.r_drys[1:]:
+                rs.append(r_dry**2. / rs[-1])
+            self.rs = np.array(rs)*1e6
             self.Nis = np.array(distribution['Nis'])
             self.N = np.sum(self.Nis)
 
