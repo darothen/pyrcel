@@ -109,7 +109,7 @@ def der(double[::1] y, double t,
         double dwc_dt, dwv_dt, dwi_dt, dT_dt, dS_dt
         double[::1] drs_dt, x
 
-    dP_dt = -1.*rho_air*g*Tv
+    dP_dt = -1.*rho_air*g*V
 
     dwc_dt = 0.0
     drs_dt = np.empty(shape=(nr), dtype="d")

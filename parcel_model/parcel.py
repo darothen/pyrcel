@@ -348,7 +348,7 @@ class ParcelModel(object):
     def run(self, t_end, 
             output_dt=1., solver_dt=None, 
             max_steps=1000, solver="odeint", output="dataframes",
-            terminate=False, solver_args={}):
+            terminate=False, **solver_args):
         """ Run the parcel model simulation.
 
         Once the model has been instantiated, a simulation can immediately be 
@@ -367,7 +367,7 @@ class ParcelModel(object):
         **Numerical Solver** -- By default, the model will use the `odeint` wrapper
         of LSODA shipped by default with scipy. Some fine-tuning of the solver tolerances
         is afforded here through the `max_steps`. For other solvers, a set of optional
-        arguments `solver_args` can be passed as a dictionary. 
+        arguments `solver_args` can be passed. 
 
         **Solution Output** -- Several different output formats are available by default. 
         Additionally, the output arrays are saved with the `ParcelModel` instance so they
@@ -397,8 +397,6 @@ class ParcelModel(object):
             Choose format of solution output.
         terminate : boolean
             End simulation at or shortly after a maximum supersaturation has been achieved
-        solver_args : dict
-            Additional arguments to pass to the numerical ODE solver
 
         Returns
         -------
