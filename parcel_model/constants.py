@@ -59,8 +59,8 @@ at = 0.96            #: thermal accomodation coefficient
 epsilon = 0.622      #: molecular weight of water / molecular weight of dry air
 
 ## Additional fixed model parameters
-N_STATE_VARS  = 6
-STATE_VARS = ['z', 'T', 'wv', 'wc', 'wi', 'S']
+N_STATE_VARS  = 7
+STATE_VARS = ['z', 'P', 'T', 'wv', 'wc', 'wi', 'S']
 STATE_VAR_MAP = { var: i for i, var in enumerate(STATE_VARS) }
 
 import pandas as pd

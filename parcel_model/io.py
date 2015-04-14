@@ -179,12 +179,10 @@ def parcel_to_dataframes(parcel):
     heights = parcel.heights
     time = parcel.time
 
-
     parcel_out = pd.DataFrame({ var: x[:, i] for i, var in enumerate(c.STATE_VARS) },
                               index=time)
+    
     ## Add some thermodynamic output to the parcel model dataframe
-    ess = es(parcel_out['T'] - 273.15)
-    parcel_out['P'] = ess*(1. + 0.622*(parcel_out['S'] + 1.)/parcel_out['wv'])
     parcel_out['rho'] = rho_air(parcel_out['T'], parcel_out['P'], 
                                 parcel_out['S'] + 1.)
 

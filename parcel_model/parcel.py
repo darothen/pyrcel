@@ -321,7 +321,7 @@ class ParcelModel(object):
         wi0 = 0.0
 
         # e) concatenate into initial conditions arrays
-        y0 = [z0, T0, wv0, wc0, wi0, S0]
+        y0 = [z0, P0, T0, wv0, wc0, wi0, S0]
         if self.console:
             print "PARCEL INITIAL CONDITIONS"
             print ("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)", 
@@ -481,7 +481,7 @@ class ParcelModel(object):
         elif output == "arrays":
             return self.x, self.heights
         elif output == "smax":
-            S = self.x[:,5]
+            S = self.x[:, c.STATE_VAR_MAP['S']]
             return S.max()
         else: # Shouldn't ever get here; invalid output specified
             raise ParcelModelError("Invalid value (%s) specified for \
@@ -590,12 +590,13 @@ class ParcelModel(object):
         y : array_like
             Current state of the parcel model system,
                 * y[0] = altitude, m
-                * y[1] = temperature, K
-                * y[2] = water vapor mass mixing ratio, kg/kg
-                * y[3] = cloud liquid water mass mixing ratio, kg/kg
-                * y[4] = cloud ice water mass mixing ratio, kg/kg
-                * y[5] = parcel supersaturation
-                * y[6:] = aerosol bin sizes (radii), m
+                * y[1] = Pressure, Pa
+                * y[2] = temperature, K
+                * y[3] = water vapor mass mixing ratio, kg/kg
+                * y[4] = cloud liquid water mass mixing ratio, kg/kg
+                * y[5] = cloud ice water mass mixing ratio, kg/kg
+                * y[6] = parcel supersaturation
+                * y[7:] = aerosol bin sizes (radii), m
         t : float
             Current simulation time, in seconds.
         nr : Integer
@@ -628,21 +629,24 @@ class ParcelModel(object):
 
         """
         z  = y[0]
-        T  = y[1]
-        wv = y[2]
-        wc = y[3]
-        wi = y[4]
-        S  = y[5]
+        P  = y[1]
+        T  = y[2]
+        wv = y[3]
+        wc = y[4]
+        wi = y[5]
+        S  = y[6]
         rs = np.asarray(y[c.N_STATE_VARS:])
 
         T_c = T - 273.15   # convert temperature to Celsius
         pv_sat = es(T-T_c) # saturation vapor pressure
         wv_sat = wv/(S+1.) # saturation mixing ratio
         Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
-        P = pv_sat*(1. + 0.622*(S + 1.)/wv)
         rho_air = P/(Rd*Tv) # current air density accounting for humidity
 
-        # 1/2) Wet particle growth rates and droplet liquid water
+        # 1) Pressure
+        dP_dt = -1.*rho_air*g*V
+
+        # 2/3) Wet particle growth rates and droplet liquid water
         drs_dt = np.zeros(shape=(nr, ))
         dwc_dt = 0.
         for i in range(nr):
@@ -677,16 +681,16 @@ class ParcelModel(object):
 
         dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
 
-        # 3) Water vapor content
+        # 4) Water vapor content
         dwv_dt = -dwc_dt
 
-        # 4) ice water content
+        # 5) ice water content
         dwi_dt = 0.0
 
-        # 5) Temperature
+        # 6) Temperature
         dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
-        # 6) Supersaturation
+        # 7) Supersaturation
 
         ''' Alternative methods for calculation supersaturation tendency
         # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
@@ -718,11 +722,12 @@ class ParcelModel(object):
         ## Repackage tendencies for feedback to numerical solver
         x = np.zeros(shape=(nr+c.N_STATE_VARS, ))
         x[0] = dz_dt
-        x[1] = dT_dt
-        x[2] = dwv_dt
-        x[3] = dwc_dt
-        x[4] = dwi_dt
-        x[5] = dS_dt
+        x[1] = dP_dt
+        x[2] = dT_dt
+        x[3] = dwv_dt
+        x[4] = dwc_dt
+        x[5] = dwi_dt
+        x[6] = dS_dt
         x[c.N_STATE_VARS:] = drs_dt[:]
 
         return x

@@ -83,30 +83,30 @@ def der(double[::1] y, double t,
 
     """
     cdef double z  = y[0]
-    cdef double T  = y[1]
-    cdef double wv = y[2]
-    cdef double wc = y[3]
-    cdef double wi = y[4]
-    cdef double S  = y[5]
+    cdef double P  = y[1]
+    cdef double T  = y[2]
+    cdef double wv = y[3]
+    cdef double wc = y[4]
+    cdef double wi = y[5]
+    cdef double S  = y[6]
     cdef double[::1] rs = y[N_STATE_VARS:]
 
     cdef double T_c = T-273.15 # convert temperature to Celsius
     cdef double pv_sat = es(T_c) # saturation vapor pressure
     cdef double wv_sat = wv/(S+1.) # saturation mixing ratio
     cdef double Tv = (1.+0.61*wv)*T
-
-    ## Compute pressure from current state
-    cdef double e = (1. + S)*pv_sat
-    cdef double P = e*(0.622 + wv)/wv
+    cdef double e = (1. + S)*pv_sat # water vapor pressure
 
     ## Compute air densities from current state
     cdef double rho_air     = P/Rd/Tv
-    cdef double rho_air_dry = (P-e)/Rd/T
+    cdef double rho_air_dry = (P-e)/Rd/T #: TODO - port to parcel.py
 
     ## Begin computing tendencies
     cdef:
         double dwc_dt, dwv_dt, dwi_dt, dT_dt, dS_dt
         double[::1] drs_dt, x
+
+    dP_dt = -1.*rho_air*g*Tv
 
     dwc_dt = 0.0
     drs_dt = np.empty(shape=(nr), dtype="d")
@@ -185,11 +185,12 @@ def der(double[::1] y, double t,
 
     x = np.empty(shape=(nr+N_STATE_VARS), dtype='d')
     x[0] = dz_dt
-    x[1] = dT_dt
-    x[2] = dwv_dt
-    x[3] = dwc_dt
-    x[4] = dwi_dt
-    x[5] = dS_dt
+    x[1] = dP_dt
+    x[2] = dT_dt
+    x[3] = dwv_dt
+    x[4] = dwc_dt
+    x[5] = dwi_dt
+    x[6] = dS_dt
     x[N_STATE_VARS:] = drs_dt[:]
 
     return x
