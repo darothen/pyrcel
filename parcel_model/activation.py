@@ -130,13 +130,14 @@ def binned_activation(Smax, T, rs, aerosol):
         kn_frac = N_kn/N_tot
 
         ## Unactivated - all droplets smaller than their critical size
-        droplets = range(smallest_ind, len(Nis))
+        droplets = range(smallest_ind, len(Nis)) 
         Nis_drops = Nis[droplets]
         r_crits_drops = r_crits[droplets]
         rs_drops = rs[droplets]
-        too_small = rs_drops < r_crits_drops
+        too_small = (rs_drops < r_crits_drops)
 
-        N_unact = np.sum(Nis_drops[too_small])
+        N_unact = np.sum(Nis_drops[too_small.values]) # take values to get a 
+                                                      # boolean array index
         phi = N_unact/N_kn
 
     alpha = N_kn/N_eq
