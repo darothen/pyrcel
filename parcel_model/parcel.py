@@ -313,8 +313,8 @@ class ParcelModel(object):
         out['r0s'] = r0s
 
         # c) compute equilibrium droplet water content
-        wc0 = np.sum([(4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) for r0, r_dry, Ni \
-                                                                in zip(r0s, r_drys, Nis)])
+        water_vol = lambda r0, r_dry, Ni: (4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) 
+        wc0 = np.sum([water_vol(r0, r_dry, Ni) for r0, r_dry, Ni  in zip(r0s, r_drys, Nis)])
         wc0 /= rho_air(T0, P0, 0.)
 
         # d) compute initial ice water content
@@ -345,7 +345,9 @@ class ParcelModel(object):
         if self.console:
             "Initial conditions set successfully."
 
-    def run(self, t_end, dt, max_steps=1000, solver="odeint", output="dataframes",
+    def run(self, t_end, 
+            output_dt=1., solver_dt=None, 
+            max_steps=1000, solver="odeint", output="dataframes",
             terminate=False, solver_args={}):
         """ Run the parcel model simulation.
 
@@ -354,10 +356,13 @@ class ParcelModel(object):
         simulation and the times over which to integrate can be flexibly set 
         here.
 
-        **Time** -- The user must specify the timesteps used to evaluate the trace 
-        of the parcel by passng the `dt` arg. Note that this will not necessarily dictate the 
-        numerical timesteps used in the model integration, just the interpolation of
-        the output (depending on which solver was requested).
+        **Time** -- The user must specify two timesteps: `output_dt`, which is the 
+        timestep between output snapshots of the state of the parcel model, and 
+        `solver_dt`, which is the the interval of time before the ODE integrator
+        is paused and re-started. It's usually okay to use a very large `solver_dt`,
+        as `output_dt` can be interpolated from the simulation. In some cases though
+        a small `solver_dt` could be useful to force the solver to use smaller 
+        internal timesteps.
 
         **Numerical Solver** -- By default, the model will use the `odeint` wrapper
         of LSODA shipped by default with scipy. Some fine-tuning of the solver tolerances
@@ -370,11 +375,12 @@ class ParcelModel(object):
 
         Parameters
         ----------
-        z_top : float
-            Vertical distance over which the model should be integrated.
-        dt : float 
-            Timestep intervals to report model output. Typical value is 1/100 to 1/20
-            seconds.
+        t_end : float
+            Total time over interval over which the model should be integrated
+        output_dt : float 
+            Timestep intervals to report model output.
+        solver_dt : float
+            Timestep interval for calling solver integration routine.
         max_steps : int 
             Maximum number of steps allowed by solver to satisfy error tolerances
             per timestep.
@@ -426,19 +432,17 @@ class ParcelModel(object):
         if not output in ["dataframes", "arrays", "smax"]:
             raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
 
+        if solver_dt is None:
+            solver_dt = 10.*output_dt
+
         if not self._model_set:
-            _ = self._setup_run()
+            self._setup_run()
 
         y0 = self.y0
         r_drys = self._r_drys
         kappas = self._kappas
         Nis = self._Nis
         nr = self._nr
-
-        ## Setup run time conditions
-        t = np.arange(0., t_end+dt, dt)
-        if self.console:
-            print "\n"+"n_steps = %d" % (len(t))+"\n"
 
         ## Setup/run integrator
         try:
@@ -447,10 +451,7 @@ class ParcelModel(object):
             print "Could not load Cython derivative; using Python version."
             from parcel import der as der_fcn
 
-        args = [nr, r_drys, Nis, self.V, kappas, self.accom]
-        integrator = Integrator.solver(solver)
-
-        ## Is the updraft speed a function?
+        ## Is the updraft speed a function of time?
         v_is_func = hasattr(self.V, '__call__')
         if v_is_func: # Re-wrap the function to correctly figure out V            
             orig_der_fcn = der_fcn
@@ -459,21 +460,41 @@ class ParcelModel(object):
                 args[3] = V_t
                 return orig_der_fcn(y, t, *args)
 
+        if self.console:
+            print
+            print "Integration control"
+            print "----------------------------"
+            print "        output dt: ", output_dt
+            print "    max solver dt: ", solver_dt
+            print " solver int steps: ", int(solver_dt/output_dt )
+            print "      termination: ", terminate
+
+        args = [nr, r_drys, Nis, self.V, kappas, self.accom]
+        integrator_type = Integrator.solver(solver)
+        integrator = integrator_type(der_fcn, output_dt, solver_dt, y0, args, 
+                                     terminate=terminate, console=self.console,
+                                     **solver_args)
+
         try:
             ## Pack args as tuple for solvers
             args = tuple(args)
 
             ## Call integration routine
-            x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate,
-                                       **solver_args)
+            # x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate,
+            #                            **solver_args)
+            if self.console: print "\nBEGIN INTEGRATION ->\n"
+            x, t, success = integrator.integrate(t_end)
         except ValueError, e:
             raise ParcelModelError("Something failed during model integration: %r" % e)
-
         if not success:
             raise ParcelModelError("Something failed during model integration.")
 
+        # Success if reached this point!
+        if self.console:
+            print "\nEND INTEGRATION <-\n"
+
         self.x = x
-        self.heights = self.x[:,0]
+        self.heights = self.x[:, c.STATE_VAR_MAP['z']]
         self.time = t
 
         if output == "dataframes":
@@ -486,8 +507,6 @@ class ParcelModel(object):
         else: # Shouldn't ever get here; invalid output specified
             raise ParcelModelError("Invalid value (%s) specified for \
                                     output format." % output)
-
-    
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
         """ Write a quick and dirty summary of given parcel model output to the 

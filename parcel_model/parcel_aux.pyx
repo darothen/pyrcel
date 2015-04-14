@@ -17,6 +17,9 @@ cimport cython
 
 import constants as c
 
+## Define double DTYPE 
+DTYPE = np.float
+
 ## Thermodynamic/chemistry constants
 cdef:
     double Mw = c.Mw        #: Molecular weight of water, kg/mol
