@@ -105,9 +105,11 @@ class Extended_Problem(Explicit_Problem):
     t_cutoff = 1e5
     dS_dt = 1.0
 
-    def __init__(self, rhs_fcn, rhs_args, *args, **kwargs):
+    def __init__(self, rhs_fcn, rhs_args, terminate_depth, *args, **kwargs):
         self.rhs_fcn = rhs_fcn
         self.rhs_args = rhs_args
+        self.V = rhs_args[3]
+        self.terminate_time = terminate_depth/self.V
         super(Explicit_Problem, self).__init__(*args, **kwargs)
 
     def rhs(self, t, y, sw):
@@ -138,7 +140,7 @@ class Extended_Problem(Explicit_Problem):
         event_info = event_info[0] # Only state events, event_info[1] is time events
         if event_info[0] != 0:
             solver.sw[0] = False
-            self.t_cutoff = solver.t + 5.0
+            self.t_cutoff = solver.t + self.terminate_time
 
     def handle_result(self, solver, t, y):
         if t < self.t_cutoff:
@@ -149,15 +151,16 @@ class CVODEIntegrator(Integrator):
 
     kwargs = None # Save the kwargs used for setting up the interface to CVODE!
 
-    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., 
-                 console=False, terminate=False, **kwargs):
-        self.terminate = terminate
+    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False, 
+                 terminate=False, terminate_depth=100., **kwargs):
+        self.terminate = terminate 
         super(CVODEIntegrator, self).__init__(\
             rhs, output_dt, solver_dt, y0, args, t0, console)
 
          ## Setup solver
         if terminate:
-            self.prob = Extended_Problem(self.rhs, self.args, y0=self.y0)
+            self.prob = Extended_Problem(self.rhs, self.args, terminate_depth, 
+                                         y0=self.y0)
         else:
             self.prob = Explicit_Problem(self.rhs, self.y0)
 

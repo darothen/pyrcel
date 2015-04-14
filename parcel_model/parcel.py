@@ -348,7 +348,7 @@ class ParcelModel(object):
     def run(self, t_end, 
             output_dt=1., solver_dt=None, 
             max_steps=1000, solver="odeint", output="dataframes",
-            terminate=False, **solver_args):
+            terminate=False, terminate_depth=100., **solver_args):
         """ Run the parcel model simulation.
 
         Once the model has been instantiated, a simulation can immediately be 
@@ -397,6 +397,9 @@ class ParcelModel(object):
             Choose format of solution output.
         terminate : boolean
             End simulation at or shortly after a maximum supersaturation has been achieved
+        terminate_depth : float, optional (default=100.)
+            Additional depth (in meters) to integrate after termination criterion
+            eached.
 
         Returns
         -------
@@ -458,6 +461,13 @@ class ParcelModel(object):
                 args[3] = V_t
                 return orig_der_fcn(y, t, *args)
 
+        ## Will the simulation terminate early?
+        if not terminate:
+            terminate_depth = 0.
+        else:
+            if terminate_depth <= 0.:
+                raise ParcelModelError("`terminate_depth` must be greater than 0!")
+
         if self.console:
             print
             print "Integration control"
@@ -465,46 +475,42 @@ class ParcelModel(object):
             print "        output dt: ", output_dt
             print "    max solver dt: ", solver_dt
             print " solver int steps: ", int(solver_dt/output_dt )
-            print "      termination: ", terminate
+            print "      termination: %r (%5dm)" % (terminate, terminate_depth)
 
         args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator_type = Integrator.solver(solver)
         integrator = integrator_type(der_fcn, output_dt, solver_dt, y0, args, 
-                                     terminate=terminate, console=self.console,
+                                     terminate=terminate, terminate_depth=terminate_depth,
+                                     console=self.console,
                                      **solver_args)
 
         try:
             ## Pack args as tuple for solvers
             args = tuple(args)
 
-            ## Call integration routine
-            # x, t, success = integrator(der_fcn, t, y0, args, self.console, max_steps, terminate,
-            #                            **solver_args)
             if self.console: print "\nBEGIN INTEGRATION ->\n"
             x, t, success = integrator.integrate(t_end)
         except ValueError, e:
             raise ParcelModelError("Something failed during model integration: %r" % e)
-        if not success:
-            raise ParcelModelError("Something failed during model integration.")
+        finally:
+            if not success:
+                raise ParcelModelError("Something failed during model integration.")
 
-        # Success if reached this point!
-        if self.console:
-            print "\nEND INTEGRATION <-\n"
+            # Success if reached this point!
+            if self.console:
+                print "\nEND INTEGRATION <-\n"
 
-        self.x = x
-        self.heights = self.x[:, c.STATE_VAR_MAP['z']]
-        self.time = t
+            self.x = x
+            self.heights = self.x[:, c.STATE_VAR_MAP['z']]
+            self.time = t
 
-        if output == "dataframes":
-            return io.parcel_to_dataframes(self)
-        elif output == "arrays":
-            return self.x, self.heights
-        elif output == "smax":
-            S = self.x[:, c.STATE_VAR_MAP['S']]
-            return S.max()
-        else: # Shouldn't ever get here; invalid output specified
-            raise ParcelModelError("Invalid value (%s) specified for \
-                                    output format." % output)
+            if output == "dataframes":
+                return io.parcel_to_dataframes(self)
+            elif output == "arrays":
+                return self.x, self.heights
+            elif output == "smax":
+                S = self.x[:, c.STATE_VAR_MAP['S']]
+                return S.max()
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
         """ Write a quick and dirty summary of given parcel model output to the 
