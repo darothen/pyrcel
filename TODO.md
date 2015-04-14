@@ -14,5 +14,5 @@
         + Actually not a problem for the variable-step size solvers; e.g. for CVODE, dt will be the output points
     - the integration should proceed piecewise between output timesteps
         + Already does for Assimulo; 1-minute chunks reporting at the desired timestep
-
-5. Build basic testing package for coverge
+        
+5. Add activation diagnostics to integration loop

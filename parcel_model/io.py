@@ -1,7 +1,6 @@
 
 from datetime import datetime as ddt
 import cPickle
-import time
 import os.path
 
 import numpy as np
