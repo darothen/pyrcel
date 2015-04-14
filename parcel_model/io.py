@@ -8,6 +8,7 @@ import pandas as pd
 import xray
 
 from thermo import es, rho_air
+from postprocess import simulation_activation
 from version import __version__ as ver
 import constants as c
 
@@ -22,21 +23,29 @@ def get_timestamp(fmt="%m%d%y_%H%M%S"):
 
     return timestamp
 
-def write_parcel_output(parcel, filename=None, format=None):
+def write_parcel_output(filename=None, format=None, parcel=None, 
+                        parcel_df=None, aerosol_dfs=None, other_dfs=None):
     """ Write model output to disk.
 
     Wrapper for methods to write parcel model output to disk.
 
     Parameters
     ----------
-    parcel : ParcelModel
-        A ParcelModel which has already been integrated at least once
-    filename : str (optional)
+    filename : str 
         Full filename to write output; if not supplied, will default
         to the current timestamp
-    format : str (optional)
+    format : str 
         Format to use from ``OUTPUT_FORMATS``; must be supplied if no
         filename is provided
+    parcel : ParcelModel
+        A ParcelModel which has already been integrated at least once
+    parcel_df : DataFrame
+        Model thermodynamic history
+    aerosol_dfs : Panel
+        Aerosol size history
+    other_dfs : list of DataFrames 
+        Additional DataFrames to include in output; must have the same index
+        as the parcel's results when transformed to a DataFrame!
 
     """
 
@@ -60,22 +69,29 @@ def write_parcel_output(parcel, filename=None, format=None):
 
     #filename = "%s.%s" % (basename, extension)
 
+    # Sanity - check, either we need the dataframes themselves or 
+    # we need the model
+    if (parcel_df is None) and (aerosol_dfs is None):
+        if parcel is None:
+            raise ValueError("Need to supply either dataframes or model")
+        else: 
+            parcel_df, aerosol_dfs = parcel_to_dataframes(parcel)
+    # Concatenate on the additional dataframes supplied by the user
+    for df in other_dfs:
+        parcel_df = pd.concat([parcel_df, df], axis=1)
+
     # 1) csv
     if format == 'csv':
-
-        parcel_df, aerosol_dfs = parcel_to_dataframes(parcel)
 
         # Write parcel data
         parcel_df.to_csv("%s_%s.%s" % (basename, 'parcel', extension))
 
         # Write aerosol data
-        for species, data in aerosol_data.iteritems():
+        for species, data in aerosol_dfs.iteritems():
             data.to_csv("%s_%s.%s" % (basename, species, extension))
 
     # 2) nc
     elif format == 'nc':
-
-        parcel_df, aerosol_dfs = parcel_to_dataframes(parcel)
 
         ## Construct xray datastructure to write to netCDF
         ds = xray.Dataset(attrs={
@@ -137,11 +153,26 @@ def write_parcel_output(parcel, filename=None, format=None):
         ds['wtot'] = (('time', ), parcel_df['wv'] + parcel_df['wc'],
                 { 'units': 'kg/kg', 'long_name': "Total water mixing ratio" })
 
+        if 'alpha' in parcel_df:
+            ds['alpha'] = (('time', ), parcel_df['alpha'],
+                          { 'long_name': "ratio of Nkn/Neq" })
+        if 'phi' in parcel_df:
+            ds['phi'] = (('time', ), parcel_df['phi'],
+                        { 'long_name': "fraction of not-strictly activated drops in Nkn" })
+        if 'eq' in parcel_df:
+            ds['eq'] = (('time', ), parcel_df['eq'],
+                          { 'long_name': "Equilibrium Kohler-activated fraction" })
+        if 'kn' in parcel_df:
+            ds['kn'] = (('time', ), parcel_df['kn'],
+                          { 'long_name': "Kinetic activated fraction" })
+
         ## Save to disk
         ds.to_netcdf(basename+".nc")
 
     # 3) obj (pickle)
     else:
+        assert parcel
+
         with open(basename+".obj", 'w') as f:
             cPickle.dump(parcel, f)
 

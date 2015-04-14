@@ -565,8 +565,11 @@ class ParcelModel(object):
             out_file.write("Total activated fraction = %f (%3.2f/%3.2f)\n" % \
                             (total_act_frac, total_activated, total_number))
 
-    def save(self, filename=None, format="nc"):
-        io.write_parcel_output(self, filename, format=format)        
+    def save(self, filename=None, format="nc", other_dfs=None):
+
+
+        io.write_parcel_output(filename=filename, format=format, parcel=self,
+                               other_dfs=other_dfs)
 
     @staticmethod
     def write_csv(parcel_data, aerosol_data, output_dir=None):
