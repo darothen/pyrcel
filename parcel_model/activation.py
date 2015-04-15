@@ -136,8 +136,10 @@ def binned_activation(Smax, T, rs, aerosol):
         rs_drops = rs[droplets]
         too_small = (rs_drops < r_crits_drops)
 
-        N_unact = np.sum(Nis_drops[too_small.values]) # take values to get a 
-                                                      # boolean array index
+        #N_unact = np.sum(Nis_drops[too_small.values]) # take values to get a 
+        #                                              # boolean array index
+        N_unact = np.sum(Nis_drops[too_small])
+
         phi = N_unact/N_kn
 
     alpha = N_kn/N_eq
@@ -541,7 +543,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     ## Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
     wv_sat = es(T-273.15)
-    alpha = (g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (g*c.Ma)/(c.R*T)
+    alpha = (c.g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (c.g*c.Ma)/(c.R*T)
     gamma = (c.R*T)/(wv_sat*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
 
     ## Condensation effects - base calculation

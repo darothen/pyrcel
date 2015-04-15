@@ -484,6 +484,7 @@ class ParcelModel(object):
                                      console=self.console,
                                      **solver_args)
 
+        success = False
         try:
             ## Pack args as tuple for solvers
             args = tuple(args)
