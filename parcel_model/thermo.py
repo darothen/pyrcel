@@ -7,10 +7,9 @@ parameterization for each function is documented.
 """
 
 import numpy as np
-from scipy.optimize import fminbound, bisect
-from scipy.special import erfc, erf
+from scipy.optimize import fminbound
 
-from constants import *
+from . constants import *
 
 ##########################
 ## THERMODYNAMIC FUNCTIONS

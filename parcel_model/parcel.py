@@ -11,9 +11,11 @@ import pandas as pd
 ## Parcel model imports
 import constants as c
 import io
-from aerosol import AerosolSpecies
-from integrator import Integrator
-from thermo import *
+from  .aerosol import AerosolSpecies
+from . integrator import Integrator
+from . thermo import *
+
+__all__ = [ 'ParcelModel', ]
 
 class ParcelModelError(Exception):
     """ Custom exception to throw during parcel model execution.
@@ -61,20 +63,6 @@ class ParcelModel(object):
     for each species in `initial_aerosols` with the appropriately tracked size
     bins and their evolution over time.
 
-    Parameters
-    ----------
-    aerosols : array_like sequence of :class:`AerosolSpecies`
-        The aerosols contained in the parcel.
-    V, T0, S0, P0 : floats
-        The updraft speed and initial temperature (K), pressure (Pa),
-        supersaturation (percent, with 0.0 = 100% RH).
-    console : boolean, optional
-        Enable some basic debugging output to print to the terminal.
-    accom : float, optional (default=:const:`constants.ac`)
-        Condensation coefficient
-    truncate_aerosols : boolean, optional (default=**False**)
-        Eliminate extremely small aerosol which will cause numerical problems
-
     Attributes
     ----------
     V, T0, S0, P0, aerosols : floats
@@ -114,6 +102,20 @@ class ParcelModel(object):
     def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac, 
                  truncate_aerosols=False):
         """ Initialize the parcel model. 
+
+        Parameters
+        ----------
+        aerosols : array_like sequence of :class:`AerosolSpecies`
+            The aerosols contained in the parcel.
+        V, T0, S0, P0 : floats
+            The updraft speed and initial temperature (K), pressure (Pa),
+            supersaturation (percent, with 0.0 = 100% RH).
+        console : boolean, optional
+            Enable some basic debugging output to print to the terminal.
+        accom : float, optional (default=:const:`constants.ac`)
+            Condensation coefficient
+        truncate_aerosols : boolean, optional (default=**False**)
+            Eliminate extremely small aerosol which will cause numerical problems
 
         """
         self._model_set = False
@@ -343,7 +345,7 @@ class ParcelModel(object):
         self._model_set = True
 
         if self.console:
-            "Initial conditions set successfully."
+            print "Initial conditions set successfully."
 
     def run(self, t_end, 
             output_dt=1., solver_dt=None, 

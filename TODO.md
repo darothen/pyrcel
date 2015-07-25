@@ -8,6 +8,7 @@
 3. Add a simple IO package
     - save state for an initial simulation, and its end point
     - read in that state to initialize a new model
+    - better flexibility between pandas / xray as basic storage options
 
 4. Re-structure integration logic
     - model should accept two timesteps - one of the numerical integration, one for the output
@@ -16,3 +17,8 @@
         + Already does for Assimulo; 1-minute chunks reporting at the desired timestep
         
 5. Add activation diagnostics to integration loop
+
+6. Build conda environment 
+    - need to build Assimulo package, which probably means need to build Sundials...
+
+7. Use xray.Dataset as the basic exchange unit for parcel model output instead of DataFrames.

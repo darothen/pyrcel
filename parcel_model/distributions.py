@@ -10,7 +10,6 @@ from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from scipy.special import erf, erfinv
-#from scipy.optimize import bisect
 
 class BaseDistribution:
     """ Interface for distributions, to ensure that they contain a pdf method.

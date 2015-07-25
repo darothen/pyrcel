@@ -1,6 +1,5 @@
 """ Interface to numerical ODE solvers.
 """
-__docformat__ = 'reStructuredText'
 
 available_integrators = ['odeint']
 
@@ -28,6 +27,8 @@ from scipy.integrate import odeint
 import numpy as np
 
 import constants as c
+
+__all__ = [ 'Integrator', ]
 
 state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 state_rtol = 1e-7

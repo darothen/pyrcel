@@ -3,7 +3,6 @@
 """
 
 import numpy as np
-from numpy import min as nmin
 from scipy.special import erfc, erf, erfinv
 
 from thermo import es, rho_air, ka, ka_cont, dv, dv_cont, sigma_w, kohler_crit

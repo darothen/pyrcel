@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from distributions import BaseDistribution, Lognorm, MultiModeLognorm
+from . distributions import BaseDistribution, Lognorm, MultiModeLognorm
 
 def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
     """ Converts a swath of a size distribution function to an actual number

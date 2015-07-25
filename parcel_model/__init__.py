@@ -8,18 +8,17 @@ on droplet activation.
 
 """
 
-from version import __version__
+from . version import __version__
 __author__ = "Daniel Rothenberg <darothen@mit.edu>"
 
-from parcel import *
-from parcel_aux import *
-from integrator import *
-from aerosol import *
-from distributions import *
-from thermo import *
-from activation import *
-from driver import *
-from vis import *
-from postprocess import *
+from . activation import *
+from . aerosol import *
+from . distributions import *
+from . driver import *
+from . integrator import *
+from . parcel import *
+from . thermo import *
 
 import constants
+import postprocess
+import vis
