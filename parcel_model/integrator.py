@@ -22,8 +22,6 @@ except ImportError:
     pass
 
 from abc import ABCMeta, abstractmethod
-from functools import partial
-from scipy.integrate import odeint
 import numpy as np
 
 import constants as c
