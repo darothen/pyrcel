@@ -3,9 +3,10 @@
 """
 
 import numpy as np
-from scipy.special import erfc, erf, erfinv
+from scipy.special import erfc
 
-from thermo import es, rho_air, ka, ka_cont, dv, dv_cont, sigma_w, kohler_crit
+from thermo import ( es, rho_air, ka, ka_cont, dv, dv_cont,
+                     sigma_w, kohler_crit )
 import constants as c
 
 def _unpack_aerosols(aerosols):

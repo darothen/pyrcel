@@ -8,7 +8,7 @@ from scipy.optimize import bisect
 ## Parcel model imports
 import constants as c
 import io
-from  .aerosol import AerosolSpecies
+from . aerosol import AerosolSpecies
 from . integrator import Integrator
 from . thermo import *
 
@@ -516,7 +516,7 @@ class ParcelModel(object):
         """ Write a quick and dirty summary of given parcel model output to the 
         terminal.
         """
-        from activation import activate_lognormal_mode
+        from activation import lognormal_activation
         ## Check if parent dir of out_filename exists, and if not,
         ## create it
         out_dir = os.path.dirname(out_filename)
@@ -552,9 +552,8 @@ class ParcelModel(object):
             total_number = 0.0
             total_activated = 0.0
             for aerosol in self.aerosols:
-                act_frac = activate_lognormal_mode(S_max, aerosol.mu*1e-6,
-                                                   aerosol.N, aerosol.kappa,
-                                                   T=T_at_S_max)
+                act_frac = lognormal_activation(S_max, aerosol.mu*1e-6, aerosol.sigma,
+                                                aerosol.N, aerosol.kappa, T=T_at_S_max)
                 act_num = act_frac*aerosol.N
                 out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" % \
                                (aerosol.species, act_frac, act_num, aerosol.N))
