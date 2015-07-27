@@ -21,4 +21,3 @@ from . thermo import *
 
 import constants
 import postprocess
-import vis
