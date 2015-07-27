@@ -5,7 +5,11 @@ import os.path
 
 import numpy as np
 import pandas as pd
-import xray
+try:
+    import xray
+    _XRAY = True
+except ImportError:
+    _XRAY = False
 
 from thermo import es, rho_air
 from postprocess import simulation_activation
@@ -92,6 +96,10 @@ def write_parcel_output(filename=None, format=None, parcel=None,
 
     # 2) nc
     elif format == 'nc':
+
+        if not _XRAY:
+            raise ValueError("Module `xray` must be installed to output"
+                             "to netcdf!")
 
         ## Construct xray datastructure to write to netCDF
         ds = xray.Dataset(attrs={
