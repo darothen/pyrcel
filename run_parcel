@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+import parcel_model as pm
+import os
+import sys
+import yaml
+
+from argparse import ArgumentParser
+parser = ArgumentParser(
+    description="Run basic parcel model simulation based on a namelist."
+)
+parser.add_argument("namelist", type=str,
+                    help="YAML namelist controlling simulation configuration")
+
+DIST_MAP = {
+    'lognormal': pm.Lognorm,
+}
+
+if __name__ == "__main__":
+
+    args = parser.parse_args()
+
+    ## Convert the namelist file into an in-memory dictionary
+    try:
+        with open(args.namelist, "rb") as f:
+            y = yaml.safe_load(f)
+    except IOError:
+        print "Couldn't read file %s" % args.namelist
+        sys.exit(0)
+
+    ## Create the aerosol
+    aerosol_modes = []
+    for aerosol_params in y['initial_aerosol']:
+        ap = aerosol_params
+        
+        dist = DIST_MAP[ap['distribution']](**ap['distribution_args'])
+
+        aer = pm.AerosolSpecies(ap['name'], dist,
+                                kappa=ap['kappa'], bins=ap['bins'])
+        print aer
+
+        aerosol_modes.append(aer)
+
+    ## Set up the model
+    ic = y['initial_conditions']
+    try: 
+        model = pm.ParcelModel(aerosol_modes,
+                               V=ic['updraft_speed'],
+                               T0=ic['temperature'],
+                               S0=-1.*(1.0 - ic['relative_humidity']),
+                               P0=ic['pressure'], 
+                               console=True,
+                               truncate_aerosols=True)
+    except pm.ParcelModelError:
+        print "Something went wrong setting up the model"
+        sys.exit(0)
+
+    ## Run the model
+    mc = y['model_control']
+    try:
+        par_out, aer_out = model.run(max_steps=2000, solver='cvode', 
+                                     output='dataframes', 
+                                     # terminate=True,
+                                     # terminate_depth=10., 
+                                     **mc)
+    except pm.ParcelModelError:
+        print "Something went wrong during model run"
+        sys.exit(0)
+
+    ## Output
+    ec = y['experiment_control']
+
+    Smax = par_out['S'].max()
+    T_fin = par_out['T'].iloc[-1]
+
+
+    out_file = os.path.join(ec['output_dir'], ec['name']) + ".nc"
+    pm.io.write_parcel_output(out_file, parcel=model)

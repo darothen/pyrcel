@@ -65,6 +65,9 @@ def write_parcel_output(filename=None, format=None, parcel=None,
         extension = extension[1:] # strip '.'
         if not (extension in OUTPUT_FORMATS):
             extension = format = 'obj'
+        else:
+            format = extension
+
 
     if parcel.console:
         print
@@ -81,8 +84,9 @@ def write_parcel_output(filename=None, format=None, parcel=None,
         else: 
             parcel_df, aerosol_dfs = parcel_to_dataframes(parcel)
     # Concatenate on the additional dataframes supplied by the user
-    for df in other_dfs:
-        parcel_df = pd.concat([parcel_df, df], axis=1)
+    if not (other_dfs is None): 
+        for df in other_dfs:
+            parcel_df = pd.concat([parcel_df, df], axis=1)
 
     # 1) csv
     if format == 'csv':
@@ -96,6 +100,8 @@ def write_parcel_output(filename=None, format=None, parcel=None,
 
     # 2) nc
     elif format == 'nc':
+
+        print "doing netcdf"
 
         if not _XRAY:
             raise ValueError("Module `xray` must be installed to output"

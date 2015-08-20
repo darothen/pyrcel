@@ -1,0 +1,30 @@
+# Draft YAML namelist for running parcel model
+
+experiment_control:
+    name: "simple"
+    output_dir: "output/"
+
+model_control:
+    output_dt: 1.0
+    solver_dt: 10.0
+    t_end: 240.0
+
+initial_aerosol:
+    - name: sulfate
+      distribution: lognormal
+      distribution_args: { mu: 0.15, N: 1000, sigma: 1.2 }
+      kappa: 0.54
+      bins: 250
+
+    - name: mos
+      distribution: lognormal
+      distribution_args: { mu: 0.02, N: 50000, sigma: 1.05 }
+      kappa: 0.54
+      bins: 50
+
+
+initial_conditions:
+    temperature: 283.15
+    relative_humidity: 0.95
+    pressure: 85000.0
+    updraft_speed: 1.0
