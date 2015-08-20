@@ -450,6 +450,8 @@ class ParcelModel(object):
         except ImportError:
             print "Could not load Cython derivative; using Python version."
             from parcel import der as der_fcn
+        ## Hack in Python derivative function
+        # der_fcn = der
 
         ## Is the updraft speed a function of time?
         v_is_func = hasattr(self.V, '__call__')
@@ -597,162 +599,140 @@ class ParcelModel(object):
         for species, data in aerosol_data.iteritems():
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
-    @staticmethod
-    def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
-        """ Calculates the instantaneous time-derivate of the parcel model system.
+def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
+    """ Calculates the instantaneous time-derivate of the parcel model system.
 
-        Given a current state vector `y` of the parcel model, computes the tendency
-        of each term including thermodynamic (pressure, temperature, etc) and aerosol
-        terms. The basic aerosol properties used in the model must be passed along
-        with the state vector (i.e. if being used as the callback function in an ODE
-        solver).
+    Given a current state vector `y` of the parcel model, computes the tendency
+    of each term including thermodynamic (pressure, temperature, etc) and aerosol
+    terms. The basic aerosol properties used in the model must be passed along
+    with the state vector (i.e. if being used as the callback function in an ODE
+    solver).
 
-        This function is implemented in NumPy and Python, and is likely *very* slow
-        compared to the available Cython version.
+    This function is implemented in NumPy and Python, and is likely *very* slow
+    compared to the available Cython version.
 
-        Parameters
-        ----------
-        y : array_like
-            Current state of the parcel model system,
-                * y[0] = altitude, m
-                * y[1] = Pressure, Pa
-                * y[2] = temperature, K
-                * y[3] = water vapor mass mixing ratio, kg/kg
-                * y[4] = cloud liquid water mass mixing ratio, kg/kg
-                * y[5] = cloud ice water mass mixing ratio, kg/kg
-                * y[6] = parcel supersaturation
-                * y[7:] = aerosol bin sizes (radii), m
-        t : float
-            Current simulation time, in seconds.
-        nr : Integer
-            Number of aerosol radii being tracked.
-        r_drys : array_like
-            Array recording original aerosol dry radii, m.
-        Nis : array_like
-            Array recording aerosol number concentrations, 1/(m**3).
-        V : float
-            Updraft velocity, m/s.
-        kappas : array_like
-            Array recording aerosol hygroscopicities.
-        accom : float, optional (default=:const:`constants.ac`)
-            Condensation coefficient.
+    Parameters
+    ----------
+    y : array_like
+        Current state of the parcel model system,
+            * y[0] = altitude, m
+            * y[1] = Pressure, Pa
+            * y[2] = temperature, K
+            * y[3] = water vapor mass mixing ratio, kg/kg
+            * y[4] = cloud liquid water mass mixing ratio, kg/kg
+            * y[5] = cloud ice water mass mixing ratio, kg/kg
+            * y[6] = parcel supersaturation
+            * y[7:] = aerosol bin sizes (radii), m
+    t : float
+        Current simulation time, in seconds.
+    nr : Integer
+        Number of aerosol radii being tracked.
+    r_drys : array_like
+        Array recording original aerosol dry radii, m.
+    Nis : array_like
+        Array recording aerosol number concentrations, 1/(m**3).
+    V : float
+        Updraft velocity, m/s.
+    kappas : array_like
+        Array recording aerosol hygroscopicities.
+    accom : float, optional (default=:const:`constants.ac`)
+        Condensation coefficient.
 
-        Returns
-        -------
-        x : array_like
-            Array of shape (``nr``+7, ) containing the evaluated parcel model
-            instaneous derivative.
+    Returns
+    -------
+    x : array_like
+        Array of shape (``nr``+7, ) containing the evaluated parcel model
+        instaneous derivative.
 
-        Notes
-        -----
-        This Python sketch of the derivative function shouldn't really be used for
-        any computational purposes. Instead, see the cythonized version in the auxiliary
-        file, **parcel_aux.pyx**. In the default configuration, once the code has been
-        built, you can set the environmental variable **OMP_NUM_THREADS** to control
-        the parallel for loop which calculates the condensational growth rate for each
-        bin.
+    Notes
+    -----
+    This Python sketch of the derivative function shouldn't really be used for
+    any computational purposes. Instead, see the cythonized version in the auxiliary
+    file, **parcel_aux.pyx**. In the default configuration, once the code has been
+    built, you can set the environmental variable **OMP_NUM_THREADS** to control
+    the parallel for loop which calculates the condensational growth rate for each
+    bin.
 
-        """
-        z  = y[0]
-        P  = y[1]
-        T  = y[2]
-        wv = y[3]
-        wc = y[4]
-        wi = y[5]
-        S  = y[6]
-        rs = np.asarray(y[c.N_STATE_VARS:])
+    """
+    z  = y[0]
+    P  = y[1]
+    T  = y[2]
+    wv = y[3]
+    wc = y[4]
+    wi = y[5]
+    S  = y[6]
+    rs = np.asarray(y[c.N_STATE_VARS:])
 
-        T_c = T - 273.15   # convert temperature to Celsius
-        pv_sat = es(T-T_c) # saturation vapor pressure
-        wv_sat = wv/(S+1.) # saturation mixing ratio
-        Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
-        rho_air = P/(Rd*Tv) # current air density accounting for humidity
+    T_c = T - 273.15   # convert temperature to Celsius
+    pv_sat = es(T-T_c) # saturation vapor pressure
+    wv_sat = wv/(S+1.) # saturation mixing ratio
+    Tv = (1.+0.61*wv)*T # virtual temperature given parcel humidity
+    e = (1. + S)*pv_sat # water vapor pressure
+    rho_air = P/(Rd*Tv) # current air density accounting for humidity
+    rho_air_dry = (P-e)/Rd/T # dry air density
 
-        # 1) Pressure
-        dP_dt = -1.*rho_air*g*V
+    # 1) Pressure
+    dP_dt = -1.*rho_air*g*V
 
-        # 2/3) Wet particle growth rates and droplet liquid water
-        drs_dt = np.zeros(shape=(nr, ))
-        dwc_dt = 0.
-        for i in range(nr):
-            r = rs[i]
-            r_dry = r_drys[i]
-            kappa = kappas[i]
+    # 2/3) Wet particle growth rates and droplet liquid water
+    drs_dt = np.zeros(shape=(nr, ))
+    dwc_dt = 0.
+    for i in range(nr):
+        r = rs[i]
+        r_dry = r_drys[i]
+        kappa = kappas[i]
 
-            G_a = (rho_w*R*T)/(pv_sat*dv(T, r, P, accom)*Mw)
-            G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka(T, rho_air, r)*T)
-            G = 1./(G_a + G_b)
+        dv_r = dv(T, r, P, accom)
+        ka_r = ka(T, rho_air, r)
 
-            ## Remove size-dependence from G
-            #G_a = (rho_w*R*T)/(pv_sat*Dv*Mw)
-            #G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(Ka*T)
+        G_a = (rho_w*R*T)/(pv_sat*dv_r*Mw)
+        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka_r*T)
+        G = 1./(G_a + G_b)
 
-            delta_S = S - Seq(r, r_dry, T, kappa, 1.0)
+        delta_S = S - Seq(r, r_dry, T, kappa, 1.0)
 
-            dr_dt = (G/r)*delta_S
+        dr_dt = (G/r)*delta_S
 
-            ## ---
+        ## ---
 
-            Ni = Nis[i]
-            dwc_dt = dwc_dt + Ni*(r**2)*dr_dt
-            drs_dt[i] = dr_dt
+        Ni = Nis[i]
+        dwc_dt += Ni*(r*r)*dr_dt
+        drs_dt[i] = dr_dt
 
-           # if i == nr-1:
-           #     print 1, r, r_dry, Ni
-           #     print 2, dv(T, r, P, accom), ka(T, rho_air, r)
-           #     print 3, G_a, G_b
-           #     print 4, Seq(r, r_dry, T, kappa, 1.0)
-           #     print 5, dr_dt
+       # if i == nr-1:
+       #     print 1, r, r_dry, Ni
+       #     print 2, dv(T, r, P, accom), ka(T, rho_air, r)
+       #     print 3, G_a, G_b
+       #     print 4, Seq(r, r_dry, T, kappa, 1.0)
+       #     print 5, dr_dt
 
-        dwc_dt = (4.*np.pi*rho_w/rho_air)*dwc_dt
+    dwc_dt *= 4.*np.pi*rho_w/rho_air_dry
 
-        # 4) Water vapor content
-        dwv_dt = -dwc_dt
+    # 4) ice water content
+    dwi_dt = 0.0
 
-        # 5) ice water content
-        dwi_dt = 0.0
+    # 5) Water vapor content
+    dwv_dt = -1.*(dwc_dt + dwi_dt)
 
-        # 6) Temperature
-        dT_dt = -g*V/Cp - L*dwv_dt/Cp
+    # 6) Temperature
+    dT_dt = -g*V/Cp - L*dwv_dt/Cp
 
-        # 7) Supersaturation
+    # 7) Supersaturation
+    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
+    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
+    dS_dt = alpha*V - gamma*dwc_dt
 
-        ''' Alternative methods for calculation supersaturation tendency
-        # Used eq 12.28 from Pruppacher and Klett in stead of (9) from Nenes et al, 2001
-        #S_a = (S+1.0)
+    dz_dt = V
 
-        ## NENES (2001)
-        #S_b_old = dT_dt*wv_sat*(17.67*243.5)/((243.5+(Tv-273.15))**2.)
-        #S_c_old = (rho_air*g*V)*(wv_sat/P)*((0.622*L)/(Cp*Tv) - 1.0)
-        #dS_dt_old = (1./wv_sat)*(dwv_dt - S_a*(S_b_old-S_c_old))
+    ## Repackage tendencies for feedback to numerical solver
+    x = np.zeros(shape=(nr+c.N_STATE_VARS, ))
+    x[0] = dz_dt
+    x[1] = dP_dt
+    x[2] = dT_dt
+    x[3] = dwv_dt
+    x[4] = dwc_dt
+    x[5] = dwi_dt
+    x[6] = dS_dt
+    x[c.N_STATE_VARS:] = drs_dt[:]
 
-        ## PRUPPACHER (PK 1997)
-        #S_b = dT_dt*0.622*L/(Rd*T**2.)
-        #S_c = g*V/(Rd*T)
-        #dS_dt = P*dwv_dt/(0.622*es(T-273.15)) - S_a*(S_b + S_c)
-
-        ## SEINFELD (SP 1998)
-        #S_b = L*Mw*dT_dt/(R*T**2.)
-        #S_c = V*g*Ma/(R*T)
-        #dS_dt = dwv_dt*(Ma*P)/(Mw*es(T-273.15)) - S_a*(S_b + S_c)
-        '''
-
-        ## GHAN (2011) - prefer to use this!
-        alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-        gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
-        dS_dt = alpha*V - gamma*dwc_dt
-
-        dz_dt = V
-
-        ## Repackage tendencies for feedback to numerical solver
-        x = np.zeros(shape=(nr+c.N_STATE_VARS, ))
-        x[0] = dz_dt
-        x[1] = dP_dt
-        x[2] = dT_dt
-        x[3] = dwv_dt
-        x[4] = dwc_dt
-        x[5] = dwi_dt
-        x[6] = dS_dt
-        x[c.N_STATE_VARS:] = drs_dt[:]
-
-        return x
+    return x
