@@ -75,7 +75,7 @@ def lognormal_activation(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=Tru
 
     return N_act, act_frac
 
-def binned_activation(Smax, T, rs, aerosol):
+def binned_activation(Smax, T, rs, aerosol, approx=False):
     """ Compute the activation statistics of a given aerosol, its transient
     size distribution, and updraft characteristics. Following Nenes et al, 2001
     also compute the kinetic limitation statistics for the aerosol.
@@ -90,6 +90,8 @@ def binned_activation(Smax, T, rs, aerosol):
         Wet radii of aerosol/droplet population.
     aerosol : :class:`AerosolSpecies`
         The characterization of the dry aerosol.
+    approx : boolean
+        Approximate Kohler theory rather than include detailed calculation (default False)
 
     Returns
     -------
@@ -111,7 +113,7 @@ def binned_activation(Smax, T, rs, aerosol):
     if hasattr(rs, 'values'):
         rs = rs.values
 
-    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, True) for r_dry in r_drys])
+    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, approx) for r_dry in r_drys])
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
