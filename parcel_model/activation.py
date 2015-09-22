@@ -106,6 +106,11 @@ def binned_activation(Smax, T, rs, aerosol):
     Nis = aerosol.Nis
     N_tot = np.sum(Nis)
 
+    # Coerce the reference wet droplet sizes (rs) to an array if they were passed as
+    # a Series
+    if hasattr(rs, 'values'):
+        rs = rs.values
+
     r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, True) for r_dry in r_drys])
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
@@ -134,7 +139,7 @@ def binned_activation(Smax, T, rs, aerosol):
         Nis_drops = Nis[droplets]
         r_crits_drops = r_crits[droplets]
         rs_drops = rs[droplets]
-        too_small = (rs_drops < r_crits_drops).values
+        too_small = (rs_drops < r_crits_drops)
 
         N_unact = np.sum(Nis_drops[too_small])
 
