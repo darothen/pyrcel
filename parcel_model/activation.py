@@ -130,14 +130,12 @@ def binned_activation(Smax, T, rs, aerosol):
         kn_frac = N_kn/N_tot
 
         ## Unactivated - all droplets smaller than their critical size
-        droplets = range(smallest_ind, len(Nis)) 
+        droplets = range(smallest_ind, len(Nis))
         Nis_drops = Nis[droplets]
         r_crits_drops = r_crits[droplets]
         rs_drops = rs[droplets]
-        too_small = (rs_drops < r_crits_drops)
+        too_small = (rs_drops < r_crits_drops).values
 
-        #N_unact = np.sum(Nis_drops[too_small.values]) # take values to get a 
-        #                                              # boolean array index
         N_unact = np.sum(Nis_drops[too_small])
 
         phi = N_unact/N_kn
@@ -492,7 +490,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     This effectively combines the supersaturation maximum for each mode into
     a single value representing competition between modes. An alternative approach,
-    which assumes the mode which produces the smallest predict Smax sets a 
+    which assumes the mode which produces the smallest predict Smax sets a
     first-order control on the activation, is also available
 
     Parameters
@@ -600,7 +598,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
         smax = 1e20
         for i in xrange(len(mus)):
             mode_smax = 1./np.sqrt(Sparts[i])
-            if mode_smax < smax: 
+            if mode_smax < smax:
                 smax = mode_smax
     else: ## Use default competition parameterization
         smax = 1./np.sqrt(np.sum(Sparts))
@@ -614,7 +612,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
     return smax, n_acts, act_fracs
 
 def shipwayabel2010(V, T, P, aerosol):
-    """ Activation scheme following Shipway and Abel, 2010 
+    """ Activation scheme following Shipway and Abel, 2010
     (doi:10.1016/j.atmosres.2009.10.005).
 
     """
