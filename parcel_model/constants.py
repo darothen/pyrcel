@@ -42,6 +42,8 @@ Using default pandas functons, you can interpolate to any reference pressure or
 height level.
 
 """
+from future import standard_library
+standard_library.install_aliases()
 
 g = 9.81             #: Gravitational constant, m/s^2
 Cp = 1004.0          #: Specific heat of dry air at constant pressure, J/kg
@@ -64,7 +66,7 @@ STATE_VARS = ['z', 'P', 'T', 'wv', 'wc', 'wi', 'S']
 STATE_VAR_MAP = { var: i for i, var in enumerate(STATE_VARS) }
 
 import pandas as pd
-from StringIO import StringIO
+from io import StringIO
 std_atm = """\
  alt  sigma  delta  theta  temp  press  dens   a    visc  k.visc ratio
 -0.5 1.0489 1.0607 1.0113 291.4 107477 1.285 342.2 18.05 1.40E-5 24.36

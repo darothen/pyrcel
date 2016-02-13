@@ -1,3 +1,4 @@
+from builtins import zip
 import numpy as np
 import parcel_model as pm
 
@@ -37,7 +38,7 @@ def plot_distribution(aer, aer_kwargs={},
     
     legend_objects = [(bars[0], "%s bins" % aer.species), ]
     
-    handles, labels = zip(*legend_objects)
+    handles, labels = list(zip(*legend_objects))
     ax.legend(handles, labels, loc='upper right')
 
     ax.semilogx()

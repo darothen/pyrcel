@@ -5,6 +5,7 @@ that arise in aerosol-cloud studies. Where possible, the source of the
 parameterization for each function is documented.
 
 """
+from builtins import map
 
 import numpy as np
 from scipy.optimize import fminbound
@@ -430,7 +431,7 @@ def critical_curve(T, r_a, r_b, kappa, approx=False):
     crit_func = lambda rd: kohler_crit(T, rd, kappa, approx)
 
     rs = np.logspace(np.log10(r_a), np.log10(r_b), 200)
-    ss = np.array(map(crit_func, rs))
+    ss = np.array(list(map(crit_func, rs)))
 
     rcrits = ss[:, 0]
     scrits = ss[:, 1]

@@ -12,6 +12,7 @@ its output.
 """
 from __future__ import print_function
 from __future__ import absolute_import
+from builtins import range
 
 from numpy import empty, nan
 from pandas import DataFrame
@@ -128,7 +129,7 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
         if aerosol_N[0] < 0.01: return (-9999., -9999., -9999.)
     else:
         new_aerosols = []
-        for i in xrange(len(aerosol_N)):
+        for i in range(len(aerosol_N)):
             if aerosol_N[i] > 0.01: 
                 new_aerosols.append(initial_aerosols[i])
         aerosols = new_aerosols[:]

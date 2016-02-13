@@ -2,6 +2,9 @@
 """
 from __future__ import print_function
 from __future__ import absolute_import
+from builtins import zip
+from builtins import range
+from builtins import object
 
 import os
 
@@ -598,7 +601,7 @@ class ParcelModel(object):
         parcel_data.to_csv(os.path.join(output_dir, "parcel.csv"))
 
         # Write aerosol data
-        for species, data in aerosol_data.iteritems():
+        for species, data in list(aerosol_data.items()):
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
 def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):

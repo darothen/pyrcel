@@ -1,8 +1,11 @@
 from __future__ import print_function
 from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
 
 from datetime import datetime as ddt
-import cPickle
+import pickle
 import os.path
 
 import numpy as np
@@ -97,7 +100,7 @@ def write_parcel_output(filename=None, format=None, parcel=None,
         parcel_df.to_csv("%s_%s.%s" % (basename, 'parcel', extension))
 
         # Write aerosol data
-        for species, data in aerosol_dfs.iteritems():
+        for species, data in list(aerosol_dfs.items()):
             data.to_csv("%s_%s.%s" % (basename, species, extension))
 
     # 2) nc
@@ -131,7 +134,7 @@ def write_parcel_output(filename=None, format=None, parcel=None,
             aer_coord = '%s_bins' % species
 
             ds.coords[aer_coord] = (aer_coord, 
-                np.array(range(1, aerosol.nr+1), dtype=np.int32), 
+                np.array(list(range(1, aerosol.nr+1)), dtype=np.int32), 
                 { 'long_name': '%s size bin number' % species } )
             ds['%s_rdry' % species] = ((aer_coord, ), r_drys, 
                 { 'units': 'micron', 
@@ -190,7 +193,7 @@ def write_parcel_output(filename=None, format=None, parcel=None,
         assert parcel
 
         with open(basename+".obj", 'w') as f:
-            cPickle.dump(parcel, f)
+            pickle.dump(parcel, f)
 
 def parcel_to_dataframes(parcel):
     """ Convert model simulation to dataframe. 
@@ -238,7 +241,7 @@ def parcel_to_dataframes(parcel):
         nr = aerosol.nr
         species = aerosol.species
 
-        labels = ["r%03d" % i for i in xrange(nr)]
+        labels = ["r%03d" % i for i in range(nr)]
         radii_dict = dict()
         for i, label in enumerate(labels):
             radii_dict[label] = x[:,c.N_STATE_VARS+species_shift+i]

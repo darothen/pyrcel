@@ -2,11 +2,13 @@
 
 """
 from __future__ import absolute_import
+from builtins import zip
+from builtins import range
 
 import numpy as np
 from scipy.special import erfc
 
-from .thermo import ( es, rho_air, ka, ka_cont, dv, dv_cont,
+from . thermo import ( es, rho_air, ka, ka_cont, dv, dv_cont,
                      sigma_w, kohler_crit )
 from . import constants as c
 
@@ -114,7 +116,7 @@ def binned_activation(Smax, T, rs, aerosol, approx=False):
     if hasattr(rs, 'values'):
         rs = rs.values
 
-    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa, approx) for r_dry in r_drys])
+    r_crits, s_crits = list(zip(*[kohler_crit(T, r_dry, kappa, approx) for r_dry in r_drys]))
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
@@ -138,7 +140,7 @@ def binned_activation(Smax, T, rs, aerosol, approx=False):
         kn_frac = N_kn/N_tot
 
         ## Unactivated - all droplets smaller than their critical size
-        droplets = range(smallest_ind, len(Nis))
+        droplets = list(range(smallest_ind, len(Nis)))
         Nis_drops = Nis[droplets]
         r_crits_drops = r_crits[droplets]
         rs_drops = rs[droplets]
@@ -177,7 +179,7 @@ def multi_mode_activation(Smax, T, aerosols, rss):
     for rs, aerosol in zip(rss, aerosols):
         eq, kn, _, _ = binned_activation(Smax, T, rs, aerosol)
         act_fracs.append([eq, kn])
-    return zip(*act_fracs)
+    return list(zip(*act_fracs))
 
 ######################################################################
 ## Code implementing the Nenes and Seinfeld (2003) parameterization,
@@ -384,7 +386,7 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
         integ2 = np.empty(nmodes)
 
         sqrtwo = np.sqrt(2.)
-        for i in xrange(nmodes):
+        for i in range(nmodes):
             log_sigma    = np.log(sigmas[i])      # ln(sigma_i)
             log_sgi_smax = np.log(sgis[i]/smax)   # ln(sg_i/smax)
             log_sgi_sp2  = np.log(sgis[i]/ssplt2) # ln(sg_i/sp2
@@ -449,7 +451,7 @@ def mbn2014(V, T, P, aerosols=[], accom=c.ac,
 
     # Iteration of bisection routine to convergence
     iter_count = 0
-    for i in xrange(max_iters):
+    for i in range(max_iters):
         iter_count += 1
 
         x3 = 0.5*(x1 + x2)
@@ -604,7 +606,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     if min_smax:
         smax = 1e20
-        for i in xrange(len(mus)):
+        for i in range(len(mus)):
             mode_smax = 1./np.sqrt(Sparts[i])
             if mode_smax < smax:
                 smax = mode_smax
@@ -671,7 +673,7 @@ def ming2006(V, T, P, aerosol):
     ## pre-algorithm
     ## subroutine Kohler()... calculate things from Kohler theory, particularly critical
     ## radii and supersaturations for each bin
-    r_crits, s_crits = zip(*[kohler_crit(T, r_dry, kappa) for r_dry in aerosol.r_drys])
+    r_crits, s_crits = list(zip(*[kohler_crit(T, r_dry, kappa) for r_dry in aerosol.r_drys]))
 
     ## subroutine CalcAlphaGamma
     alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
@@ -752,7 +754,7 @@ def ming2006(V, T, P, aerosol):
         #print iter_count, "%r %r %r" % (Smax, CondenRate, alpha*V/gamma)
         DropletNum = np.sum(Num[WetDp_large])
         ActDp = 0.0
-        for i in xrange(1, len(WetDp)):
+        for i in range(1, len(WetDp)):
             if (WetDp[i] > Dpc[i]) and (WetDp[i-1] < Dpc[i]):
                 ActDp = DryDp[i]
 

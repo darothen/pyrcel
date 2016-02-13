@@ -6,15 +6,17 @@ included here, with the notion that this package could be extended to
 describe droplet size distributions or other collections of objects.
 
 """
+from builtins import zip
+from builtins import object
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from scipy.special import erf, erfinv
+from future.utils import with_metaclass
 
-class BaseDistribution:
+class BaseDistribution(with_metaclass(ABCMeta, object)):
     """ Interface for distributions, to ensure that they contain a pdf method.
     """
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def cdf(self, x):
@@ -174,11 +176,11 @@ class MultiModeLognorm(BaseDistribution):
 
     def __init__(self, mus, sigmas, Ns, base="e"):
 
-        dist_params = zip(mus, sigmas, Ns)
+        dist_params = list(zip(mus, sigmas, Ns))
         from operator import itemgetter
         dist_params = sorted(dist_params, key=itemgetter(0))
 
-        self.mus, self.sigmas, self.Ns = zip(*dist_params)
+        self.mus, self.sigmas, self.Ns = list(zip(*dist_params))
 
         self.base = base
 

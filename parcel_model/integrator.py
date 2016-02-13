@@ -2,6 +2,8 @@
 """
 from __future__ import print_function
 from __future__ import absolute_import
+from builtins import object
+from future.utils import with_metaclass
 
 available_integrators = ['odeint']
 
@@ -33,7 +35,7 @@ __all__ = [ 'Integrator', ]
 state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 state_rtol = 1e-7
 
-class Integrator(object):
+class Integrator(with_metaclass(ABCMeta, object)):
     """
     Container class for the various integrators to use in the parcel model.
 
@@ -42,8 +44,6 @@ class Integrator(object):
     whose second value is a boolean indicating whether the model run was successful.
 
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False):
 
