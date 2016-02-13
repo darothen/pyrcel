@@ -1,13 +1,15 @@
 """ Main implementation of parcel model.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import os
 
 from scipy.optimize import bisect
 
 ## Parcel model imports
-import constants as c
-import io
+from . import constants as c
+from . import io
 from . aerosol import AerosolSpecies
 from . integrator import Integrator
 from . thermo import *
@@ -225,8 +227,8 @@ class ParcelModel(object):
                                          r_min=smallest_rdry*1e6)
                 N_new = np.sum(aer_new.Nis)
                 if self.console:
-                    print "%s: Removed %03d bins, N change: %5.1f -> %5.1f (%2.1f%%)" % \
-                          (aer.species, bin_count, N_old, N_new, (N_new-N_old)/N_new)
+                    print("%s: Removed %03d bins, N change: %5.1f -> %5.1f (%2.1f%%)" % \
+                          (aer.species, bin_count, N_old, N_new, (N_new-N_old)/N_new))
                 fixed_aerosols.append(aer_new)
             else:
                 fixed_aerosols.append(aer)
@@ -245,7 +247,7 @@ class ParcelModel(object):
         out = dict()
 
         if self.console:
-            print "Setting up parcel model initial conditions..."
+            print("Setting up parcel model initial conditions...")
 
         ## 1) Setup aerosols
         # a) grab all the initial aerosol size/concentrations
@@ -266,11 +268,11 @@ class ParcelModel(object):
         out['Nis'] = Nis
 
         if self.console:
-            print "AEROSOL DISTRIBUTION"
-            print "%8s %6s" % ("r", "N")
+            print("AEROSOL DISTRIBUTION")
+            print("%8s %6s" % ("r", "N"))
             for sp, r, N in zip(species, r_drys, Nis):
-                print "%10s %2.2e %4.1f" % (sp, r, N)
-            print "\n"+"-"*44
+                print("%10s %2.2e %4.1f" % (sp, r, N))
+            print("\n"+"-"*44)
 
         ## 2) Setup parcel initial conditions
         # a) water vapor
@@ -302,10 +304,10 @@ class ParcelModel(object):
             ss = Seq(r, r_dry, T0, kappa)
             #rc, _ = kohler_crit(T0, r_dry, kappa)
             if r < 0:
-                if self.console: print "Found bad r", r, r_dry, sp
+                if self.console: print("Found bad r", r, r_dry, sp)
                 raised = True
             if np.abs(ss-S0) > 1e-4:
-                if self.console: print "Found S discrepancy", ss, S0, r_dry
+                if self.console: print("Found S discrepancy", ss, S0, r_dry)
                 raised = True
         if raised:
             raise ParcelModelError("Couldn't calculate initial aerosol population wet sizes.")
@@ -322,11 +324,11 @@ class ParcelModel(object):
         # e) concatenate into initial conditions arrays
         y0 = [z0, P0, T0, wv0, wc0, wi0, S0]
         if self.console:
-            print "PARCEL INITIAL CONDITIONS"
-            print ("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)", 
-                                               "wc (g/kg)", "wi (g/kg)", "S")
-            print  "    " + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
-                            P0/100.,    T0, wv0*1e3, wc0*1e3, wi0*1e3,    S0 )
+            print("PARCEL INITIAL CONDITIONS")
+            print(("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)", 
+                                               "wc (g/kg)", "wi (g/kg)", "S"))
+            print("    " + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
+                            P0/100.,    T0, wv0*1e3, wc0*1e3, wi0*1e3,    S0 ))
         y0.extend(r0s)
         y0 = np.array(y0)
         out['y0'] = y0
@@ -342,7 +344,7 @@ class ParcelModel(object):
         self._model_set = True
 
         if self.console:
-            print "Initial conditions set successfully."
+            print("Initial conditions set successfully.")
 
     def run(self, t_end, 
             output_dt=1., solver_dt=None, 
@@ -446,10 +448,10 @@ class ParcelModel(object):
 
         ## Setup/run integrator
         try:
-            from parcel_aux import der as der_fcn
+            from .parcel_aux import der as der_fcn
         except ImportError:
-            print "Could not load Cython derivative; using Python version."
-            from parcel import der as der_fcn
+            print("Could not load Cython derivative; using Python version.")
+            from .parcel import der as der_fcn
         ## Hack in Python derivative function
         # der_fcn = der
 
@@ -470,13 +472,13 @@ class ParcelModel(object):
                 raise ParcelModelError("`terminate_depth` must be greater than 0!")
 
         if self.console:
-            print
-            print "Integration control"
-            print "----------------------------"
-            print "        output dt: ", output_dt
-            print "    max solver dt: ", solver_dt
-            print " solver int steps: ", int(solver_dt/output_dt )
-            print "      termination: %r (%5dm)" % (terminate, terminate_depth)
+            print()
+            print("Integration control")
+            print("----------------------------")
+            print("        output dt: ", output_dt)
+            print("    max solver dt: ", solver_dt)
+            print(" solver int steps: ", int(solver_dt/output_dt ))
+            print("      termination: %r (%5dm)" % (terminate, terminate_depth))
 
         args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator_type = Integrator.solver(solver)
@@ -490,9 +492,9 @@ class ParcelModel(object):
             ## Pack args as tuple for solvers
             args = tuple(args)
 
-            if self.console: print "\nBEGIN INTEGRATION ->\n"
+            if self.console: print("\nBEGIN INTEGRATION ->\n")
             x, t, success = integrator.integrate(t_end)
-        except ValueError, e:
+        except ValueError as e:
             raise ParcelModelError("Something failed during model integration: %r" % e)
         finally:
             if not success:
@@ -500,7 +502,7 @@ class ParcelModel(object):
 
             # Success if reached this point!
             if self.console:
-                print "\nEND INTEGRATION <-\n"
+                print("\nEND INTEGRATION <-\n")
 
             self.x = x
             self.heights = self.x[:, c.STATE_VAR_MAP['z']]
@@ -518,7 +520,7 @@ class ParcelModel(object):
         """ Write a quick and dirty summary of given parcel model output to the 
         terminal.
         """
-        from activation import lognormal_activation
+        from .activation import lognormal_activation
         ## Check if parent dir of out_filename exists, and if not,
         ## create it
         out_dir = os.path.dirname(out_filename)

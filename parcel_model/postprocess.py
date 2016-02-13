@@ -1,7 +1,8 @@
 """ Collection of output post-processing routines.
 """
+from __future__ import absolute_import
 
-from activation import binned_activation
+from .activation import binned_activation
 
 import numpy as np
 import pandas as pd

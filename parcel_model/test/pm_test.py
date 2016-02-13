@@ -1,5 +1,6 @@
 #!/usr/env python
 
+from __future__ import print_function
 import numpy as np
 import pandas as pd
 import time
@@ -53,11 +54,11 @@ end = time.time()
 Smax = parcel.S.max()
 tmax = parcel.S.argmax()
 
-print "Elapsed time:", end - start
-print "   Smax", Smax
-print "   tmax", tmax
-print ""
-print "Computing activation"
+print("Elapsed time:", end - start)
+print("   Smax", Smax)
+print("   tmax", tmax)
+print("")
+print("Computing activation")
 acts_total = simulation_activation(model, parcel, aerosols)
 
 fig = plt.figure(2)

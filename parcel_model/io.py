@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 
 from datetime import datetime as ddt
 import cPickle
@@ -11,10 +13,10 @@ try:
 except ImportError:
     _XRAY = False
 
-from thermo import es, rho_air
-from postprocess import simulation_activation
-from version import __version__ as ver
-import constants as c
+from .thermo import es, rho_air
+from .postprocess import simulation_activation
+from .version import __version__ as ver
+from . import constants as c
 
 #: Acceptable output formats
 OUTPUT_FORMATS = [ 'nc', 'obj', 'csv', ]
@@ -70,9 +72,9 @@ def write_parcel_output(filename=None, format=None, parcel=None,
 
 
     if parcel.console:
-        print
-        print "Saving output to %s format with base filename %s" % (extension, basename)
-        print
+        print()
+        print("Saving output to %s format with base filename %s" % (extension, basename))
+        print()
 
     #filename = "%s.%s" % (basename, extension)
 
@@ -101,7 +103,7 @@ def write_parcel_output(filename=None, format=None, parcel=None,
     # 2) nc
     elif format == 'nc':
 
-        print "doing netcdf"
+        print("doing netcdf")
 
         if not _XRAY:
             raise ValueError("Module `xray` must be installed to output"
@@ -118,7 +120,7 @@ def write_parcel_output(filename=None, format=None, parcel=None,
 
         ## Aerosol coordinates and basic data
         for aerosol in parcel.aerosols:
-            if parcel.console: print aerosol
+            if parcel.console: print(aerosol)
 
             nr = aerosol.nr
             r_drys = aerosol.r_drys*1e6

@@ -1,5 +1,7 @@
 """ Interface to numerical ODE solvers.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 available_integrators = ['odeint']
 
@@ -8,7 +10,7 @@ try:
     from odespy import Vode
     available_integrators.extend(['lsode', 'lsoda', 'vode'])
 except ImportError:
-    print "Could not import odespy package; invoking the 'lsoda' or 'lsode' options will fail!"
+    print("Could not import odespy package; invoking the 'lsoda' or 'lsode' options will fail!")
     pass
 
 try: 
@@ -18,13 +20,13 @@ try:
     from assimulo.exception import TimeLimitExceeded
     available_integrators.extend(['cvode', 'lsodar'])
 except ImportError:
-    print "Could not import Assimulo; invoking the CVode solver will fail!"
+    print("Could not import Assimulo; invoking the CVode solver will fail!")
     pass
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-import constants as c
+from . import constants as c
 
 __all__ = [ 'Integrator', ]
 
@@ -227,24 +229,24 @@ class CVODEIntegrator(Integrator):
         t_current = self.t0
 
         if self.console:
-            print
-            print "Integration Loop"
-            print "--------------------------"
+            print()
+            print("Integration Loop")
+            print("--------------------------")
 
         txs, xxs = [], []
         n_steps = 1
         while t_current < t_end:
             if self.console:
-                print " {0:5d} | t = {1:7.2f}".format(n_steps, t_current)
+                print(" {0:5d} | t = {1:7.2f}".format(n_steps, t_current))
 
             try:
                 out_list = np.linspace(t_current, t_current + t_increment, 
                                        n_out + 1)
                 tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
-            except CVodeError, e:
+            except CVodeError as e:
                 raise ValueError("Something broke in CVode: %r" % e)
                 return None, None, False
-            except TimeLimitExceeded, e:
+            except TimeLimitExceeded as e:
                 raise ValueError("CVode took too long to complete")
                 return None, None, False
 
@@ -260,12 +262,12 @@ class CVODEIntegrator(Integrator):
             if self.terminate:
                 if not self.sim.sw[0]: 
                     if self.console: 
-                        print "---- termination condition reached ----"
+                        print("---- termination condition reached ----")
                     break
 
             n_steps += 1
         if self.console: 
-            print "---- end of integration loop ----"
+            print("---- end of integration loop ----")
 
         ## Determine output information
         t = np.array(txs)

@@ -1,13 +1,14 @@
 """ Collection of activation parameterizations.
 
 """
+from __future__ import absolute_import
 
 import numpy as np
 from scipy.special import erfc
 
-from thermo import ( es, rho_air, ka, ka_cont, dv, dv_cont,
+from .thermo import ( es, rho_air, ka, ka_cont, dv, dv_cont,
                      sigma_w, kohler_crit )
-import constants as c
+from . import constants as c
 
 def _unpack_aerosols(aerosols):
     """ Convert a list of :class:`AerosolSpecies` into lists of aerosol properties.
