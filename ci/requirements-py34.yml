@@ -9,7 +9,7 @@ dependencies:
     - scipy
     - numpy
     - xarray
-    - pip
     - yaml
+    - pip
     - pip:
       - assimulo
