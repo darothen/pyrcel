@@ -33,8 +33,8 @@ Requirements
 **Required**
 
 * Python
-    + Python 3 is strongly encouraged; Python 2.6+ is supported via [future]
-    (http://python-future.org/)
+    + Python 3 is strongly encouraged; Python 2.7 is supported via [future]
+    (http://python-future.org/). Python 2.6 is **not** supported!
 * [NumPy](http://www.numpy.org)
 * [SciPy](http://www.scipy.org)
 * [pandas](http://pandas.pydata.org) - v0.17+

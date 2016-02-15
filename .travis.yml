@@ -6,8 +6,6 @@ notifications:
 # Borrowing schema from https://github.com/pydata/xarray/
 matrix:
   include:
-  - python: 2.6
-    env: CONDA_ENV=py26
   - python: 2.7
     env: CONDA_ENV=py27
   - python: 3.4
