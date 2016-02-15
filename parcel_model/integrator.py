@@ -5,6 +5,8 @@ from __future__ import absolute_import
 from builtins import object
 from future.utils import with_metaclass
 
+import warnings
+
 available_integrators = ['odeint']
 
 try:
@@ -12,8 +14,9 @@ try:
     from odespy import Vode
     available_integrators.extend(['lsode', 'lsoda', 'vode'])
 except ImportError:
-    print("Could not import odespy package; invoking the 'lsoda' or 'lsode' options will fail!")
-    pass
+    warnings.warn("Could not import odespy package; "
+                  "invoking the 'lsoda' or 'lsode' options will fail!")
+
 
 try: 
     from assimulo.problem import Explicit_Problem
@@ -22,8 +25,9 @@ try:
     from assimulo.exception import TimeLimitExceeded
     available_integrators.extend(['cvode', 'lsodar'])
 except ImportError:
-    print("Could not import Assimulo; invoking the CVode solver will fail!")
-    pass
+    warnings.warn("Could not import Assimulo; "
+                  "invoking the CVode solver will fail!")
+
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -34,6 +38,7 @@ __all__ = [ 'Integrator', ]
 
 state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 state_rtol = 1e-7
+
 
 class Integrator(with_metaclass(ABCMeta, object)):
     """
