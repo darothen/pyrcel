@@ -12,8 +12,8 @@ from scipy.optimize import fminbound
 
 from . constants import *
 
-##########################
-## THERMODYNAMIC FUNCTIONS
+
+# THERMODYNAMIC FUNCTIONS
 
 def dv_cont(T, P):
     """ Diffusivity of water vapor in air, neglecting non-continuum effects.
@@ -37,8 +37,9 @@ def dv_cont(T, P):
     dv : includes correction for non-continuum effects
 
     """
-    P_atm = P*1.01325e-5 # Pa -> atm
+    P_atm = P*1.01325e-5  # Pa -> atm
     return 1e-4*(0.211/P_atm)*((T/273.)**1.94)
+
 
 def dv(T, r, P, accom=ac):
     """ Diffusivity of water vapor in air, modified for non-continuum effects.
@@ -48,7 +49,8 @@ def dv(T, r, P, accom=ac):
 
     .. math::
         \\begin{equation}
-        D_v = 10^{-4}\\frac{0.211}{P}\left(\\frac{T}{273}\\right)^{1.94} \\tag{SP2006, 17.61}
+        D_v = 10^{-4}\\frac{0.211}{P}\left(\\frac{T}{273}\\right)^{1.94}
+              \\tag{SP2006, 17.61}
         \end{equation}
 
     where :math:`P` is in atm [SP2006]. Aerosols much smaller than the mean free path
@@ -58,7 +60,8 @@ def dv(T, r, P, accom=ac):
 
     .. math::
         \\begin{equation}
-        D'_v = \\frac{D_v}{1+ \\frac{D_v}{\\alpha_c r}\left(\\frac{2\pi M_w}{RT}\\right)^{1/2}} \\tag{SP2006, 17.62}
+        D'_v = \\frac{D_v}{1+ \\frac{D_v}{\\alpha_c r}
+                \left(\\frac{2\pi M_w}{RT}\\right)^{1/2}} \\tag{SP2006, 17.62}
         \end{equation}
 
     where :math:`\\alpha_c` is the condensation coefficient (:const:`constants.ac`).
@@ -93,6 +96,7 @@ def dv(T, r, P, accom=ac):
     dv_t = dv_cont(T, P)
     denom = 1.0 + (dv_t/(accom*r))*np.sqrt((2.*np.pi*Mw)/(R*T))
     return dv_t/denom
+
 
 def rho_air(T, P, RH=1.0):
     """ Density of moist air with a given relative humidity, temperature, and pressure.
@@ -129,9 +133,10 @@ def rho_air(T, P, RH=1.0):
     """
     qsat = RH*0.622*(es(T-273.15)/P)
     Tv = T*(1.0 + 0.61*qsat)
-    rho_a = P/Rd/Tv # air density
+    rho_a = P/Rd/Tv  # air density
     
     return rho_a
+
 
 def es(T_c):
     """ Calculates the saturation vapor pressure over water for a given temperature.
@@ -168,6 +173,7 @@ def es(T_c):
     """
     return 611.2*np.exp(17.67*T_c/(T_c+243.5))
 
+
 def ka_cont(T):
     """ Thermal conductivity of air, neglecting non-continuum effects.
 
@@ -190,6 +196,7 @@ def ka_cont(T):
     """
     return 1e-3*(4.39 + 0.071*T)
 
+
 def ka(T, rho, r):
     """ Thermal conductivity of air, modified for non-continuum effects.
 
@@ -205,7 +212,8 @@ def ka(T, rho, r):
 
     .. math::
         \\begin{equation}
-        k'_a = \\frac{k_a}{1 + \\frac{k_a}{\\alpha_t r_p \\rho C_p} \\frac{2\pi M_a}{RT}^{1/2}} \\tag{SP2006, 17.72}
+        k'_a = \\frac{k_a}{1 + \\frac{k_a}{\\alpha_t r_p \\rho C_p}
+               \\frac{2\pi M_a}{RT}^{1/2}} \\tag{SP2006, 17.72}
         \end{equation}
 
     where :math:`\\alpha_t` is a thermal accommodation coefficient
@@ -240,6 +248,7 @@ def ka(T, rho, r):
     denom = 1.0 + (ka_t/(at*r*rho*Cp))*np.sqrt((2.*np.pi*Ma)/(R*T))
     return ka_t/denom
 
+
 def sigma_w(T):
     """ Surface tension of water for a given temperature.
 
@@ -259,10 +268,10 @@ def sigma_w(T):
         :math:`\sigma_w(T)` in J/m^2
 
     """
-    return 0.0761 - (1.55e-4)*(T-273.15)
+    return 0.0761 - 1.55e-4*(T-273.15)
 
-##########################
-## KOHLER THEORY FUNCTIONS
+# KOHLER THEORY FUNCTIONS
+
 
 def Seq(r, r_dry, T, kappa, neg=False, approx=False):
     """ kappa-Kohler theory equilibrium saturation over aerosol.
@@ -277,7 +286,7 @@ def Seq(r, r_dry, T, kappa, neg=False, approx=False):
     that the supersaturation with respect to a given aerosol particle is,
 
     .. math::
-        S_\\text{eq} &= a_w \exp \\left( \\frac{2\sigma_{w} M_w}{RT\\rho_w r} \\right) \\\\
+        S_\\text{eq} &= a_w \exp \\left( \\frac{2\sigma_{w} M_w}{RT\\rho_w r} \\right)\\\\
         a_w &= \\left(1 + \kappa\\left(\\frac{r_d}{r}^3\\right) \\right)^{-1}
 
     with the relevant thermodynamic properties of water defined elsewhere in this
@@ -338,7 +347,7 @@ def Seq(r, r_dry, T, kappa, neg=False, approx=False):
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
 
     if approx:
-        s = A - kappa*(r_dry**3)/(r**3) # the minus 1.0 is built into this expression
+        s = A - kappa*(r_dry**3)/(r**3)  # the minus 1.0 is built into this expression
 
     else:
         if kappa == 0.0:
@@ -347,9 +356,11 @@ def Seq(r, r_dry, T, kappa, neg=False, approx=False):
             B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
         s = np.exp(A)*B - 1.0
 
-    if neg: s *= -1.0
+    if neg:
+        s *= -1.0
 
     return s
+
 
 def kohler_crit(T, r_dry, kappa, approx=False):
     """ Critical radius and supersaturation of an aerosol particle.
@@ -389,14 +400,14 @@ def kohler_crit(T, r_dry, kappa, approx=False):
     """
     if approx:
         A = (2.*Mw*sigma_w(T))/(R*T*rho_w)
-        s_crit = np.sqrt( (4.*(A**3))/(27*kappa*(r_dry**3)) )
-        r_crit = np.sqrt( (3.*kappa*(r_dry**3))/A )
+        s_crit = np.sqrt((4.*(A**3))/(27*kappa*(r_dry**3)))
+        r_crit = np.sqrt((3.*kappa*(r_dry**3))/A)
 
     else:
         out = fminbound(Seq, r_dry, r_dry*1e4, args=(r_dry, T, kappa, True),
                         xtol=1e-10, full_output=True, disp=0)
         r_crit, s_crit = out[:2]
-        s_crit *= -1.0 # multiply by -1 to undo negative flag for Seq
+        s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq
 
     return r_crit, s_crit
 
@@ -428,7 +439,8 @@ def critical_curve(T, r_a, r_b, kappa, approx=False):
     kohler_crit : critical supersaturation calculation
 
     """
-    crit_func = lambda rd: kohler_crit(T, rd, kappa, approx)
+    def crit_func(rd):
+        kohler_crit(T, rd, kappa, approx)
 
     rs = np.logspace(np.log10(r_a), np.log10(r_b), 200)
     ss = np.array(list(map(crit_func, rs)))
@@ -438,8 +450,8 @@ def critical_curve(T, r_a, r_b, kappa, approx=False):
 
     return rs, rcrits, scrits
 
-###############
-## MICROPHYSICS
+# MICROPHYSICS
+
 
 def r_eff(rho, wc, Ni):
     """Calculates the cloud droplet effective radius given the parcel liquid
@@ -454,13 +466,18 @@ def r_eff(rho, wc, Ni):
         r_{\\text{eff}} = \left(\\frac{3 \\rho_a w_c}{4 \pi N_i \\rho_w}\\right)^{1/3}
         \end{equation}
 
-    **Args**:
-        * *rho* -- parcel air density, kg/m^3
-        * *wc* -- liquid water mixing ratio, kg/kg
-        * *Ni* -- droplet number concentration, m^-3
+    Parameters
+    ----------
+    rho : float
+        parcel air density, kg/m^3
+    wc : float
+        liquid water mixing ratio, kg/kg
+    Ni : float
+        droplet number concentration, m^-3
 
-    **Returns**:
-        Cloud droplet effective radius, m
+    Returns
+    -------
+    Cloud droplet effective radius, m
 
     .. warning::
 
