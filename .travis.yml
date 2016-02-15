@@ -21,7 +21,7 @@ addons:
     packages:
     - cmake
     - liblapack-dev
-    - libsundials-serial-dev
+    - libsundials-serial-dev=2.5.0-3ubuntu3
     - gfortran
 
 # command to install dependencies (adapted from jakevdp/supersmoother)
