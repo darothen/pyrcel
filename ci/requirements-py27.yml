@@ -1,0 +1,14 @@
+name: parcel_model
+channels:
+    - darothen
+dependencies:
+    - python=2.7
+    - cython
+    - future
+    - pandas
+    - scipy
+    - numpy
+    - xarray
+    - pip
+    - pip:
+      - assimulo

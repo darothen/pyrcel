@@ -1,13 +1,24 @@
 language: python
+sudo: false
+notifications:
+  email: false
 
-python:
-    - "2.7"
-    - "3.4"
+# Borrowing schema from https://github.com/pydata/xarray/
+matrix:
+  include:
+  - python: 2.6
+    env: CONDA_ENV=py26
+  - python: 2.7
+    env: CONDA_ENV=py27
+  - python: 3.4
+    env: CONDA_ENV=py34
+  - python: 3.5
+    env: CONDA_ENV=py35
 
 # command to install dependencies (adapted from jakevdp/supersmoother)
 # using miniconda
 before_install:
-    - sudo apt-get update
+    # - sudo apt-get update
     - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
         wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O
        miniconda.sh;
@@ -16,7 +27,7 @@ before_install:
        miniconda.sh;
       fi
     - bash miniconda.sh -b -p $HOME/miniconda
-    - export PATH="$HOME/miniconda/bin:$PATH
+    - export PATH=$HOME/miniconda/bin:$PATH
     - hash -r
     - conda config --set always_yes yes set changeps1 no
     - conda update -q conda
@@ -24,9 +35,10 @@ before_install:
     - conda info -a
 
 install:
-    - conda env create -f environment.yml python=$TRAVIS_PYTHON_VERSION
-    - source activate parcel_model_test
+    - conda env create --file ci/requirements-$CONDA_ENV.yml
+    - source activate parcel_model
     - pip install -e .
 
 script:
+    # Automated testng will go here
     - echo "done"

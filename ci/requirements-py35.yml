@@ -1,8 +1,10 @@
-name: parcel_model_test
+name: parcel_model
 channels:
     - darothen
 dependencies:
+    - python=3.5
     - cython
+    - future
     - pandas
     - scipy
     - numpy
