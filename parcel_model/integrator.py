@@ -4,8 +4,11 @@ from __future__ import print_function
 from __future__ import absolute_import
 from builtins import object
 from future.utils import with_metaclass
-
+from abc import ABCMeta, abstractmethod
+import numpy as np
 import warnings
+
+from . import constants as c
 
 available_integrators = ['odeint']
 
@@ -29,12 +32,7 @@ except ImportError:
                   "invoking the CVode solver will fail!")
 
 
-from abc import ABCMeta, abstractmethod
-import numpy as np
-
-from . import constants as c
-
-__all__ = [ 'Integrator', ]
+__all__ = ['Integrator', ]
 
 state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 state_rtol = 1e-7
@@ -59,9 +57,11 @@ class Integrator(with_metaclass(ABCMeta, object)):
         self.console = console
 
         self.args = args
+
         def _user_rhs(t, y):
             dode_dt = rhs(y, t, *self.args)
             return dode_dt
+
         self.rhs = _user_rhs
 
     @abstractmethod
@@ -93,20 +93,21 @@ class Integrator(with_metaclass(ABCMeta, object)):
         if method in available_integrators:
             return solvers[method]
         else:
-            ## solver name is not defined, or the module containing
-            ## it is unavailable
+            # solver name is not defined, or the module containing
+            # it is unavailable
             raise ValueError("integrator for %s is not available" % method)
 
-class Extended_Problem(Explicit_Problem):
+
+class ExtendedProblem(Explicit_Problem):
     """ This extension of the Assimulo 'Explicit_Problem' class 
     encodes some of the logic particular to the parcel model simulation, 
     specifically rules for terminating the simulation and detecting
     events such as the maximum supersaturation occurring """
 
     name = 'Parcel model ODEs'
-    sw0  = [
-        True,  # Normal integration switch
-        False, # Past cut-off switch
+    sw0 = [
+        True,   # Normal integration switch
+        False,  # Past cut-off switch
     ] 
     t_cutoff = 1e5
     dS_dt = 1.0
@@ -119,11 +120,18 @@ class Extended_Problem(Explicit_Problem):
         super(Explicit_Problem, self).__init__(*args, **kwargs)
 
     def rhs(self, t, y, sw):
-        if not sw[1]: # Normal integration before cutoff
-            dode_dt = self.rhs_fcn(t, y) # FROM THE CVODEINTEGRATOR
+        if not sw[1]:  # Normal integration before cutoff
+            dode_dt = self.rhs_fcn(t, y)  # FROM THE CVODEINTEGRATOR
             self.dS_dt = dode_dt[c.N_STATE_VARS - 1]
         else:
-            dode_dt = np.zeros(c.N_STATE_VARS + self.args[0]) # FROM INIT ARGS
+            # There may be a bug here. I can't recall when this branch is ever run; it
+            # seems to zero out the state derivative, but to construct that array it
+            # should be looking at self.rhs_args, not self.args (which isn't saved).
+            # I'm going to comment out this line which I think is broken and replace it
+            # with the correct one for now, but leave a record of this change
+            # Daniel Rothenberg <darothen@mit.edu> - 2/15/2016
+            # dode_dt = np.zeros(c.N_STATE_VARS + self.args[0])  # FROM INIT ARGS
+            dode_dt = np.zeros(c.N_STATE_VARS + self.rhs_args[0])
         return dode_dt
 
     # The event function
@@ -143,7 +151,7 @@ class Extended_Problem(Explicit_Problem):
     def handle_event(self, solver, event_info):
         """ Event handling. This function is called when Assimulo finds
         an event as specified by the event function. """
-        event_info = event_info[0] # Only state events, event_info[1] is time events
+        event_info = event_info[0]  # Only state events, event_info[1] is time events
         if event_info[0] != 0:
             solver.sw[0] = False
             self.t_cutoff = solver.t + self.terminate_time
@@ -155,18 +163,19 @@ class Extended_Problem(Explicit_Problem):
 
 class CVODEIntegrator(Integrator):
 
-    kwargs = None # Save the kwargs used for setting up the interface to CVODE!
+    kwargs = None  # Save the kwargs used for setting up the interface to CVODE!
 
     def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False, 
                  terminate=False, terminate_depth=100., **kwargs):
         self.terminate = terminate 
-        super(CVODEIntegrator, self).__init__(\
-            rhs, output_dt, solver_dt, y0, args, t0, console)
+        super(CVODEIntegrator, self).__init__(
+            rhs, output_dt, solver_dt, y0, args, t0, console
+        )
 
-         ## Setup solver
+        # Setup solver
         if terminate:
-            self.prob = Extended_Problem(self.rhs, self.args, terminate_depth, 
-                                         y0=self.y0)
+            self.prob = ExtendedProblem(self.rhs, self.args, terminate_depth,
+                                        y0=self.y0)
         else:
             self.prob = Explicit_Problem(self.rhs, self.y0)
 
@@ -180,37 +189,46 @@ class CVODEIntegrator(Integrator):
 
         """
 
-        ## Create Assimulo interface
+        # Create Assimulo interface
         sim = CVode(self.prob)
         sim.discr = 'BDF'
         sim.maxord = 5 
 
-        ## Setup some default arguments for the ODE solver, or override
-        ## if available. This is very hackish, but it's fine for now while
-        ## the number of anticipated tuning knobs is small.
+        # Setup some default arguments for the ODE solver, or override
+        # if available. This is very hackish, but it's fine for now while
+        # the number of anticipated tuning knobs is small.
         if 'maxh' in kwargs:
             sim.maxh = kwargs['maxh']
-        else: sim.maxh = np.min([0.1, self.output_dt])
+        else:
+            sim.maxh = np.min([0.1, self.output_dt])
+
         if 'minh' in kwargs:
             sim.minh = kwargs['minh']
-        #else: sim.minh = 0.001
+        # else: sim.minh = 0.001
+
         if "iter" in kwargs:
             sim.iter = kwargs['iter']
-        else: sim.iter = 'Newton'
+        else:
+            sim.iter = 'Newton'
+
         if "linear_solver" in kwargs:
             sim.linear_solver = kwargs['linear_solver']
-        if "max_steps" in kwargs: ## DIFFERENT NAME!!!!
+
+        if "max_steps" in kwargs:  # DIFFERENT NAME!!!!
             sim.maxsteps = kwargs['max_steps']
-        else: sim.maxsteps = 1000
+        else:
+            sim.maxsteps = 1000
+
         if "time_limit" in kwargs:
             sim.time_limit = kwargs['time_limit']
             sim.report_continuously = True
-        else: sim.time_limit = 0.0
+        else:
+            sim.time_limit = 0.0
 
         # Don't save the [t_-, t_+] around events
         sim.store_event_points = False
 
-        ## Setup tolerances
+        # Setup tolerances
         nr = self.args[0]
         sim.rtol = state_rtol
         sim.atol = state_atol + [1e-12]*nr
@@ -219,12 +237,12 @@ class CVODEIntegrator(Integrator):
             sim.verbosity = 50
         else:
             sim.verbosity = 40
-        #sim.report_continuously = False
+        # sim.report_continuously = False
 
-        ## Save the Assimulo interface
+        # Save the Assimulo interface
         return sim        
 
-    def integrate(self, t_end, **kwargs):       
+    def integrate(self, t_end, **kwargs):
 
         # Compute integration logic. We need to know:
         # 1) How are we iterating the solver loop? 
@@ -250,10 +268,8 @@ class CVODEIntegrator(Integrator):
                 tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
             except CVodeError as e:
                 raise ValueError("Something broke in CVode: %r" % e)
-                return None, None, False
-            except TimeLimitExceeded as e:
+            except TimeLimitExceeded:
                 raise ValueError("CVode took too long to complete")
-                return None, None, False
 
             if n_out == 1:
                 txs.append(tx[-1])
@@ -274,15 +290,14 @@ class CVODEIntegrator(Integrator):
         if self.console: 
             print("---- end of integration loop ----")
 
-        ## Determine output information
+        # Determine output information
         t = np.array(txs)
-        if n_out == 1: # can just merge the outputs
+        if n_out == 1:  # can just merge the outputs
             x = np.array(xxs)
-        else: # Need to concatenate lists of outputs
+        else:  # Need to concatenate lists of outputs
             x = np.concatenate(xxs)
 
         return x, t, True
 
     def __repr__(self):
         return "CVODE integrator - direct Assimulo interface"
-
