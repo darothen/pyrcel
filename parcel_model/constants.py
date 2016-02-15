@@ -42,6 +42,8 @@ Using default pandas functons, you can interpolate to any reference pressure or
 height level.
 
 """
+import pandas as pd
+from io import StringIO
 from future import standard_library
 standard_library.install_aliases()
 
@@ -60,13 +62,11 @@ Ka = 2.e-2           #: Thermal conductivity of air, J/m/s/K
 at = 0.96            #: thermal accomodation coefficient
 epsilon = 0.622      #: molecular weight of water / molecular weight of dry air
 
-## Additional fixed model parameters
-N_STATE_VARS  = 7
+# Additional fixed model parameters
+N_STATE_VARS = 7
 STATE_VARS = ['z', 'P', 'T', 'wv', 'wc', 'wi', 'S']
-STATE_VAR_MAP = { var: i for i, var in enumerate(STATE_VARS) }
+STATE_VAR_MAP = {var: i for i, var in enumerate(STATE_VARS)}
 
-import pandas as pd
-from io import StringIO
 std_atm = """\
  alt  sigma  delta  theta  temp  press  dens   a    visc  k.visc ratio
 -0.5 1.0489 1.0607 1.0113 291.4 107477 1.285 342.2 18.05 1.40E-5 24.36
