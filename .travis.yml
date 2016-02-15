@@ -1,5 +1,7 @@
 language: python
 sudo: false
+cache:
+  apt: true
 notifications:
   email: false
 
@@ -12,6 +14,14 @@ matrix:
     env: CONDA_ENV=py34
   - python: 3.5
     env: CONDA_ENV=py35
+
+# Packages to install into test linux environment
+addons:
+  apt:
+    packages:
+    - cmake
+    - liblapack-dev
+    - libsundials-serial-dev
 
 # command to install dependencies (adapted from jakevdp/supersmoother)
 # using miniconda
