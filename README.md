@@ -6,8 +6,7 @@ Parcel Model
 [![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.16031.svg)](http://dx.doi.org/10.5281/zenodo.16031)[![Build Status](https://travis-ci.org/darothen/parcel_model.svg?branch=master)](https://travis-ci.org/darothen/parcel_model)
 
 This is an implementation of a simple, adiabatic cloud parcel model for use in 
-aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc
-.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements
+aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements
  and changes over [Nenes et al (2001)][nenes2001]:
 
 * Implementation of κ-Köhler theory for condensation physics ([Petters and 
