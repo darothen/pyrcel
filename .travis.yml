@@ -39,13 +39,6 @@ before_install:
       fi
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
-    # Assimulo testing, for debug purposes
-    - conda install numpy scipy cython matplotlib
-    - pip install -v assimulo
-    - cd $HOME/anaconda/lib/python$CONDA_ENV/site-packages/assimulo/
-    - nosetests -v
-    - cd -
-    # testing over
     - hash -r
     - conda config --set always_yes yes --set changeps1 no
     - conda update -q conda
@@ -53,6 +46,13 @@ before_install:
     - conda info -a
 
 install:
+    # Assimulo testing, for debug purposes
+    - conda install numpy scipy cython matplotlib
+    - pip install -v assimulo
+    - cd $HOME/anaconda/lib/python$CONDA_ENV/site-packages/assimulo/
+    - nosetests -v
+    - cd -
+    # testing over
     - conda env create --file ci/requirements-$CONDA_ENV.yml
     - source activate parcel_model
     - pip install -e .
