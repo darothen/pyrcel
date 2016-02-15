@@ -47,11 +47,12 @@ before_install:
 
 install:
     # Assimulo testing, for debug purposes
-    - conda install numpy scipy cython matplotlib
-    - pip install -v assimulo
-    - cd $HOME/miniconda/lib/python$CONDA_ENV/site-packages/assimulo/
-    - nosetests -v
-    - cd -
+    - conda install -c https://conda.binstar.org/chria assimulo
+#    - conda install numpy scipy cython matplotlib
+#    - pip install -v assimulo
+#    - cd $HOME/miniconda/lib/python${CONDA_ENV/py/}/site-packages/assimulo/
+#    - nosetests -v
+#    - cd -
     # testing over
     - conda env create --file ci/requirements-$CONDA_ENV.yml
     - source activate parcel_model
