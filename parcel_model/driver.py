@@ -21,8 +21,9 @@ from .parcel import ParcelModel, ParcelModelError
 from .activation import mbn2014, arg2000
 
 
-def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, accom=1.0, max_steps=1000, t_end=500.,
-              solver='lsoda', output='smax', terminate=False, solver_args={}):
+def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000,
+              t_end=500., solver='lsoda', output='smax', terminate=False,
+              solver_kws=None, model_kws=None):
     """ Setup and run the parcel model with given solver configuration.
 
     Parameters
@@ -45,8 +46,8 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, accom=1.0, max_steps=1000,
     output : string, optional, default 'smax'
         Alias indicating which output format to use; see :class:`ParcelModel` for
         all options.
-    solver_args : dict, optional
-        Detailed arguments/configuration to pass to the numerical integrator.
+    solver_kws, model_kws : dicts, optional
+        Additional arguments/configuration to pass to the numerical integrator or model.
 
     Returns
     -------
@@ -60,16 +61,23 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, accom=1.0, max_steps=1000,
         If the model fails to initialize or breaks during runtime.
 
     """
+    # Setup kw dicts
+    if model_kws is None:
+        model_kws = {}
+    if solver_kws is None:
+        solver_kws = {}
+
     if V <= 0:
         return 0.
 
     try: 
-        model = ParcelModel(initial_aerosols, V, T, S0, P, accom=accom)
+        model = ParcelModel(initial_aerosols, V, T, S0, P, **model_kws)
         Smax = model.run(t_end, dt, max_steps, solver=solver, 
-                         output=output, terminate=terminate, solver_args=solver_args)
+                         output=output, terminate=terminate, **solver_kws)
     except ParcelModelError:
         return None
     return Smax
+
 
 def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2, 
                  t_end=500., max_steps=500, output='smax',
@@ -104,8 +112,6 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
         excessively high could produce extremely long computation times.
     t_end : float, optional, default 500.0
         Model time in seconds after which the integration will stop.
-    solver : string, optional, default 'lsoda'
-        Alias of which solver to use; see :class:`Integrator` for all options.
     output : string, optional, default 'smax'
         Alias indicating which output format to use; see :class:`ParcelModel` for
         all options.
@@ -123,10 +129,11 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     if V <= 0:
         return 0., 0., 0.
 
-    ## Check that there are actually aerosols to deal with
+    # Check that there are actually aerosols to deal with
     aerosol_N = [a.distribution.N for a in initial_aerosols]
     if len(aerosol_N) == 1:
-        if aerosol_N[0] < 0.01: return (-9999., -9999., -9999.)
+        if aerosol_N[0] < 0.01:
+            return -9999., -9999., -9999.
     else:
         new_aerosols = []
         for i in range(len(aerosol_N)):
@@ -141,15 +148,15 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     finished = False
     S_max = None
 
-    ## Strategy 1: Try CVODE with modest tolerances.
+    # Strategy 1: Try CVODE with modest tolerances.
     print(" Trying CVODE with default tolerance")
     S_max = run_model(V, aerosols, T, P, dt, S0=S0, max_steps=2000, solver='cvode',
                       t_end=t_end, output=output, 
-                      solver_args={'iter': 'Newton', 'time_limit': 10.0, 
-                                   'linear_solver': "DENSE"})
+                      solver_kws={'iter': 'Newton', 'time_limit': 10.0,
+                                  'linear_solver': "DENSE"})
 
-    ## Strategy 2: Iterate over some increasingly relaxed tolerances for LSODA.
-    if not S_max and not fail_easy:
+    # Strategy 2: Iterate over some increasingly relaxed tolerances for LSODA.
+    if (S_max is None) and not fail_easy:
         while dt > dt_orig/(2**dt_iters):
             print(" Trying LSODA, dt = %1.3e, max_steps = %d" % (dt, max_steps))
             S_max = run_model(V, aerosols, T, P, dt, S0, max_steps, solver='lsoda',
@@ -161,15 +168,15 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
                 finished = True
                 break
 
-    ## Strategy 3: Last ditch numerical integration with LSODE. This will likely take a
-    ##             a very long time.
-    if not finished and not S_max and not fail_easy:
+    # Strategy 3: Last ditch numerical integration with LSODE. This will likely take a
+    #             a very long time.
+    if (not finished) and (S_max is None) and (not fail_easy):
         print(" Trying LSODE")
         S_max = run_model(V, aerosols, T, P, dt_orig, max_steps=1000, solver='lsode',
                           t_end=t_end, S0=S0)
 
-    ## Strategy 4: If all else fails return -9999.
-    if not S_max:
+    # Strategy 4: If all else fails return -9999.
+    if (S_max is None):
         if output == "smax":
             S_max = -9999.
         elif output == "arrays":
