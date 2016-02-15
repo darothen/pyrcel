@@ -22,6 +22,7 @@ addons:
     - cmake
     - liblapack-dev
     - libsundials-serial-dev
+    - gfortran
 
 # command to install dependencies (adapted from jakevdp/supersmoother)
 # using miniconda
