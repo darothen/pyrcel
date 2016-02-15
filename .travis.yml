@@ -39,4 +39,6 @@ install:
 
 script:
     # Automated testng will go here
-    - echo "done"
+    - echo "Executing test simulation, 'simple'"
+    - ./run_parcel examples/simple.yml
+    - echo "Simple test executed sucessfully."

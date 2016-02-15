@@ -271,6 +271,7 @@ class ParcelModel(object):
         out['Nis'] = Nis
 
         if self.console:
+            # TODO: Fix print table formatting
             print("AEROSOL DISTRIBUTION")
             print("%8s %6s" % ("r", "N"))
             for sp, r, N in zip(species, r_drys, Nis):
@@ -289,7 +290,8 @@ class ParcelModel(object):
         ## Compute the equilibrium wet particle radii
         r0s = []
         #r_b, _ = kohler_crit(T0, r_drys[-1], kappas[-1])
-        for r_dry , kappa in zip(r_drys, kappas)[::-1]:
+        # for r_dry , kappa in zip(r_drys, kappas)[::-1]:
+        for r_dry, kappa in zip(reversed(r_drys), reversed(kappas)):
         # Locate the critical value (f(r_crit) > 0), and use bisection from it and
         # r_dry (f(r_dry) < 0) to find equilibrium wet particle radius for a given S0
             r_b, _ = kohler_crit(T0, r_dry, kappa)

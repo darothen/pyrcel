@@ -1,15 +1,18 @@
 #!/usr/bin/env python
+"""
+CLI interface to run parcel model simulation.
 
+"""
 import parcel_model as pm
 import os
 import sys
 import yaml
 
-from argparse import ArgumentParser
-parser = ArgumentParser(
-    description="Run basic parcel model simulation based on a namelist."
-)
-parser.add_argument("namelist", type=str,
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
+parser = ArgumentParser(description=__doc__,
+                        formatter_class=RawDescriptionHelpFormatter)
+parser.add_argument("namelist", type=str, metavar="config.yml",
                     help="YAML namelist controlling simulation configuration")
 
 DIST_MAP = {
@@ -18,31 +21,35 @@ DIST_MAP = {
 
 if __name__ == "__main__":
 
+    # Read command-line arguments
     args = parser.parse_args()
 
-    ## Convert the namelist file into an in-memory dictionary
+    # Convert the namelist file into an in-memory dictionary
     try:
+        print("Attempting to read simulation namelist {}".format(args.namelist))
         with open(args.namelist, "rb") as f:
             y = yaml.safe_load(f)
     except IOError:
-        print "Couldn't read file %s" % args.namelist
+        print("Couldn't read file {}".format(args.namelist))
         sys.exit(0)
 
-    ## Create the aerosol
+    # Create the aerosol
     aerosol_modes = []
-    for aerosol_params in y['initial_aerosol']:
+    print("Constructing aerosol modes")
+    for i, aerosol_params in enumerate(y['initial_aerosol'], start=1):
         ap = aerosol_params
         
         dist = DIST_MAP[ap['distribution']](**ap['distribution_args'])
 
         aer = pm.AerosolSpecies(ap['name'], dist,
                                 kappa=ap['kappa'], bins=ap['bins'])
-        print aer
+        print("   {:2d})".format(i), aer)
 
         aerosol_modes.append(aer)
 
-    ## Set up the model
+    # Set up the model
     ic = y['initial_conditions']
+    print("Initializing model")
     try: 
         model = pm.ParcelModel(aerosol_modes,
                                V=ic['updraft_speed'],
@@ -52,11 +59,12 @@ if __name__ == "__main__":
                                console=True,
                                truncate_aerosols=True)
     except pm.ParcelModelError:
-        print "Something went wrong setting up the model"
+        print("Something went wrong setting up the model")
         sys.exit(0)
 
-    ## Run the model
+    # Run the model
     mc = y['model_control']
+    print("Beginning simulation")
     try:
         par_out, aer_out = model.run(max_steps=2000, solver='cvode', 
                                      output='dataframes', 
@@ -64,15 +72,26 @@ if __name__ == "__main__":
                                      # terminate_depth=10., 
                                      **mc)
     except pm.ParcelModelError:
-        print "Something went wrong during model run"
+        print("Something went wrong during model run")
         sys.exit(0)
 
-    ## Output
+    # Output
     ec = y['experiment_control']
 
     Smax = par_out['S'].max()
     T_fin = par_out['T'].iloc[-1]
 
+    # Make output directory if it doesn't exist
+    if not os.path.exists(ec['output_dir']):
+        os.makedirs(ec['output_dir'])
 
     out_file = os.path.join(ec['output_dir'], ec['name']) + ".nc"
-    pm.io.write_parcel_output(out_file, parcel=model)
+    try:
+        print("Trying to save output to {}".format(out_file))
+        pm.io.write_parcel_output(out_file, parcel=model)
+    except (IOError, RuntimeError):
+        print("Something went wrong saving to {}".format(out_file))
+        sys.exit(0)
+
+    # Succesful completion
+    print("Done!")

@@ -202,7 +202,7 @@ class Lognorm(BaseDistribution):
         return stats_dict
 
     def __repr__(self):
-        return "Lognorm | mu = {:2.2e}, sigma = {2.2e}, Total = {2.2e} |".format(
+        return "Lognorm | mu = {:2.2e}, sigma = {:2.2e}, Total = {:2.2e} |".format(
             self.mu, self.sigma, self.N
         )
 
