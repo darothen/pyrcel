@@ -3,10 +3,11 @@
 from __future__ import absolute_import
 from builtins import range
 
-from .activation import binned_activation
+from . activation import binned_activation
 
 import numpy as np
 import pandas as pd
+
 
 def simulation_activation(model, parcel_df, aerosols_panel):
     """ Given the DataFrame output from a parcel model simulation, compute
@@ -14,8 +15,10 @@ def simulation_activation(model, parcel_df, aerosols_panel):
 
     Parameters
     ----------
-    parcel_df : DataFrame
-        The DataFrame containining the parcel's thermodynamic trajectory
+    model : ParcelModel
+        The ParcelModel
+    parcel_df : DataFrame used to generate the results to be analyzed
+        The DataFrame containing the parcel's thermodynamic trajectory
     aerosols_panel : Panel
         A Panel collection of DataFrames containing the aerosol size evolution
 
@@ -33,19 +36,20 @@ def simulation_activation(model, parcel_df, aerosols_panel):
 
     initial_aerosols = model.aerosols
     N_all_modes = np.sum([aer.total_N for aer in initial_aerosols])
-    N_fracs = { aer.species: aer.total_N/N_all_modes for aer in initial_aerosols }
+    N_fracs = {aer.species: aer.total_N/N_all_modes for aer in initial_aerosols}
     for i in range(len(parcel_df)):
         row_par = parcel_df.iloc[i]
-        rows_aer = { key: aerosols_panel[key].iloc[i] for key in aerosols_panel }
+        rows_aer = {key: aerosols_panel[key].iloc[i] for key in aerosols_panel}
 
-        ## Update thermo
+        # Update thermo
         T_i = row_par['T']
-        if row_par['S'] > Smax_i: Smax_i = row_par['S']
+        if row_par['S'] > Smax_i:
+            Smax_i = row_par['S']
 
         eq_tot, kn_tot, alpha_tot, phi_tot = 0., 0., 0., 0.
         for aerosol in initial_aerosols:
-            N_frac = N_fracs[aer.species]
-            rs = rows_aer[aer.species]
+            N_frac = N_fracs[aerosol.species]
+            rs = rows_aer[aerosol.species]
 
             eq, kn, alpha, phi = binned_activation(Smax_i, T_i, rs, aerosol)
             eq_tot += eq*N_frac
