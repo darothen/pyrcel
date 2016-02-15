@@ -10,5 +10,6 @@ dependencies:
     - numpy
     - xarray
     - pip
+    - yaml
     - pip:
       - assimulo

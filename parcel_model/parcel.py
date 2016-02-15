@@ -12,7 +12,7 @@ from scipy.optimize import bisect
 
 ## Parcel model imports
 from . import constants as c
-from . import io
+from . import output
 from . aerosol import AerosolSpecies
 from . integrator import Integrator
 from . thermo import *
@@ -514,7 +514,7 @@ class ParcelModel(object):
             self.time = t
 
             if output == "dataframes":
-                return io.parcel_to_dataframes(self)
+                return output.parcel_to_dataframes(self)
             elif output == "arrays":
                 return self.x, self.heights
             elif output == "smax":
@@ -576,8 +576,8 @@ class ParcelModel(object):
     def save(self, filename=None, format="nc", other_dfs=None):
 
 
-        io.write_parcel_output(filename=filename, format=format, parcel=self,
-                               other_dfs=other_dfs)
+        output.write_parcel_output(filename=filename, format=format, parcel=self,
+                                   other_dfs=other_dfs)
 
     @staticmethod
     def write_csv(parcel_data, aerosol_data, output_dir=None):

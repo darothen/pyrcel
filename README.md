@@ -39,6 +39,7 @@ Requirements
 * [SciPy](http://www.scipy.org)
 * [pandas](http://pandas.pydata.org) - v0.17+
 * [xarray](http://xarray.pydata.org/en/stable/) - v0.7+
+* [PyYAML](http://pyyaml.org/)
 
 **Optional**
 
