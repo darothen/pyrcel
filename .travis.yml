@@ -1,4 +1,5 @@
 language: python
+# The following two lines force deploy on the latest Trusty Tapir build platforms
 sudo: required
 dist: trusty
 cache:
@@ -9,10 +10,10 @@ notifications:
 # Borrowing schema from https://github.com/pydata/xarray/
 matrix:
   include:
-  - python: 2.7
-    env: CONDA_ENV=py27
-  - python: 3.4
-    env: CONDA_ENV=py34
+#  - python: 2.7
+#    env: CONDA_ENV=py27
+#  - python: 3.4
+#    env: CONDA_ENV=py34
   - python: 3.5
     env: CONDA_ENV=py35
 
@@ -38,6 +39,11 @@ before_install:
       fi
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
+    # Assimulo testing, for debug purposes
+    - cd $HOME/anaconda/lib/python$CONDA_ENV/site-packages/assimulo/
+    - nosetests -v
+    - cd -
+    # testing over
     - hash -r
     - conda config --set always_yes yes --set changeps1 no
     - conda update -q conda
