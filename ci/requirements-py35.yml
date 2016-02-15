@@ -6,10 +6,10 @@ dependencies:
     - cython
     - future
     - pandas
+    - pyyaml
     - scipy
     - numpy
     - xarray
-    - yaml
     - pip
     - pip:
       - assimulo
