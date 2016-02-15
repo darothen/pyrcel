@@ -49,7 +49,7 @@ install:
     # Assimulo testing, for debug purposes
 #    - conda install -c https://conda.binstar.org/chria assimulo
 #    - conda install numpy scipy cython matplotlib
-    - conda env create -n test python=3.4 numpy scipy cython matplotlib future
+    - conda create -n test python=3.4 numpy scipy cython matplotlib future
      pandas pyyaml xarray
     - source activate test
     - conda install -c https://conda.binstar.org/chria assimulo
