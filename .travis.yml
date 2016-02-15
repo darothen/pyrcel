@@ -1,5 +1,6 @@
 language: python
-sudo: false
+sudo: required
+dist: trusty
 cache:
   apt: true
 notifications:
@@ -21,7 +22,7 @@ addons:
     packages:
     - cmake
     - liblapack-dev
-    - libsundials-serial-dev=2.5.0-3ubuntu3
+    - libsundials-serial-dev
     - gfortran
 
 # command to install dependencies (adapted from jakevdp/supersmoother)
