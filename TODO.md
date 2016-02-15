@@ -1,4 +1,4 @@
-#Master TODO list
+# Master TODO list
 
 1. Currently uses virtual temperature ($T_v = T(1 + 0.61w)$) when approximating density; should rather use the density temperature for consistency.
     - updates in thermo.py, parcel_aux.pyx, and fortran code 
@@ -18,7 +18,3 @@
         
 5. Add activation diagnostics to integration loop
 
-6. Build conda environment 
-    - need to build Assimulo package, which probably means need to build Sundials...
-
-7. Use xray.Dataset as the basic exchange unit for parcel model output instead of DataFrames.

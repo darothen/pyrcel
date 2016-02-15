@@ -10,7 +10,7 @@ aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.
 .org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements
  and changes over [Nenes et al (2001)][nenes2001]:
 
-* Implementation of $\kappa$-Kohler theory for condensation physics ([Petters and 
+* Implementation of κ-Köhler theory for condensation physics ([Petters and 
 Kreidenweis, 2007)][pk2007]
 * Extension of model to handle arbitrary sectional representations of aerosol 
 populations, based on user-controlled empirical or parameterized size distributions

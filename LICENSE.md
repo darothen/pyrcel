@@ -1,4 +1,4 @@
-Copyright (c) Daniel Rothenberg, 2012-2014
+Copyright (c) Daniel Rothenberg, 2012-2016
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
