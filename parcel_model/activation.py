@@ -210,11 +210,11 @@ def _vpres(T):
     es
 
     """
-    #: Coefficients for vapor pressure approximation
+    # Coefficients for vapor pressure approximation
     A = [6.107799610e+0, 4.436518521e-1, 1.428945805e-2,
          2.650648471e-4, 3.031240396e-6, 2.034080948e-8,
-        6.136820929e-11]
-    T -= 273 # Convert from Kelvin to C
+         6.136820929e-11]
+    T -= 273  # Convert from Kelvin to C
     vp = A[-1]*T
     for ai in reversed(A[1:-1]):
         vp = (vp + ai)*T
@@ -679,107 +679,108 @@ def ming2006(V, T, P, aerosol):
     # TODO: docstring
     # TODO: extend for multiple modes.
 
-    Num = aerosol.Nis*1e-6
-
-    RpDry = aerosol.distribution.mu*1e-6
-    kappa = aerosol.kappa
-
-    # pre-algorithm
-    # subroutine Kohler()... calculate things from Kohler theory, particularly critical
-    # radii and supersaturations for each bin
-    r_crits, s_crits = list(zip(*[kohler_crit(T, r_dry, kappa) for r_dry in aerosol.r_drys]))
-
-    # subroutine CalcAlphaGamma
-    alpha = (c.g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (c.g*c.Ma)/(c.R*T)
-    gamma = (c.R*T)/(es(T-273.15)*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
-
-    # re-name variables as in Ming scheme
-    Dpc = 2.*np.array(r_crits)*1e6
-    Dp0 = r_crits/np.sqrt(3.)
-    Sc = np.array(s_crits)+1.0
-    DryDp = aerosol.r_drys*2.
-
-    # Begin algorithm
-    Smax1 = 1.0
-    Smax2 = 1.1
-
-    iter_count = 1
-    while (Smax2 - Smax1) > 1e-7:
-        #print "\t", iter_count, Smax1, Smax2
-        Smax = 0.5*(Smax2 + Smax1)
-        #print "---", Smax-1.0
-
-        ## subroutine Grow()
-
-        ## subroutine CalcG()
-        # TODO: implement size-dependent effects on Dv, ka, using Dpc
-        #G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
-        G_a = (c.rho_w*c.R*T)/(es(T-273.15)*dv(T, (Dpc*1e-6)/2.)*c.Mw)
-        #G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
-        G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka(T, 1.007e3, (Dpc*1e-6)/2.)*T)
-        G = 1./(G_a + G_b) # multiply by four since we're doing diameter this time
-
-        Smax_large = (Smax > Sc) # if(Smax>Sc(count1,count2))
-        WetDp = np.zeros_like(Dpc)
-        #WetDp[Smax_large] = np.sqrt(Dpc[Smax_large]**2. + \
-        #            1e12*(G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
-        WetDp[Smax_large] = 1e6*np.sqrt((Dpc[Smax_large]*1e-6)**2. + \
-                            (G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
-
-        #print Dpc
-        #print WetDp/DryDp
-        #print WetDp
-
-        # subroutine Activity()
-        def Activity(dry, wet, dens, molar_weight):
-            temp1 = (dry**3)*dens/molar_weight
-            temp2 = ((wet**3) - (dry**3))*1e3/0.018
-            act = temp2/(temp1+temp2)*np.exp(0.66/T/wet)
-            #print dry[0], wet[0], dens, molar_weight, act[0]
-            return act
-        # Is this just the Kohler curve?
-        Act = np.ones_like(WetDp)
-        WetDp_large = (WetDp > 1e-5) # if(WetDp(i,j)>1e-5)
-        Act[WetDp_large] = Seq(WetDp[WetDp_large]*1e-6, DryDp[WetDp_large], T, kappa) + 1.0
-        #Act[WetDp_large] = Activity(DryDp[WetDp_large]*1e6, WetDp[WetDp_large], 1.7418e3, 0.132)
-
-        #print Act
-
-        # subroutine Conden()
-
-        # subroutine CalcG()
-        # TODO: implement size-dependent effects on Dv, ka, using WetDp
-        #G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
-        G_a = (c.rho_w*c.R*T)/(es(T-273.15)*dv(T, (WetDp*1e-6)/2.)*c.Mw)
-        #G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
-        G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka(T, 1.3e3, (WetDp*1e-6)/2.)*T)
-        G = 1./(G_a + G_b) # multiply by four since we're doing diameter this time
-
-        WetDp_large = (WetDp > Dpc) # (WetDp(count1,count2)>Dpc(count1,count2))
-        #WetDp_large = (WetDp > 0)
-        f_stre = lambda x: "%12.12e" % x
-        f_strf = lambda x: "%1.12f" % x
-        #for i, a in enumerate(Act):
-        #    if WetDp[i] > Dpc[i]:
-        #        print "      ",i+1,  Act[i], f_stre(Smax-Act[i])
-        CondenRate = np.sum((np.pi/2.)*1e3*G[WetDp_large]*(WetDp[WetDp_large]*1e-6)*Num[WetDp_large]*1e6*
-                             (Smax-Act[WetDp_large]))
-
-        #print iter_count, "%r %r %r" % (Smax, CondenRate, alpha*V/gamma)
-        DropletNum = np.sum(Num[WetDp_large])
-        ActDp = 0.0
-        for i in range(1, len(WetDp)):
-            if (WetDp[i] > Dpc[i]) and (WetDp[i-1] < Dpc[i]):
-                ActDp = DryDp[i]
-
-        # Iteration logic
-        if CondenRate < (alpha*V/gamma):
-            Smax1 = Smax*1.0
-        else:
-            Smax2 = Smax*1.0
-
-        iter_count += 1
-
-    Smax = Smax-1.0
-
-    return Smax, None
+    raise NotImplementedError
+    # Num = aerosol.Nis*1e-6
+    #
+    # RpDry = aerosol.distribution.mu*1e-6
+    # kappa = aerosol.kappa
+    #
+    # # pre-algorithm
+    # # subroutine Kohler()... calculate things from Kohler theory, particularly critical
+    # # radii and supersaturations for each bin
+    # r_crits, s_crits = list(zip(*[kohler_crit(T, r_dry, kappa) for r_dry in aerosol.r_drys]))
+    #
+    # # subroutine CalcAlphaGamma
+    # alpha = (c.g*c.Mw*c.L)/(c.Cp*c.R*(T**2)) - (c.g*c.Ma)/(c.R*T)
+    # gamma = (c.R*T)/(es(T-273.15)*c.Mw) + (c.Mw*(c.L**2))/(c.Cp*c.Ma*T*P)
+    #
+    # # re-name variables as in Ming scheme
+    # Dpc = 2.*np.array(r_crits)*1e6
+    # Dp0 = r_crits/np.sqrt(3.)
+    # Sc = np.array(s_crits)+1.0
+    # DryDp = aerosol.r_drys*2.
+    #
+    # # Begin algorithm
+    # Smax1 = 1.0
+    # Smax2 = 1.1
+    #
+    # iter_count = 1
+    # while (Smax2 - Smax1) > 1e-7:
+    #     #print "\t", iter_count, Smax1, Smax2
+    #     Smax = 0.5*(Smax2 + Smax1)
+    #     #print "---", Smax-1.0
+    #
+    #     ## subroutine Grow()
+    #
+    #     ## subroutine CalcG()
+    #     # TODO: implement size-dependent effects on Dv, ka, using Dpc
+    #     #G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
+    #     G_a = (c.rho_w*c.R*T)/(es(T-273.15)*dv(T, (Dpc*1e-6)/2.)*c.Mw)
+    #     #G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
+    #     G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka(T, 1.007e3, (Dpc*1e-6)/2.)*T)
+    #     G = 1./(G_a + G_b) # multiply by four since we're doing diameter this time
+    #
+    #     Smax_large = (Smax > Sc) # if(Smax>Sc(count1,count2))
+    #     WetDp = np.zeros_like(Dpc)
+    #     #WetDp[Smax_large] = np.sqrt(Dpc[Smax_large]**2. + \
+    #     #            1e12*(G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
+    #     WetDp[Smax_large] = 1e6*np.sqrt((Dpc[Smax_large]*1e-6)**2. + \
+    #                         (G[Smax_large]/(alpha*V))*((Smax-.0)**2.4 - (Sc[Smax_large]-.0)**2.4))
+    #
+    #     #print Dpc
+    #     #print WetDp/DryDp
+    #     #print WetDp
+    #
+    #     # subroutine Activity()
+    #     def Activity(dry, wet, dens, molar_weight):
+    #         temp1 = (dry**3)*dens/molar_weight
+    #         temp2 = ((wet**3) - (dry**3))*1e3/0.018
+    #         act = temp2/(temp1+temp2)*np.exp(0.66/T/wet)
+    #         #print dry[0], wet[0], dens, molar_weight, act[0]
+    #         return act
+    #     # Is this just the Kohler curve?
+    #     Act = np.ones_like(WetDp)
+    #     WetDp_large = (WetDp > 1e-5) # if(WetDp(i,j)>1e-5)
+    #     Act[WetDp_large] = Seq(WetDp[WetDp_large]*1e-6, DryDp[WetDp_large], T, kappa) + 1.0
+    #     #Act[WetDp_large] = Activity(DryDp[WetDp_large]*1e6, WetDp[WetDp_large], 1.7418e3, 0.132)
+    #
+    #     #print Act
+    #
+    #     # subroutine Conden()
+    #
+    #     # subroutine CalcG()
+    #     # TODO: implement size-dependent effects on Dv, ka, using WetDp
+    #     #G_a = (rho_w*R*T)/(es(T-273.15)*Dv_T(T)*Mw)
+    #     G_a = (c.rho_w*c.R*T)/(es(T-273.15)*dv(T, (WetDp*1e-6)/2.)*c.Mw)
+    #     #G_b = (L*rho_w*((L*Mw/(R*T))-1))/(ka_T(T)*T)
+    #     G_b = (c.L*c.rho_w*((c.L*c.Mw/(c.R*T))-1))/(ka(T, 1.3e3, (WetDp*1e-6)/2.)*T)
+    #     G = 1./(G_a + G_b) # multiply by four since we're doing diameter this time
+    #
+    #     WetDp_large = (WetDp > Dpc) # (WetDp(count1,count2)>Dpc(count1,count2))
+    #     #WetDp_large = (WetDp > 0)
+    #     f_stre = lambda x: "%12.12e" % x
+    #     f_strf = lambda x: "%1.12f" % x
+    #     #for i, a in enumerate(Act):
+    #     #    if WetDp[i] > Dpc[i]:
+    #     #        print "      ",i+1,  Act[i], f_stre(Smax-Act[i])
+    #     CondenRate = np.sum((np.pi/2.)*1e3*G[WetDp_large]*(WetDp[WetDp_large]*1e-6)*Num[WetDp_large]*1e6*
+    #                          (Smax-Act[WetDp_large]))
+    #
+    #     #print iter_count, "%r %r %r" % (Smax, CondenRate, alpha*V/gamma)
+    #     DropletNum = np.sum(Num[WetDp_large])
+    #     ActDp = 0.0
+    #     for i in range(1, len(WetDp)):
+    #         if (WetDp[i] > Dpc[i]) and (WetDp[i-1] < Dpc[i]):
+    #             ActDp = DryDp[i]
+    #
+    #     # Iteration logic
+    #     if CondenRate < (alpha*V/gamma):
+    #         Smax1 = Smax*1.0
+    #     else:
+    #         Smax2 = Smax*1.0
+    #
+    #     iter_count += 1
+    #
+    # Smax = Smax-1.0
+    #
+    # return Smax, None
