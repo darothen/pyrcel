@@ -87,7 +87,7 @@ setup(
     download_url = "https://github.com/darothen/parcel_model",
 
     # TODO: Update install requirements and corresponding documentation
-    install_requires = ['numpy', 'scipy', 'pandas', ],
+    install_requires = ['numpy', 'scipy', 'pandas', 'future'],
     packages = ["parcel_model", ],
     ext_modules = extensions,
     cmdclass = {'build_ext': build_ext},

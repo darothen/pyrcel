@@ -2,10 +2,11 @@ name: parcel_model_test
 channels:
     - darothen
 dependencies:
-    - python=2.7
-    - assimulo
     - cython
     - pandas
     - scipy
     - numpy
-    - xray
+    - xarray
+    - pip
+    - pip:
+      - assimulo

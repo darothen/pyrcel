@@ -5,14 +5,22 @@ Parcel Model
 
 [![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.16031.svg)](http://dx.doi.org/10.5281/zenodo.16031)[![Build Status](https://travis-ci.org/darothen/parcel_model.svg?branch=master)](https://travis-ci.org/darothen/parcel_model)
 
-This is an implementation of a simple, adiabatic cloud parcel model for use in aerosol-cloud interaction studies. It is based on the model used by [Nenes et al (2001)][Nenes2001], but with several key modifications:
+This is an implementation of a simple, adiabatic cloud parcel model for use in 
+aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc
+.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements
+ and changes over [Nenes et al (2001)][nenes2001]:
 
-* Implementation of $\kappa$-Kohler theory for condensation physics ([Petters and Kreidenweis, 2007)][pk2007]
-* Extension of model to handle arbitrary sectional representations of aerosol populations, based on user-controlled empirical or parameterized size distributions
-* Improved, modular numerical framework for integrating the model, including bindings to several different stiff integrators:
- * `lsoda` - [scipy ODEINT wrapper](http://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html)
- * `vode, lsode*, lsoda*` - ODEPACK via [odespy][hplgit]
- * `cvode` - SUNDIALS via [Assimulo](http://www.jmodelica.org/assimulo_home/index.html#)
+* Implementation of $\kappa$-Kohler theory for condensation physics ([Petters and 
+Kreidenweis, 2007)][pk2007]
+* Extension of model to handle arbitrary sectional representations of aerosol 
+populations, based on user-controlled empirical or parameterized size distributions
+* Improved, modular numerical framework for integrating the model, including bindings 
+to several different stiff integrators:
+    - `lsoda` - [scipy ODEINT wrapper](http://docs.scipy
+    .org/doc/scipy/reference/generated/scipy.integrate.odeint.html)
+    - `vode, lsode*, lsoda*` - ODEPACK via [odespy][hplgit]
+    - `cvode` - SUNDIALS via [Assimulo](http://www.jmodelica.org/assimulo_home/index
+    .html#)
 
 among other details. It also includes a library of droplet activation routines and scripts/notebooks for evaluating those schemes against equivalent calculations done with the parcel model.
 
@@ -25,27 +33,33 @@ Requirements
 
 **Required**
 
-* Python 2.7 (Python 3+ is not supported yet)
-* [NumPy](http://www.numpy.org) - v1.7+
-* [SciPy](http://www.scipy.org) - v0.14.0+
+* Python
+    + Python 3 is strongly encouraged; Python 2.6+ is supported via [future]
+    (http://python-future.org/)
+* [NumPy](http://www.numpy.org)
+* [SciPy](http://www.scipy.org)
+* [pandas](http://pandas.pydata.org) - v0.17+
+* [xarray](http://xarray.pydata.org/en/stable/) - v0.7+
 
 **Optional**
 
-The following packages are used for better numerics (ODE solving), handling data in memory, or saving output. 
+The following packages are used for better numerics (ODE solving)
 
-* [pandas](http://pandas.pydata.org) - v0.13+
-* [odespy](http://hplgit.github.io/odespy/doc/web/index.html)
+* [odespy](http://hplgit.github.io/odespy/doc/web/index.html) (*Python 2.7 only*)
 * [Assimulo](http://www.jmodelica.org/assimulo)
-* [xray](http://xray.readthedocs.org/en/stable/)
 
-The easiest way to satisfy the basic requirements for building and running the model is to use the [Anaconda](http://continuum.io/downloads) scientific Python distribution. 
+The easiest way to satisfy the basic requirements for building and running the model is
+ to use the [Anaconda](http://continuum.io/downloads) scientific Python distribution. 
+ Alternatively, a [miniconda environment](http://conda.pydata.org/docs/using/envs.html)
+  is provided to quickly set-up and get running the model.
 
 Development
 -----------
 
 [http://github.com/darothen/parcel_model]()
 
-Please fork this repository if you intend to develop the model further so that the code's provenance can be maintained.
+Please fork this repository if you intend to develop the model further so that the 
+code's provenance can be maintained.
 
 License
 -------
