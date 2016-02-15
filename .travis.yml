@@ -49,7 +49,7 @@ install:
     # Assimulo testing, for debug purposes
     - conda install numpy scipy cython matplotlib
     - pip install -v assimulo
-    - cd $HOME/anaconda/lib/python$CONDA_ENV/site-packages/assimulo/
+    - cd $HOME/miniconda/lib/python$CONDA_ENV/site-packages/assimulo/
     - nosetests -v
     - cd -
     # testing over
