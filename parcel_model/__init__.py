@@ -17,6 +17,5 @@ from . activation import *
 from . aerosol import *
 from . distributions import *
 from . driver import *
-from . integrator import *
 from . parcel import *
 from . thermo import *

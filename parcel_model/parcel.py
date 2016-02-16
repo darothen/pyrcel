@@ -14,7 +14,7 @@ from scipy.optimize import bisect
 from . import constants as c
 from . import output
 from . aerosol import AerosolSpecies
-from . integrator import Integrator
+# from . integrator import Integrator
 from . thermo import *
 
 __all__ = [ 'ParcelModel', ]
@@ -436,6 +436,8 @@ class ParcelModel(object):
         der : right-hand side derivative evaluated during model integration.
 
         """
+        from . integrator import Integrator
+
         if not output_fmt in ["dataframes", "arrays", "smax"]:
             raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
 
