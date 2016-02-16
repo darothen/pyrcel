@@ -1,7 +1,8 @@
 language: python
 # The following two lines force deploy on the latest Trusty Tapir build platforms
-sudo: required
-dist: trusty
+# sudo: required
+# dist: trusty
+sudo: false
 cache:
   apt: true
 notifications:
@@ -10,12 +11,12 @@ notifications:
 # Borrowing schema from https://github.com/pydata/xarray/
 matrix:
   include:
-#  - python: 2.7
-#    env: CONDA_ENV=py27
-  - python: 3.4
-    env: CONDA_ENV=py34
-#  - python: 3.5
-#    env: CONDA_ENV=py35
+ - python: 2.7
+   env: CONDA_ENV=py27
+ - python: 3.4
+   env: CONDA_ENV=py34
+ - python: 3.5
+   env: CONDA_ENV=py35
 
 # Packages to install into test linux environment
 addons:
@@ -46,20 +47,19 @@ before_install:
     - conda info -a
 
 install:
-    # Assimulo testing, for debug purposes
-#    - conda install -c https://conda.binstar.org/chria assimulo
-#    - conda install numpy scipy cython matplotlib
-    - conda create -n test python=3.4 numpy scipy cython matplotlib future
-     pandas pyyaml xarray
-    - source activate test
-    - conda install -c https://conda.binstar.org/chria assimulo
-#    - pip install -v assimulo
-#    - cd $HOME/miniconda/lib/python${CONDA_ENV/py/}/site-packages/assimulo/
-#    - nosetests -v
-#    - cd -
-    # testing over
-#    - conda env create --file ci/requirements-$CONDA_ENV.yml
-#    - source activate parcel_model
+    - conda env create --file ci/requirements-$CONDA_ENV.yml
+    - source activate parcel_model
+    # Build and install assimulo. If Python 3.5, we have to do this by hand
+    # else we can rely on the existing conda package
+    - if [[ "$CONDA_ENV" == "py35" ]]; then
+        wget https://trac.jmodelica.org/assimulo/export/822/releases/Assimulo-2.8b1-fix.zip;
+        unzip Assimulo-2.8b1-fix.zip;
+        cd Assimulo-2.8b1;
+        python setup.py install --sundials-home=/usr --lapack-home=/usr/lib;
+      else
+        conda install assimulo;
+      fi
+    # Done! Can now move on to the parcel model
     - pip install -e .
 
 script:
