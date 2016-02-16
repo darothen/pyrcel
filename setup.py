@@ -16,7 +16,7 @@ import warnings
 from textwrap import dedent
 
 MAJOR, MINOR, MICRO = 1, 2, 0
-DEV = True
+DEV = False
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MICRO)
 
 # Correct versioning with git info if DEV
