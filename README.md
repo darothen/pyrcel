@@ -26,7 +26,7 @@ among other details. It also includes a library of droplet activation routines a
 
 Updated code can be found the project [github repository](https://github.com/darothen/parcel_model). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities).
 
-[Detailed documentation is available](http://mit.edu/~darothen/parcel_model/), including a [scientific description](http://mit.edu/~darothen/parcel_model/sci_descr.html), [installation details](http://mit.edu/~darothen/parcel_model/install.html), and a [basic example](http://mit.edu/~darothen/parcel_model/examples/basic_run.html) which produces a figure like the plot at the top of this page.
+[Detailed documentation is available](http://parcel-model.readthedocs.org/en/latest/index.html), including a [scientific description](http://parcel-model.readthedocs.org/en/latest/sci_descr.html), [installation details](http://parcel-model.readthedocs.org/en/latest/install.html), and a [basic example](http://parcel-model.readthedocs.org/en/latest/examples/basic_run.html) which produces a figure like the plot at the top of this page.
 
 Requirements
 ------------
