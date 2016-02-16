@@ -58,7 +58,7 @@ install:
         cd Assimulo-2.8b1;
         python setup.py install --sundials-home=/usr --lapack-home=/usr/lib;
       else
-        conda install assimulo;
+        conda install -c https://conda.binstar.org/chria assimulo;
       fi
     # Done! Can now move on to the parcel model
     - pip install -e .

@@ -5,15 +5,15 @@ Parcel Model
 
 [![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.16031.svg)](http://dx.doi.org/10.5281/zenodo.16031)[![Build Status](https://travis-ci.org/darothen/parcel_model.svg?branch=master)](https://travis-ci.org/darothen/parcel_model)
 
-This is an implementation of a simple, adiabatic cloud parcel model for use in 
+This is an implementation of a simple, adiabatic cloud parcel model for use in
 aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements
  and changes over [Nenes et al (2001)][nenes2001]:
 
-* Implementation of κ-Köhler theory for condensation physics ([Petters and 
+* Implementation of κ-Köhler theory for condensation physics ([Petters and
 Kreidenweis, 2007)][pk2007]
-* Extension of model to handle arbitrary sectional representations of aerosol 
+* Extension of model to handle arbitrary sectional representations of aerosol
 populations, based on user-controlled empirical or parameterized size distributions
-* Improved, modular numerical framework for integrating the model, including bindings 
+* Improved, modular numerical framework for integrating the model, including bindings
 to several different stiff integrators:
     - `lsoda` - [scipy ODEINT wrapper](http://docs.scipy
     .org/doc/scipy/reference/generated/scipy.integrate.odeint.html)
@@ -23,9 +23,9 @@ to several different stiff integrators:
 
 among other details. It also includes a library of droplet activation routines and scripts/notebooks for evaluating those schemes against equivalent calculations done with the parcel model.
 
-Updated code can be found the project [github repository](https://github.com/darothen/parcel_model). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities). 
+Updated code can be found the project [github repository](https://github.com/darothen/parcel_model). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities).
 
-[Detailed documentation is available](http://mit.edu/~darothen/parcel_model/), including a [scientific description](http://mit.edu/~darothen/parcel_model/sci_descr.html), [installation details](http://mit.edu/~darothen/parcel_model/install.html), and a [basic example](http://mit.edu/~darothen/parcel_model/examples/basic_run.html) which produces a figure like the plot at the top of this page. 
+[Detailed documentation is available](http://mit.edu/~darothen/parcel_model/), including a [scientific description](http://mit.edu/~darothen/parcel_model/sci_descr.html), [installation details](http://mit.edu/~darothen/parcel_model/install.html), and a [basic example](http://mit.edu/~darothen/parcel_model/examples/basic_run.html) which produces a figure like the plot at the top of this page.
 
 Requirements
 ------------
@@ -48,17 +48,23 @@ The following packages are used for better numerics (ODE solving)
 * [odespy](http://hplgit.github.io/odespy/doc/web/index.html) (*Python 2.7 only*)
 * [Assimulo](http://www.jmodelica.org/assimulo)
 
-The easiest way to satisfy the basic requirements for building and running the model is
- to use the [Anaconda](http://continuum.io/downloads) scientific Python distribution. 
- Alternatively, a [miniconda environment](http://conda.pydata.org/docs/using/envs.html)
-  is provided to quickly set-up and get running the model.
+The easiest way to satisfy the basic requirements for building and running the
+model is to use the [Anaconda](http://continuum.io/downloads) scientific Python
+distribution. Alternatively, a
+[miniconda environment](http://conda.pydata.org/docs/using/envs.html) is
+provided to quickly set-up and get running the model. Assimulo's dependency on
+the SUNDIALS library makes it a little bit tougher to install in an automated
+fashion, so it has not been included in the automatic setup provided here; you
+should refer to [Assimulo's documentation](http://www.jmodelica.org/assimulo_home/installation.html)
+for more information on its installation process. Note that many components of
+the model and package can be used without Assimulo.
 
 Development
 -----------
 
 [http://github.com/darothen/parcel_model]()
 
-Please fork this repository if you intend to develop the model further so that the 
+Please fork this repository if you intend to develop the model further so that the
 code's provenance can be maintained.
 
 License
