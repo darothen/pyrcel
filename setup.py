@@ -39,7 +39,7 @@ if DEV:
         VERSION += ".dev-{}".format(git_rev)
 
 extensions = [
-    Extension("parcel_model.parcel_aux", 
+    Extension("parcel_model.parcel_aux",
               ["parcel_model/parcel_aux.pyx"],
               include_dirs=[numpy.get_include(), ],
               #extra_compile_args=['-fopenmp', ],
@@ -89,6 +89,9 @@ setup(
     # TODO: Update install requirements and corresponding documentation
     install_requires = ['numpy', 'scipy', 'pandas', 'future'],
     packages = ["parcel_model", ],
+    package_data = {
+        'parcel_model': ['data/std_atm.csv', ],
+    },
     ext_modules = extensions,
     cmdclass = {'build_ext': build_ext},
 
@@ -99,9 +102,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Operating System :: Unix',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
         'Programming Language :: Fortran',
         'Topic :: Scientific/Engineering :: Atmospheric Science',
     ],

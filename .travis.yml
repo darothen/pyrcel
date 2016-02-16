@@ -52,14 +52,19 @@ install:
     - source activate parcel_model
     # Build and install assimulo. If Python 3.5, we have to do this by hand
     # else we can rely on the existing conda package
-    - if [[ "$CONDA_ENV" == "py35" ]]; then
-        wget https://trac.jmodelica.org/assimulo/export/822/releases/Assimulo-2.8b1-fix.zip;
-        unzip Assimulo-2.8b1-fix.zip;
-        cd Assimulo-2.8b1;
-        python setup.py install --sundials-home=/usr --lapack-home=/usr/lib;
-      else
-        conda install -c https://conda.binstar.org/chria assimulo;
-      fi
+    # - if [[ "$CONDA_ENV" == "py35" ]]; then
+    #     wget https://trac.jmodelica.org/assimulo/export/822/releases/Assimulo-2.8b1-fix.zip;
+    #     unzip Assimulo-2.8b1-fix.zip;
+    #     cd Assimulo-2.8b1;
+    #     python setup.py install --sundials-home=/usr --lapack-home=/usr/lib;
+    #   else
+    #     conda install -c https://conda.binstar.org/chria assimulo;
+    #   fi
+    - wget https://trac.jmodelica.org/assimulo/export/822/releases/Assimulo-2.8b1-fix.zip
+    - unzip Assimulo-2.8b1-fix.zip
+    - cd Assimulo-2.8b1
+    - python setup.py install --sundials-home=/usr --lapack-home=/usr/lib
+    - cd ../
     # Done! Can now move on to the parcel model
     - pip install -e .
 
