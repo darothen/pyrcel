@@ -72,7 +72,18 @@ Distributions
     :toctree: generated/
     :template: class.rst
 
+    BaseDistribution
+    Gamma
     Lognorm
+    MultiModeLognorm
+
+The following dictionaries containing (multi) Lognormal aerosol size distributions have also been saved for convenience:
+
+1. ``FN2005_single_modes``: Fountoukis, C., and A. Nenes (2005), Continued development of a cloud droplet formation parameterization for global climate models, J. Geophys. Res., 110, D11212, doi:10.1029/2004JD005591
+2. ``NS2003_single_modes``: Nenes, A., and J. H. Seinfeld (2003), Parameterization of cloud droplet formation in global climate models, J. Geophys. Res., 108, 4415, doi:10.1029/2002JD002911, D14.
+3. ``whitby_distributions``: Whitby, K. T. (1978), The physical characteristics of sulfur aerosols, Atmos. Environ., 12(1-3), 135–159, doi:10.1016/0004-6981(78)90196-8.
+4. ``jaenicke_distributions``: Jaenicke, R. (1993), Tropospheric Aerosols, in *Aerosol-Cloud-Climate Interactions*, P. V. Hobbs, ed., Academic Press, San Diego, CA, pp. 1-31.
+
 
 Activation
 ----------
@@ -82,11 +93,13 @@ Activation
 .. autosummary::
     :toctree: generated/
 
-    activate_lognormal_mode
+    lognormal_activation
+    binned_activation
     multi_mode_activation
-    act_fraction
     arg2000
     mbn2014
+    shipwayabel2010
+    ming2006
 
 .. _constants:
 

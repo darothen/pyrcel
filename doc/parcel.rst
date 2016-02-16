@@ -1,4 +1,4 @@
-.. _parcel: 
+.. _parcel:
 
 .. currentmodule:: parcel_model
 
@@ -18,4 +18,4 @@ Implementation
 Derivative Equation
 -------------------
 
-.. automethod:: ParcelModel.der
+.. automethod:: parcel.der

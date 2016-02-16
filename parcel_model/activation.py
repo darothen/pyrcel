@@ -505,7 +505,7 @@ def arg2000(V, T, P, aerosols=[], accom=c.ac,
 
     .. math::
 
-        S_\\text{max} = 1 \bigg/ \sqrt{\sum \\frac{1}{S^2_\text{mi}}\left[H(f_i, g_i)\right]}
+        S_\\text{max} = 1 \\bigg/ \sqrt{\sum \\frac{1}{S^2_\text{mi}}\left[H(f_i, g_i)\right]}
 
     This effectively combines the supersaturation maximum for each mode into
     a single value representing competition between modes. An alternative approach,
@@ -670,8 +670,7 @@ def shipwayabel2010(V, T, P, aerosol):
 def ming2006(V, T, P, aerosol):
     """Ming activation scheme.
 
-    NOTE - right now, the variable names correspond to the FORTRAN implementation
-    of the routine. Will change in the future.
+    NOTE - right now, the variable names correspond to the FORTRAN implementation of the routine. Will change in the future.
 
     """
 

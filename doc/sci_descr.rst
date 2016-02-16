@@ -24,7 +24,7 @@ Model Formulation
 -----------------
 
 The adiabatic cloud parcel model implemented here is based on
-models described in the literature ([Nenes2001]_, [SP2006]_,) with some modifications.
+models described in the literature ([Nenes2001]_, [SP2006]_,) with some modifications and improvements. For a full description of the parcel model, please see ([Rothenberg2016]_)
 The conservation of heat in a parcel of air rising at constant
 velocity :math:`V` without entrainment can be written as
 
@@ -220,9 +220,14 @@ bins, each with their own number concentration and hygroscopicity.
 
 .. topic:: Reference
 
+References
+----------
+
 .. [Nenes2001] Nenes, A., Ghan, S., Abdul-Razzak, H., Chuang, P. Y. & Seinfeld, J. H. Kinetic limitations on cloud droplet formation and impact on cloud albedo. Tellus 53, 133–149 (2001).
 
 .. [SP2006] Seinfeld, J. H. & Pandis, S. N. Atmospheric Chemistry and Physics: From Air Pollution to Climate Change. Atmos. Chem. Phys. 2nd, 1203 (Wiley, 2006).
+
+.. [Rothenberg2016] Daniel Rothenberg and Chien Wang, 2016: Metamodeling of Droplet Activation for Global Climate Models. *J. Atmos. Sci.*, **73**, 1255–1272. doi: http://dx.doi.org/10.1175/JAS-D-15-0223.1
 
 .. [PK2007] Petters, M. D. & Kreidenweis, S. M. A single parameter representation of hygroscopic growth and cloud condensation nucleus activity. Atmos. Chem. Phys. 7, 1961–1971 (2007).
 
