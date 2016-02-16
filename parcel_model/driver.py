@@ -1,8 +1,8 @@
-""" Utilities for driving sets of parcel model integration strategies. 
+""" Utilities for driving sets of parcel model integration strategies.
 
 Occasionally, a pathological set of input parameters to the parcel model
 will really muck up the ODE solver's ability to integrate the model.
-In that case, it would be nice to quietly adjust some of the numerical 
+In that case, it would be nice to quietly adjust some of the numerical
 parameters for the ODE solver and re-submit the job. This module includes a
 workhorse function :func:`iterate_runs` which can serve this purpose and can
 serve as an example for more complex integration strategies. Alternatively,
@@ -22,7 +22,7 @@ from .activation import mbn2014, arg2000
 
 
 def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000,
-              t_end=500., solver='lsoda', output='smax', terminate=False,
+              t_end=500., solver='lsoda', output_fmt='smax', terminate=False,
               solver_kws=None, model_kws=None):
     """ Setup and run the parcel model with given solver configuration.
 
@@ -37,13 +37,13 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000,
     dt : float
         Solver timestep, in seconds.
     max_steps : int, optional, default 1000
-        Maximum number of steps per solver iteration. Defaults to 1000; setting 
+        Maximum number of steps per solver iteration. Defaults to 1000; setting
         excessively high could produce extremely long computation times.
     t_end : float, optional, default 500.0
         Model time in seconds after which the integration will stop.
     solver : string, optional, default 'lsoda'
         Alias of which solver to use; see :class:`Integrator` for all options.
-    output : string, optional, default 'smax'
+    output_fmt : string, optional, default 'smax'
         Alias indicating which output format to use; see :class:`ParcelModel` for
         all options.
     solver_kws, model_kws : dicts, optional
@@ -52,7 +52,7 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000,
     Returns
     -------
     Smax : (user-defined)
-        Output from parcel model simulation based on user-specified `output` argument. See
+        Output from parcel model simulation based on user-specified `output_fmt` argument. See
         :class:`ParcelModel` for details.
 
     Raises
@@ -70,17 +70,17 @@ def run_model(V, initial_aerosols, T, P, dt, S0=-0.0, max_steps=1000,
     if V <= 0:
         return 0.
 
-    try: 
+    try:
         model = ParcelModel(initial_aerosols, V, T, S0, P, **model_kws)
-        Smax = model.run(t_end, dt, max_steps, solver=solver, 
-                         output=output, terminate=terminate, **solver_kws)
+        Smax = model.run(t_end, dt, max_steps, solver=solver,
+                         output_fmt=output_fmt, terminate=terminate, **solver_kws)
     except ParcelModelError:
         return None
     return Smax
 
 
-def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2, 
-                 t_end=500., max_steps=500, output='smax',
+def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
+                 t_end=500., max_steps=500, output_fmt='smax',
                  fail_easy=True):
     """ Iterate through several different strategies for integrating the parcel model.
 
@@ -92,7 +92,7 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     3. **LSODE** with coarse tolerance and the original timestep.
 
     If these strategies all fail, the model will print a statement indicating such
-    and return either -9999 if `output` was 'smax', or an empty array or DataFrame
+    and return either -9999 if `output_fmt` was 'smax', or an empty array or DataFrame
     accordingly.
 
     Parameters
@@ -108,7 +108,7 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     dt_iters : int, optional, default 2
         Number of times to halve `dt` when attempting **LSODA** solver.
     max_steps : int, optional, default 1000
-        Maximum number of steps per solver iteration. Defaults to 1000; setting 
+        Maximum number of steps per solver iteration. Defaults to 1000; setting
         excessively high could produce extremely long computation times.
     t_end : float, optional, default 500.0
         Model time in seconds after which the integration will stop.
@@ -137,7 +137,7 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     else:
         new_aerosols = []
         for i in range(len(aerosol_N)):
-            if aerosol_N[i] > 0.01: 
+            if aerosol_N[i] > 0.01:
                 new_aerosols.append(initial_aerosols[i])
         aerosols = new_aerosols[:]
 
@@ -151,7 +151,7 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
     # Strategy 1: Try CVODE with modest tolerances.
     print(" Trying CVODE with default tolerance")
     S_max = run_model(V, aerosols, T, P, dt, S0=S0, max_steps=2000, solver='cvode',
-                      t_end=t_end, output=output, 
+                      t_end=t_end, output_fmt=output_fmt,
                       solver_kws={'iter': 'Newton', 'time_limit': 10.0,
                                   'linear_solver': "DENSE"})
 
@@ -177,11 +177,11 @@ def iterate_runs(V, initial_aerosols, T, P, S0=-0.0, dt=0.01, dt_iters=2,
 
     # Strategy 4: If all else fails return -9999.
     if (S_max is None):
-        if output == "smax":
+        if output_fmt == "smax":
             S_max = -9999.
-        elif output == "arrays":
+        elif output_fmt == "arrays":
             S_max = empty([0]), empty([0])
-        elif output == "dataframes":
+        elif output_fmt == "dataframes":
             S_max = DataFrame(data={"S": [nan]}), DataFrame(data={"aerosol1": [nan]})
         else:
             S_max = nan

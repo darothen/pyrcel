@@ -1,10 +1,6 @@
+# Automatic build configuration for parcel model
 language: python
-# The following two lines force deploy on the latest Trusty Tapir build platforms
-# sudo: required
-# dist: trusty
 sudo: false
-cache:
-  apt: true
 notifications:
   email: false
 
@@ -32,11 +28,9 @@ addons:
 before_install:
     # - sudo apt-get update
     - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-        wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O
-       miniconda.sh;
+        wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
       else
-        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
-       miniconda.sh;
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
       fi
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
@@ -64,6 +58,6 @@ install:
 
 script:
     # Automated testng will go here
-    - echo "Executing test simulation, 'simple'"
+    - echo "Executing test simulation"
     - ./run_parcel examples/simple.yml
     - echo "Simple test executed sucessfully."

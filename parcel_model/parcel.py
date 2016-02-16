@@ -80,7 +80,7 @@ class ParcelModel(object):
     _nr : int
         Number of aerosol sizes tracked in model.
     _model_set : boolean
-        Flag indicating whether or not at any given time the model 
+        Flag indicating whether or not at any given time the model
         initialization/equilibration routine has been run with the current
         model settings.
     _y0 : array_like
@@ -88,10 +88,10 @@ class ParcelModel(object):
 
     Methods
     -------
-    run(t_end, dt, max_steps=1000, solver="odeint", output="dataframes",\
+    run(t_end, dt, max_steps=1000, solver="odeint", output_fmt="dataframes",\
         terminate=False, solver_args={})
-        Execute model simulation.     
-    set_initial_conditions(V=None, T0=None, S0=None, P0=None, aerosols=None)   
+        Execute model simulation.
+    set_initial_conditions(V=None, T0=None, S0=None, P0=None, aerosols=None)
         Re-initialize a model simulation in order to run it.
 
     See Also
@@ -101,9 +101,9 @@ class ParcelModel(object):
 
     """
 
-    def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac, 
+    def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac,
                  truncate_aerosols=False):
-        """ Initialize the parcel model. 
+        """ Initialize the parcel model.
 
         Parameters
         ----------
@@ -159,8 +159,8 @@ class ParcelModel(object):
            size to be in equilibrium.
         3. Set-up the state vector with these initial conditions.
 
-        Once the state vector has been set up, the setup routine will record 
-        attributes in the parent instance of the :class:`ParcelModel`. 
+        Once the state vector has been set up, the setup routine will record
+        attributes in the parent instance of the :class:`ParcelModel`.
 
         Parameters
         ----------
@@ -172,12 +172,12 @@ class ParcelModel(object):
 
         Raises
         ------
-        ParcelModelError 
+        ParcelModelError
             If an equilibrium droplet size distribution could not be calculated.
 
         Notes
         -----
-        The actual setup occurs in the private method `_setup_run()`; this 
+        The actual setup occurs in the private method `_setup_run()`; this
         method is simply an interface that can be used to modify an existing
         :class:`ParcelModel`.
 
@@ -224,9 +224,9 @@ class ParcelModel(object):
             bin_count = np.count_nonzero(aer.r_drys[aer.r_drys < smallest_rdry])
             if bin_count > 0:
                 aer_new = AerosolSpecies(aer.species,
-                                         aer.distribution, 
-                                         kappa=aer.kappa, 
-                                         bins=aer.bins, 
+                                         aer.distribution,
+                                         kappa=aer.kappa,
+                                         bins=aer.bins,
                                          r_min=smallest_rdry*1e6)
                 N_new = np.sum(aer_new.Nis)
                 if self.console:
@@ -280,7 +280,7 @@ class ParcelModel(object):
 
         ## 2) Setup parcel initial conditions
         # a) water vapor
-        #        RH    * (Rd/Rv = epsilon) * ( es / P - es ) 
+        #        RH    * (Rd/Rv = epsilon) * ( es / P - es )
         wv0 = (S0 + 1.)*(c.epsilon*es(T0-273.15)/(P0-es(T0-273.15))) # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
@@ -319,7 +319,7 @@ class ParcelModel(object):
         out['r0s'] = r0s
 
         # c) compute equilibrium droplet water content
-        water_vol = lambda r0, r_dry, Ni: (4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3) 
+        water_vol = lambda r0, r_dry, Ni: (4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3)
         wc0 = np.sum([water_vol(r0, r_dry, Ni) for r0, r_dry, Ni  in zip(r0s, r_drys, Nis)])
         wc0 /= rho_air(T0, P0, 0.)
 
@@ -330,7 +330,7 @@ class ParcelModel(object):
         y0 = [z0, P0, T0, wv0, wc0, wi0, S0]
         if self.console:
             print("PARCEL INITIAL CONDITIONS")
-            print(("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)", 
+            print(("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)",
                                                "wc (g/kg)", "wi (g/kg)", "S"))
             print("    " + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
                             P0/100.,    T0, wv0*1e3, wc0*1e3, wi0*1e3,    S0 ))
@@ -351,31 +351,31 @@ class ParcelModel(object):
         if self.console:
             print("Initial conditions set successfully.")
 
-    def run(self, t_end, 
-            output_dt=1., solver_dt=None, 
-            max_steps=1000, solver="odeint", output="dataframes",
+    def run(self, t_end,
+            output_dt=1., solver_dt=None,
+            max_steps=1000, solver="odeint", output_fmt="dataframes",
             terminate=False, terminate_depth=100., **solver_args):
         """ Run the parcel model simulation.
 
-        Once the model has been instantiated, a simulation can immediately be 
-        performed by invoking this method. The numerical details underlying the 
-        simulation and the times over which to integrate can be flexibly set 
+        Once the model has been instantiated, a simulation can immediately be
+        performed by invoking this method. The numerical details underlying the
+        simulation and the times over which to integrate can be flexibly set
         here.
 
-        **Time** -- The user must specify two timesteps: `output_dt`, which is the 
-        timestep between output snapshots of the state of the parcel model, and 
+        **Time** -- The user must specify two timesteps: `output_dt`, which is the
+        timestep between output snapshots of the state of the parcel model, and
         `solver_dt`, which is the the interval of time before the ODE integrator
         is paused and re-started. It's usually okay to use a very large `solver_dt`,
         as `output_dt` can be interpolated from the simulation. In some cases though
-        a small `solver_dt` could be useful to force the solver to use smaller 
+        a small `solver_dt` could be useful to force the solver to use smaller
         internal timesteps.
 
         **Numerical Solver** -- By default, the model will use the `odeint` wrapper
         of LSODA shipped by default with scipy. Some fine-tuning of the solver tolerances
         is afforded here through the `max_steps`. For other solvers, a set of optional
-        arguments `solver_args` can be passed. 
+        arguments `solver_args` can be passed.
 
-        **Solution Output** -- Several different output formats are available by default. 
+        **Solution Output** -- Several different output formats are available by default.
         Additionally, the output arrays are saved with the `ParcelModel` instance so they
         can be used later.
 
@@ -383,23 +383,23 @@ class ParcelModel(object):
         ----------
         t_end : float
             Total time over interval over which the model should be integrated
-        output_dt : float 
+        output_dt : float
             Timestep intervals to report model output.
         solver_dt : float
             Timestep interval for calling solver integration routine.
-        max_steps : int 
+        max_steps : int
             Maximum number of steps allowed by solver to satisfy error tolerances
             per timestep.
         solver : {'odeint', 'lsoda', 'lsode', 'vode', cvode'}
             Choose which numerical solver to use:
-            * `'odeint'`: LSODA implementation from ODEPACK via 
+            * `'odeint'`: LSODA implementation from ODEPACK via
                 SciPy's integrate module
             * `'lsoda'`: LSODA implementation from ODEPACK via odespy
             * `'lsode'`: LSODE implementation from ODEPACK via odespy
             * `'vode'` : VODE implementation from ODEPACK via odespy
             * `'cvode'` : CVODE implementation from Sundials via Assimulo
             * `'lsodar'` : LSODAR implementation from Sundials via Assimulo
-        output : {'dataframes', 'arrays', 'smax'}
+        output_fmt : str, one of {'dataframes', 'arrays', 'smax'}
             Choose format of solution output.
         terminate : boolean
             End simulation at or shortly after a maximum supersaturation has been achieved
@@ -428,15 +428,15 @@ class ParcelModel(object):
 
         Raises
         ------
-        ParcelModelError 
+        ParcelModelError
             The parcel model failed to complete successfully or failed to initialize.
 
         See Also
         --------
         der : right-hand side derivative evaluated during model integration.
-        
+
         """
-        if not output in ["dataframes", "arrays", "smax"]:
+        if not output_fmt in ["dataframes", "arrays", "smax"]:
             raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
 
         if solver_dt is None:
@@ -462,7 +462,7 @@ class ParcelModel(object):
 
         ## Is the updraft speed a function of time?
         v_is_func = hasattr(self.V, '__call__')
-        if v_is_func: # Re-wrap the function to correctly figure out V            
+        if v_is_func: # Re-wrap the function to correctly figure out V
             orig_der_fcn = der_fcn
             def der_fcn(y, t, *args):
                 V_t = self.V(t)
@@ -487,7 +487,7 @@ class ParcelModel(object):
 
         args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator_type = Integrator.solver(solver)
-        integrator = integrator_type(der_fcn, output_dt, solver_dt, y0, args, 
+        integrator = integrator_type(der_fcn, output_dt, solver_dt, y0, args,
                                      terminate=terminate, terminate_depth=terminate_depth,
                                      console=self.console,
                                      **solver_args)
@@ -513,16 +513,16 @@ class ParcelModel(object):
             self.heights = self.x[:, c.STATE_VAR_MAP['z']]
             self.time = t
 
-            if output == "dataframes":
+            if output_fmt == "dataframes":
                 return output.parcel_to_dataframes(self)
-            elif output == "arrays":
+            elif output_fmt == "arrays":
                 return self.x, self.heights
-            elif output == "smax":
+            elif output_fmt == "smax":
                 S = self.x[:, c.STATE_VAR_MAP['S']]
                 return S.max()
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
-        """ Write a quick and dirty summary of given parcel model output to the 
+        """ Write a quick and dirty summary of given parcel model output to the
         terminal.
         """
         from .activation import lognormal_activation
@@ -574,8 +574,6 @@ class ParcelModel(object):
                             (total_act_frac, total_activated, total_number))
 
     def save(self, filename=None, format="nc", other_dfs=None):
-
-
         output.write_parcel_output(filename=filename, format=format, parcel=self,
                                    other_dfs=other_dfs)
 

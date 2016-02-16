@@ -38,7 +38,7 @@ if __name__ == "__main__":
     print("Constructing aerosol modes")
     for i, aerosol_params in enumerate(y['initial_aerosol'], start=1):
         ap = aerosol_params
-        
+
         dist = DIST_MAP[ap['distribution']](**ap['distribution_args'])
 
         aer = pm.AerosolSpecies(ap['name'], dist,
@@ -50,12 +50,12 @@ if __name__ == "__main__":
     # Set up the model
     ic = y['initial_conditions']
     print("Initializing model")
-    try: 
+    try:
         model = pm.ParcelModel(aerosol_modes,
                                V=ic['updraft_speed'],
                                T0=ic['temperature'],
                                S0=-1.*(1.0 - ic['relative_humidity']),
-                               P0=ic['pressure'], 
+                               P0=ic['pressure'],
                                console=True,
                                truncate_aerosols=True)
     except pm.ParcelModelError:
@@ -66,10 +66,10 @@ if __name__ == "__main__":
     mc = y['model_control']
     print("Beginning simulation")
     try:
-        par_out, aer_out = model.run(max_steps=2000, solver='cvode', 
-                                     output='dataframes', 
+        par_out, aer_out = model.run(max_steps=2000, solver='cvode',
+                                     output_fmt='dataframes',
                                      # terminate=True,
-                                     # terminate_depth=10., 
+                                     # terminate_depth=10.,
                                      **mc)
     except pm.ParcelModelError:
         print("Something went wrong during model run")

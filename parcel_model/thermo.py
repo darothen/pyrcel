@@ -134,7 +134,7 @@ def rho_air(T, P, RH=1.0):
     qsat = RH*0.622*(es(T-273.15)/P)
     Tv = T*(1.0 + 0.61*qsat)
     rho_a = P/Rd/Tv  # air density
-    
+
     return rho_a
 
 
