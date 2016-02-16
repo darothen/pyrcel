@@ -1,2 +1,5 @@
 conda:
     file: ci/requirements-py35.yml
+
+python:
+    setup_py_install: true
