@@ -23,7 +23,6 @@ matrix:
 addons:
   apt:
     packages:
-    - cmake
     - liblapack-dev
     - libsundials-serial-dev
     - gfortran
@@ -70,6 +69,7 @@ install:
 
 script:
     # Automated testng will go here
+    - python -c "from __future__ import print_function; import parcel_model as pm; print(pm.integrator.available_integrators)"
     - echo "Executing test simulation, 'simple'"
     - ./run_parcel examples/simple.yml
     - echo "Simple test executed sucessfully."

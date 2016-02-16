@@ -88,7 +88,7 @@ if __name__ == "__main__":
     out_file = os.path.join(ec['output_dir'], ec['name']) + ".nc"
     try:
         print("Trying to save output to {}".format(out_file))
-        pm.io.write_parcel_output(out_file, parcel=model)
+        pm.output.write_parcel_output(out_file, parcel=model)
     except (IOError, RuntimeError):
         print("Something went wrong saving to {}".format(out_file))
         sys.exit(0)
