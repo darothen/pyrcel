@@ -1,18 +1,23 @@
-# Automatic build configuration for parcel model
+
 language: python
+# The following two lines force deploy on the latest Trusty Tapir build platforms
+# sudo: required
+# dist: trusty
 sudo: false
+cache:
+  apt: true
 notifications:
   email: false
 
 # Borrowing schema from https://github.com/pydata/xarray/
 matrix:
   include:
- - python: 2.7
-   env: CONDA_ENV=py27
- - python: 3.4
-   env: CONDA_ENV=py34
- - python: 3.5
-   env: CONDA_ENV=py35
+  - python: 2.7
+    env: CONDA_ENV=py27
+  - python: 3.4
+    env: CONDA_ENV=py34
+  - python: 3.5
+    env: CONDA_ENV=py35
 
 # Packages to install into test linux environment
 addons:
@@ -28,9 +33,11 @@ addons:
 before_install:
     # - sudo apt-get update
     - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-        wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
+        wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O
+       miniconda.sh;
       else
-        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
+       miniconda.sh;
       fi
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
@@ -58,6 +65,6 @@ install:
 
 script:
     # Automated testng will go here
-    - echo "Executing test simulation"
+    - echo "Executing test simulation, 'simple'"
     - ./run_parcel examples/simple.yml
     - echo "Simple test executed sucessfully."
