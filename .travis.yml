@@ -64,8 +64,9 @@ install:
     - cd Assimulo-2.8b1
     - python setup.py install --sundials-home=/usr --lapack-home=/usr/lib
     - cd ../
-    - conda install matplotlib nose
-    - python -c "from __future__ import print_function; from assimulo.examples import *; cvode_basic.run_example()"
+    # Assimulo worked totally fine! The issue is in the parcel_model somehow?!?
+    # - conda install matplotlib nose
+    # - python -c "from __future__ import print_function; from assimulo.examples import *; cvode_basic.run_example()"
     # Done! Can now move on to the parcel model
     - pip install -e .
 

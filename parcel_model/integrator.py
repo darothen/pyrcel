@@ -21,10 +21,10 @@ except ImportError:
                   "invoking the 'lsoda' or 'lsode' options will fail!")
 
 
-try: 
+try:
     from assimulo.problem import Explicit_Problem
     from assimulo.solvers.sundials import CVode, CVodeError
-    from assimulo.solvers.odepack import LSODAR
+    # from assimulo.solvers.odepack import LSODAR
     from assimulo.exception import TimeLimitExceeded
     available_integrators.extend(['cvode', 'lsodar'])
 except ImportError:
@@ -99,8 +99,8 @@ class Integrator(with_metaclass(ABCMeta, object)):
 
 
 class ExtendedProblem(Explicit_Problem):
-    """ This extension of the Assimulo 'Explicit_Problem' class 
-    encodes some of the logic particular to the parcel model simulation, 
+    """ This extension of the Assimulo 'Explicit_Problem' class
+    encodes some of the logic particular to the parcel model simulation,
     specifically rules for terminating the simulation and detecting
     events such as the maximum supersaturation occurring """
 
@@ -108,7 +108,7 @@ class ExtendedProblem(Explicit_Problem):
     sw0 = [
         True,   # Normal integration switch
         False,  # Past cut-off switch
-    ] 
+    ]
     t_cutoff = 1e5
     dS_dt = 1.0
 
@@ -138,7 +138,7 @@ class ExtendedProblem(Explicit_Problem):
     def state_events(self, t, y, sw):
         """ Check whether an 'event' has occurred. We want to see if the
         supersaturation is decreasing or not. """
-        if sw[0]: 
+        if sw[0]:
             smax_event = self.dS_dt
         else:
             smax_event = -1.0
@@ -165,9 +165,9 @@ class CVODEIntegrator(Integrator):
 
     kwargs = None  # Save the kwargs used for setting up the interface to CVODE!
 
-    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False, 
+    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False,
                  terminate=False, terminate_depth=100., **kwargs):
-        self.terminate = terminate 
+        self.terminate = terminate
         super(CVODEIntegrator, self).__init__(
             rhs, output_dt, solver_dt, y0, args, t0, console
         )
@@ -192,7 +192,7 @@ class CVODEIntegrator(Integrator):
         # Create Assimulo interface
         sim = CVode(self.prob)
         sim.discr = 'BDF'
-        sim.maxord = 5 
+        sim.maxord = 5
 
         # Setup some default arguments for the ODE solver, or override
         # if available. This is very hackish, but it's fine for now while
@@ -240,12 +240,12 @@ class CVODEIntegrator(Integrator):
         # sim.report_continuously = False
 
         # Save the Assimulo interface
-        return sim        
+        return sim
 
     def integrate(self, t_end, **kwargs):
 
         # Compute integration logic. We need to know:
-        # 1) How are we iterating the solver loop? 
+        # 1) How are we iterating the solver loop?
         t_increment = self.solver_dt
         # 2) How many points do we want to interpolate for output?
         n_out = int(self.solver_dt/self.output_dt)
@@ -263,7 +263,7 @@ class CVODEIntegrator(Integrator):
                 print(" {0:5d} | t = {1:7.2f}".format(n_steps, t_current))
 
             try:
-                out_list = np.linspace(t_current, t_current + t_increment, 
+                out_list = np.linspace(t_current, t_current + t_increment,
                                        n_out + 1)
                 tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
             except CVodeError as e:
@@ -278,16 +278,16 @@ class CVODEIntegrator(Integrator):
                 txs.extend(tx[:-1])
                 xxs.append(xx[:-1])
             t_current = tx[-1]
-        
+
             # Has the max been found and can we terminate?
             if self.terminate:
-                if not self.sim.sw[0]: 
-                    if self.console: 
+                if not self.sim.sw[0]:
+                    if self.console:
                         print("---- termination condition reached ----")
                     break
 
             n_steps += 1
-        if self.console: 
+        if self.console:
             print("---- end of integration loop ----")
 
         # Determine output information
