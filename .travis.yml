@@ -59,17 +59,16 @@ install:
     #   else
     #     conda install -c https://conda.binstar.org/chria assimulo;
     #   fi
-    - wget https://trac.jmodelica.org/assimulo/export/822/releases/Assimulo-2.8b1-fix.zip
-    - unzip Assimulo-2.8b1-fix.zip
-    - cd Assimulo-2.8b1
-    - python setup.py install --sundials-home=/usr --lapack-home=/usr/lib
-    - cd ../
+    # - wget https://trac.jmodelica.org/assimulo/export/822/releases/Assimulo-2.8b1-fix.zip
+    # - unzip Assimulo-2.8b1-fix.zip
+    # - cd Assimulo-2.8b1
+    # - python setup.py install --sundials-home=/usr --lapack-home=/usr/lib
+    # - cd ../
     # Done! Can now move on to the parcel model
     - pip install -e .
 
 script:
     # Automated testng will go here
-    - python -c "from __future__ import print_function; import parcel_model as pm; print(pm.integrator.available_integrators)"
     # - echo "Executing test simulation, 'simple'"
     # - ./run_parcel examples/simple.yml
     # - echo "Simple test executed sucessfully."
