@@ -702,7 +702,7 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
         G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka_r*T)
         G = 1./(G_a + G_b)
 
-        delta_S = S - Seq(r, r_dry, T, kappa, 1.0)
+        delta_S = S - Seq(r, r_dry, T, kappa)
         dr_dt = (G/r)*delta_S
         Ni = Nis[i]
         dwc_dt += Ni*(r*r)*dr_dt

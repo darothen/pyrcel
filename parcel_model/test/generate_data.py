@@ -65,12 +65,12 @@ def generate_reference(overwrite=False):
 
     print("Seq", end=", ")
     results['Seq_approx'] = \
-        [ thermo.Seq(f*r_dry*1e-6, r_dry*1e-6, T, kappa, approx=True) \
+        [ thermo.Seq(f*r_dry*1e-6, r_dry*1e-6, T, kappa) \
           for f, r_dry, T, kappa in \
           product(results['r_over_r_dry'], results['dry_radii'],
                   results['temperatures'], results['kappas']) ]
     results['Seq_exact'] = \
-        [ thermo.Seq(f*r_dry*1e-6, r_dry*1e-6, T, kappa, approx=True) \
+        [ thermo.Seq_approx(f*r_dry*1e-6, r_dry*1e-6, T, kappa) \
           for f, r_dry, T, kappa in \
           product(results['r_over_r_dry'], results['dry_radii'],
                   results['temperatures'], results['kappas']) ]

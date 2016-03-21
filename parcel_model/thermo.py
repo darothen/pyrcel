@@ -270,11 +270,12 @@ def sigma_w(T):
     """
     return 0.0761 - 1.55e-4*(T-273.15)
 
+
 # KOHLER THEORY FUNCTIONS
 
 
-def Seq(r, r_dry, T, kappa, neg=False, approx=False):
-    """ kappa-Kohler theory equilibrium saturation over aerosol.
+def Seq(r, r_dry, T, kappa):
+    """ κ-Kohler theory equilibrium saturation over aerosol.
 
     Calculates the equilibrium supersaturation (relative to 100% RH) over an
     aerosol particle of given dry/wet radius and of specified hygroscopicity
@@ -295,16 +296,49 @@ def Seq(r, r_dry, T, kappa, neg=False, approx=False):
     of the environment (``T``), and :math:`\kappa` is the hygroscopicity parameter
     of the particle (``kappa``).
 
-    This method has been extended to supply the *negative* of the supersaturation if
-    specified using the argument ``neg``; this is useful when attempting to numerically
-    estimate the particle's critical radius, as done in :func:`kohler_crit`. Otherwise,
-    this method will return the supersaturation as a decimal with respect to 1.0,
 
-    .. math::
-        S_\\text{eq} = S - 1.0
+    Parameters
+    ----------
+    r : float
+        droplet radius, m
+    r_dry : float
+        dry particle radius, m
+    T : float
+        ambient air temperature, K
+    kappa: float
+        particle hygroscopicity parameter
 
-    Additionally, passing the argument ``approx`` will return instead the canonical
-    approximation to the Kohler equation,
+    Returns
+    -------
+    float
+        :math:`S_\\text{eq}` for the given aerosol/droplet system
+
+    References
+    ----------
+
+    .. [PK2007] Petters, M. D., and S. M. Kreidenweis. "A Single Parameter
+        Representation of Hygroscopic Growth and Cloud Condensation Nucleus
+        Activity." Atmospheric Chemistry and Physics 7.8 (2007): 1961-1971
+
+    See Also
+    --------
+    Seq_approx : compute equilibrium supersaturation using an approximation
+    kohler_crit : compute critical radius and equilibrium supersaturation
+
+    """
+    A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
+    B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
+    s = np.exp(A)*B - 1.0
+    return s
+
+
+def Seq_approx(r, r_dry, T, kappa):
+    """ Approximate κ-Kohler theory equilibrium saturation over aerosol.
+
+    Calculates the equilibrium supersaturation (relative to 100% RH) over an
+    aerosol particle of given dry/wet radius and of specified hygroscopicity
+    bathed in gas at a particular temperature, using a simplified expression
+    derived by Taylor-expanding the original equation,
 
     .. math::
         S_\\text{eq} = \\frac{2\sigma_{w} M_w}{RT\\rho_w r} - \kappa\\frac{r_d^3}{r^3}
@@ -322,10 +356,6 @@ def Seq(r, r_dry, T, kappa, neg=False, approx=False):
         ambient air temperature, K
     kappa: float
         particle hygroscopicity parameter
-    neg : boolean, optional (default=False)
-        if true, return the negative of the calculation
-    approx : boolean, optional (default=False)
-        if true, return the equilibrum supersaturation using the approximation form
 
     Returns
     -------
@@ -335,31 +365,14 @@ def Seq(r, r_dry, T, kappa, neg=False, approx=False):
     References
     ----------
 
-    .. [PK2007] Petters, M. D., and S. M. Kreidenweis. "A Single Parameter
-        Representation of Hygroscopic Growth and Cloud Condensation Nucleus
-        Activity." Atmospheric Chemistry and Physics 7.8 (2007): 1961-1971
-
     See Also
     --------
+    Seq : compute equilibrium supersaturation using full theory
     kohler_crit : compute critical radius and equilibrium supersaturation
 
     """
     A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-
-    if approx:
-        s = A - kappa*(r_dry**3)/(r**3)  # the minus 1.0 is built into this expression
-
-    else:
-        if kappa == 0.0:
-            B = 1.
-        else:
-            B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
-        s = np.exp(A)*B - 1.0
-
-    if neg:
-        s *= -1.0
-
-    return s
+    return A - kappa*(r_dry**3)/(r**3)  # the minus 1.0 is built into this  expression
 
 
 def kohler_crit(T, r_dry, kappa, approx=False):
@@ -404,7 +417,8 @@ def kohler_crit(T, r_dry, kappa, approx=False):
         r_crit = np.sqrt((3.*kappa*(r_dry**3))/A)
 
     else:
-        out = fminbound(Seq, r_dry, r_dry*1e4, args=(r_dry, T, kappa, True),
+        neg_Seq = lambda r : -1.*Seq(r, r_dry, T, kappa)
+        out = fminbound(neg_Seq, r_dry, r_dry*1e4,
                         xtol=1e-10, full_output=True, disp=0)
         r_crit, s_crit = out[:2]
         s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq
