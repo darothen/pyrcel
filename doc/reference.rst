@@ -40,6 +40,7 @@ Thermodynamics/Kohler Theory
     es
     sigma_w
     Seq
+    Seq_approx
     kohler_crit
     critical_curve
 
