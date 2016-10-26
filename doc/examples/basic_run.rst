@@ -17,7 +17,7 @@ aerosol and cloud droplets.
     import warnings 
     warnings.simplefilter('ignore')
     
-    import parcel_model as pm
+    import pyrcel as pm
     import numpy as np
     
     %matplotlib inline
@@ -195,7 +195,7 @@ from the ``activation`` package to perform these calculations for us:
 
 .. code:: python
 
-    from parcel_model import binned_activation
+    from pyrcel import binned_activation
     
     sulf_trace = aerosol_traces['sulfate']
     sea_trace = aerosol_traces['sea salt']

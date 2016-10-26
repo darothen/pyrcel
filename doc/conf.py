@@ -208,7 +208,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'parcel_modeldoc'
+htmlhelp_basename = 'pyrceldoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -228,7 +228,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'pyrcel.tex', u'parcel\\_model Documentation',
+  ('index', 'pyrcel.tex', u'pyrcel documentation',
    u'Daniel Rothenberg', 'manual'),
 ]
 

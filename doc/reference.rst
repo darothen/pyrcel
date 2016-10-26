@@ -1,6 +1,6 @@
 .. _reference:
 
-.. currentmodule:: parcel_model
+.. currentmodule:: pyrcel
 
 Reference
 =========
@@ -18,7 +18,7 @@ The core of the model has its own documentation page, which you can access :ref:
 Driver Tools
 ------------
 
-.. automodule:: parcel_model.driver
+.. automodule:: pyrcel.driver
 
 .. autosummary::
     :toctree: generated/
@@ -29,7 +29,7 @@ Driver Tools
 Thermodynamics/Kohler Theory
 ----------------------------
 
-.. automodule:: parcel_model.thermo
+.. automodule:: pyrcel.thermo
 
 .. autosummary::
     :toctree: generated/
@@ -47,7 +47,7 @@ Thermodynamics/Kohler Theory
 Aerosols
 --------
 
-.. automodule:: parcel_model.aerosol
+.. automodule:: pyrcel.aerosol
 
 .. autosummary::
     :toctree: generated/
@@ -67,7 +67,7 @@ or activation routines.
 Distributions
 -------------
 
-.. automodule:: parcel_model.distributions
+.. automodule:: pyrcel.distributions
 
 .. autosummary::
     :toctree: generated/
@@ -89,7 +89,7 @@ The following dictionaries containing (multi) Lognormal aerosol size distributio
 Activation
 ----------
 
-.. automodule:: parcel_model.activation
+.. automodule:: pyrcel.activation
 
 .. autosummary::
     :toctree: generated/
@@ -107,4 +107,4 @@ Activation
 Constants
 ---------
 
-.. automodule:: parcel_model.constants
+.. automodule:: pyrcel.constants

@@ -164,7 +164,7 @@ numerically by employing the typical Kohler theory approximation
 These wet radii are used as the initial droplet radii in the simulation.
 
 Once the initial conditions have been configured, the model is
-integrated forward in time with a numerical solver (see :func:`parcel_model`.run
+integrated forward in time with a numerical solver (see :func:`ParcelModel.run`
 for more details). The available solvers wrapped here are:
 
 - LSODA(R)
