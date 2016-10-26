@@ -8,7 +8,8 @@ pyrcel: cloud parcel model
    :target: https://zenodo.org/badge/latestdoi/12927551
 .. |Build Status| image:: https://travis-ci.org/darothen/pyrcel.svg?branch=master
    :target: https://travis-ci.org/darothen/pyrcel
-.. |Documentation Status| image:: https://readthedocs.org/projects/pyrcel/badge/?version=latest
+.. |Documentation Status| image:: https://readthedocs
+.org/projects/pyrcel/badge/?version=stable
    :target: http://pyrcel.readthedocs.org/en/stable/?badge=stable
 
 This is an implementation of a simple, 0D adiabatic cloud parcel model tool (following `Nenes et al, 2001`_ and `Pruppacher and Klett, 1997`_). It allows flexible descriptions of an initial aerosol population, and simulates the evolution of a proto-cloud droplet population as the parcel ascends adiabatically at either a constant or time/height-dependent updraft speed. Droplet growth within the parcel is tracked on a Lagrangian grid.
