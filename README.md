@@ -1,9 +1,9 @@
-Parcel Model
-============
+pyrcel: cloud parcel model
+==========================
 
 ![sample parcel model run](doc/figs/model_example.png)
 
-[![DOI](https://zenodo.org/badge/5050/darothen/parcel_model.svg)](https://zenodo.org/badge/latestdoi/5050/darothen/parcel_model)[![Build Status](https://travis-ci.org/darothen/parcel_model.svg?branch=master)](https://travis-ci.org/darothen/parcel_model)[![Documentation Status](https://readthedocs.org/projects/parcel-model/badge/?version=latest)](http://parcel-model.readthedocs.org/en/latest/?badge=latest)
+[![DOI](https://zenodo.org/badge/5050/darothen/pyrcel.svg)](https://zenodo.org/badge/latestdoi/5050/darothen/pyrcel)[![Build Status](https://travis-ci.org/darothen/pyrcel.svg?branch=master)](https://travis-ci.org/darothen/pyrcel)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=latest)](http://pyrcel.readthedocs.org/en/latest/?badge=latest)
 
 
 This is an implementation of a simple, adiabatic cloud parcel model for use in
@@ -24,9 +24,9 @@ to several different stiff integrators:
 
 among other details. It also includes a library of droplet activation routines and scripts/notebooks for evaluating those schemes against equivalent calculations done with the parcel model.
 
-Updated code can be found the project [github repository](https://github.com/darothen/parcel_model). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities).
+Updated code can be found the project [github repository](https://github.com/darothen/pyrcel). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities).
 
-[Detailed documentation is available](http://parcel-model.readthedocs.org/en/latest/index.html), including a [scientific description](http://parcel-model.readthedocs.org/en/latest/sci_descr.html), [installation details](http://parcel-model.readthedocs.org/en/latest/install.html), and a [basic example](http://parcel-model.readthedocs.org/en/latest/examples/basic_run.html) which produces a figure like the plot at the top of this page.
+[Detailed documentation is available](http://pyrcel.readthedocs.org/en/latest/index.html), including a [scientific description](http://pyrcel.readthedocs.org/en/latest/sci_descr.html), [installation details](http://pyrcel.readthedocs.org/en/latest/install.html), and a [basic example](http://pyrcel.readthedocs.org/en/latest/examples/basic_run.html) which produces a figure like the plot at the top of this page.
 
 Requirements
 ------------
@@ -63,7 +63,7 @@ the model and package can be used without Assimulo.
 Development
 -----------
 
-[http://github.com/darothen/parcel_model]()
+[http://github.com/darothen/pyrcel]()
 
 Please fork this repository if you intend to develop the model further so that the
 code's provenance can be maintained.
