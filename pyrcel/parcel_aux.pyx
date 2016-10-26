@@ -42,12 +42,12 @@ cdef:
 ## Auxiliary, single-value calculations with GIL released for derivative
 ## calculations
 cdef inline double sigma_w(double T) nogil:
-    """See :func:`parcel_model.micro.sigma_w` for full documentation
+    """See :func:`pyrcel.micro.sigma_w` for full documentation
     """
     return 0.0761 - (1.55e-4)*(T-273.15)
 
 cdef inline double ka(double T, double r, double rho) nogil:
-    """See :func:`parcel_model.micro.ka` for full documentation
+    """See :func:`pyrcel.micro.ka` for full documentation
     """
     cdef double denom, ka_cont
     ka_cont = 1e-3*(4.39 + 0.071*T)
@@ -55,7 +55,7 @@ cdef inline double ka(double T, double r, double rho) nogil:
     return ka_cont/denom
 
 cdef inline double dv(double T, double r, double P, double accom) nogil:
-    """See :func:`parcel_model.micro.dv` for full documentation
+    """See :func:`pyrcel.micro.dv` for full documentation
     """
     cdef double denom, dv_cont, P_atm
     P_atm = P*1.01325e-5 # Pa -> atm
@@ -64,12 +64,12 @@ cdef inline double dv(double T, double r, double P, double accom) nogil:
     return dv_cont/denom
 
 cdef inline double es(double T):
-    """See :func:`parcel_model.micro.es` for full documentation
+    """See :func:`pyrcel.micro.es` for full documentation
     """
     return 611.2*exp(17.67*T/(T+243.5))
 
 cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
-    """See :func:`parcel_model.micro.Seq` for full documentation.
+    """See :func:`pyrcel.micro.Seq` for full documentation.
     """
     cdef double A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
     cdef double B = 1.0
@@ -82,7 +82,7 @@ cdef double Seq(double r, double r_dry, double T, double kappa) nogil:
 def der(double[::1] y, double t,
         int nr, double[::1] r_drys, double[::1] Nis, double V, double[::1] kappas,
         double accom):
-    """See :func:`parcel_model.parcel.der` for full documentation
+    """See :func:`pyrcel.parcel.der` for full documentation
 
     """
     cdef double z  = y[0]

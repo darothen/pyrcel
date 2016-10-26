@@ -39,8 +39,8 @@ if DEV:
         VERSION += ".dev-{}".format(git_rev)
 
 extensions = [
-    Extension("parcel_model.parcel_aux",
-              ["parcel_model/parcel_aux.pyx"],
+    Extension("pyrcel.parcel_aux",
+              ["pyrcel/parcel_aux.pyx"],
               include_dirs=[numpy.get_include(), ],
               #extra_compile_args=['-fopenmp', ],
               #extra_link_args=['-fopenmp', ],
@@ -54,7 +54,7 @@ extensions = [
 
 def _write_version_file():
 
-    fn = os.path.join(os.path.dirname(__file__), 'parcel_model', 'version.py')
+    fn = os.path.join(os.path.dirname(__file__), 'pyrcel', 'version.py')
 
     version_str = dedent("""
         __version__ = '{}'
@@ -68,12 +68,12 @@ def _write_version_file():
 _write_version_file()
 
 setup(
-    name = "parcel_model",
+    name = "pyrcel",
     author = "Daniel Rothenberg",
     author_email = "darothen@mit.edu",
     maintainer = "Daniel Rothenberg",
     maintainer_email = "darothen@mit.edu",
-    description = "parcel_model: 0D adiabatic cloud parcel model",
+    description = "pyrcel: 0D adiabatic cloud parcel model",
     long_description = """
         This code implements a relatively simple, adiabatic cloud parcel model for studying aerosol
         activation. It allows the user to peform and iterate parcel model experiments in a simple
@@ -82,15 +82,15 @@ setup(
         they would like to run with the model.
     """,
     license = "New BSD (3-clause)",
-    url = "https://github.com/darothen/parcel_model",
+    url = "https://github.com/darothen/pyrcel",
     version = VERSION,
-    download_url = "https://github.com/darothen/parcel_model",
+    download_url = "https://github.com/darothen/pyrcel",
 
     # TODO: Update install requirements and corresponding documentation
     install_requires = ['numpy', 'scipy', 'pandas', 'future'],
-    packages = ["parcel_model", ],
+    packages = ["pyrcel", ],
     package_data = {
-        'parcel_model': ['data/std_atm.csv', ],
+        'pyrcel': ['data/std_atm.csv', ],
     },
     ext_modules = extensions,
     cmdclass = {'build_ext': build_ext},

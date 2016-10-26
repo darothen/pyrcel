@@ -8,7 +8,7 @@ point it to the source code `repository`_ on github:
 
 .. code-block:: bash
 
-    $ pip install git+git://github.com/darothen/parcel_model.git
+    $ pip install git+git://github.com/darothen/pyrcel.git
 
 This should automatically build the necessary Cython modules and export the
 code package to your normal package installation directory. If you wish to
@@ -29,7 +29,7 @@ points directly to the git-monitored code:
 
 .. code-block:: bash
 
-    $ cd path/to/parcel_model/
+    $ cd path/to/pyrcel/
     $ pip install -e .
 
 
@@ -44,7 +44,7 @@ scientific python distribution, such as
 out-of-the box with almost all dependencies filled (exception being numerical
 solvers) on a recent version (1.2+) of this distribution. To faciliate this,
 `conda <http://conda.pydata.org/docs/>`_ environments for Python versions 2.7
-and 3.4+ are provided in the ``parcel_model/ci`` directory.
+and 3.4+ are provided in the ``pyrcel/ci`` directory.
 
 Necessary dependencies
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -101,7 +101,7 @@ version of the model with the pre-packed simple run case:
 
 .. code-block:: bash
 
-    $ cd path/to/parcel_model/
+    $ cd path/to/pyrcel/
     $ ./run_parcel examples/simple.yml
 
 
@@ -109,11 +109,11 @@ Bugs / Suggestions
 ------------------
 
 The code has an
-`issue tracker on github <https://github.com/darothen/parcel_model/issues>`_
+`issue tracker on github <https://github.com/darothen/pyrcel/issues>`_
 and I strongly encourage you to note any problems with the model there, such
 as typos or weird behavior and results. Furthermore, I'm looking for ways to
 expand and extend the model, so if there is something you might wish to see
 added, please note it there or `send me an e-mail <mailto:darothen@mit.edu>`_.
 The code was written in such a way that it should be trivial to add physics in a modular fashion.
 
-.. _repository: http://github.com/darothen/parcel_model
+.. _repository: http://github.com/darothen/pyrcel

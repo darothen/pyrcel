@@ -8,8 +8,8 @@ import time
 import matplotlib.pyplot as plt
 import seaborn as sns; sns.set_style('darkgrid')
 
-import parcel_model as pm
-from parcel_model.postprocess import simulation_activation
+import pyrcel as pm
+from pyrcel.postprocess import simulation_activation
 
 P0 = 95000. # Pressure, Pa
 T0 = 290.15 # Temperature, K

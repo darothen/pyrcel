@@ -1,6 +1,6 @@
 from builtins import zip
 import numpy as np
-import parcel_model as pm
+import pyrcel as pm
 
 import matplotlib.pyplot as plt
 import seaborn as sns

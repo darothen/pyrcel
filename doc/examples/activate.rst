@@ -15,7 +15,7 @@ activation of a lognormal ammonium sulfate accumulation mode aerosol.
     import warnings 
     warnings.simplefilter('ignore')
     
-    import parcel_model as pm
+    import pyrcel as pm
     import numpy as np
     
     %matplotlib inline
@@ -50,7 +50,7 @@ First, the parcel model calculations:
 
 .. code:: python
 
-    from parcel_model import binned_activation
+    from pyrcel import binned_activation
     
     Vs = np.logspace(-1, np.log10(10,), 11.)[::-1] # 0.1 - 5.0 m/s
     accom = 0.1
@@ -117,7 +117,7 @@ Now the activation parameterizations:
         smaxes_arg.append(smax_arg)
         act_fracs_arg.append(afs_arg[0])
         smaxes_mbn.append(smax_mbn)
-        act_fracs_mbn.append(afs_mbn[0])    
+        act_fracs_mbn.append(afs_mbn[0])
 
 Finally, we compile our results into a nice plot for visualization.
 

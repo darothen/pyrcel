@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Aerosol/atmospheric thermodynamics functions.
 
 The following sets of functions calculate useful thermodynamic quantities

@@ -2,7 +2,7 @@
 """
 from __future__ import absolute_import, print_function
 
-from parcel_model import thermo
+from pyrcel import thermo
 
 from itertools import product
 

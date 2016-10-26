@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# parcel_model documentation build configuration file, created by
+# pyrcel documentation build configuration file, created by
 # sphinx-quickstart on Wed Jul  2 15:49:19 2014.
 #
 # This file is execfile()d with the current directory set to its
@@ -61,7 +61,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'parcel_model'
+project = u'pyrcel'
 copyright = u'2016, Daniel Rothenberg'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -69,7 +69,7 @@ copyright = u'2016, Daniel Rothenberg'
 # built documents.
 #
 # The short X.Y version.
-from parcel_model import __version__ as version
+from pyrcel import __version__ as version
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -208,7 +208,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'parcel_modeldoc'
+htmlhelp_basename = 'pyrceldoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -228,7 +228,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'parcel_model.tex', u'parcel\\_model Documentation',
+  ('index', 'pyrcel.tex', u'pyrcel documentation',
    u'Daniel Rothenberg', 'manual'),
 ]
 
@@ -258,7 +258,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'parcel_model', u'parcel_model Documentation',
+    ('index', 'pyrcel', u'pyrcel Documentation',
      [u'Daniel Rothenberg'], 1)
 ]
 
@@ -272,8 +272,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'parcel_model', u'parcel_model Documentation',
-   u'Daniel Rothenberg', 'parcel_model',
+  ('index', 'pyrcel', u'pyrcel Documentation',
+   u'Daniel Rothenberg', 'pyrcel',
    'Adiabatic cloud parcel model for aerosol activation studies',
    'Miscellaneous'),
 ]

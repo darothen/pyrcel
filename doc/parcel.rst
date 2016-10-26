@@ -1,6 +1,6 @@
 .. _parcel:
 
-.. currentmodule:: parcel_model
+.. currentmodule:: pyrcel
 
 Parcel Model Details
 ====================

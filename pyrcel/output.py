@@ -115,7 +115,7 @@ def write_parcel_output(filename=None, format=None, parcel=None,
         ## Construct xray datastructure to write to netCDF
         ds = xray.Dataset(attrs={
             'Conventions': "CF-1.0",
-            'source': "parcel_model v%s" % ver,
+            'source': "pyrcel v%s" % ver,
         })
 
         ds.coords['time'] = ('time', parcel.time, 

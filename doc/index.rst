@@ -1,6 +1,16 @@
 
-Model/Package Overview
-======================
+pyrcel: cloud parcel model
+==========================
+
+|DOI|\ |Build Status|\ |Documentation Status|
+
+.. |DOI| image:: https://zenodo.org/badge/12927551.svg
+   :target: https://zenodo.org/badge/latestdoi/12927551
+.. |Build Status| image:: https://travis-ci.org/darothen/pyrcel.svg?branch=master
+   :target: https://travis-ci.org/darothen/pyrcel
+.. |Documentation Status| image:: https://readthedocs
+.org/projects/pyrcel/badge/?version=stable
+   :target: http://pyrcel.readthedocs.org/en/stable/?badge=stable
 
 This is an implementation of a simple, 0D adiabatic cloud parcel model tool (following `Nenes et al, 2001`_ and `Pruppacher and Klett, 1997`_). It allows flexible descriptions of an initial aerosol population, and simulates the evolution of a proto-cloud droplet population as the parcel ascends adiabatically at either a constant or time/height-dependent updraft speed. Droplet growth within the parcel is tracked on a Lagrangian grid.
 
@@ -9,7 +19,10 @@ This is an implementation of a simple, 0D adiabatic cloud parcel model tool (fol
 
 .. image:: figs/model_example.png
 
-You are invited to use the model (in accordance with the `licensing <https://raw.githubusercontent.com/darothen/parcel_model/master/LICENSE>`_), but please get in touch with the author via `e-mail <mailto:darothen@mit.edu>`_ or on `twitter <https://twitter.com/darothen>`_. Up-to-date versions can be obtained through the model's `github repository <https://github.com/darothen/parcel_model>`_ or directly from the author. If you use the model for research, please cite `this journal article <http://journals.ametsoc.org/doi/abs/10.1175/JAS-D-15-0223.1>`_ which details the original model formulation:
+You are invited to use the model (in accordance with the `licensing <https://raw
+.githubusercontent.com/darothen/pyrcel/master/LICENSE>`_), but please get in touch with
+ the author via `e-mail <mailto:darothen@mit.edu>`_ or on `twitter <https://twitter.com/darothen>`_. Up-to-date versions can be obtained through the model's `github repository <https://github.com/darothen/pyrcel>`_ or directly from the
+ author. If you use the model for research, please cite `this journal article <http://journals.ametsoc.org/doi/abs/10.1175/JAS-D-15-0223.1>`_ which details the original model formulation:
 
 
 | Daniel Rothenberg and Chien Wang, 2016: Metamodeling of Droplet Activation for Global Climate Models. *J. Atmos. Sci.*, **73**, 1255–1272. doi: http://dx.doi.org/10.1175/JAS-D-15-0223.1

@@ -1,4 +1,4 @@
-name: parcel_model
+name: pyrcel
 dependencies:
     - python=2.7
     - cython
