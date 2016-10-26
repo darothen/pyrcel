@@ -69,6 +69,6 @@ STATE_VARS = ['z', 'P', 'T', 'wv', 'wc', 'wi', 'S']
 STATE_VAR_MAP = {var: i for i, var in enumerate(STATE_VARS)}
 
 # Read the standard atmosphere CSV file
-_std_atm_fn = pkg_resources.resource_filename("parcel_model",
+_std_atm_fn = pkg_resources.resource_filename("pyrcel",
                                               "data/std_atm.csv")
 std_atm = pd.read_csv(_std_atm_fn, delim_whitespace=True)

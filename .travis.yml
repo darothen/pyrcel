@@ -48,7 +48,7 @@ before_install:
 
 install:
     - conda env create --file ci/requirements-$CONDA_ENV.yml
-    - source activate parcel_model
+    - source activate pyrcel
     # Build and install assimulo. If Python 3.5, we have to do this by hand
     # else we can rely on the existing conda package
     # - if [[ "$CONDA_ENV" == "py35" ]]; then

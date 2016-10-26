@@ -3,7 +3,7 @@
 CLI interface to run parcel model simulation.
 
 """
-import parcel_model as pm
+import pyrcel as pm
 import os
 import sys
 import yaml
