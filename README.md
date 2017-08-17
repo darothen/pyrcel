@@ -16,11 +16,9 @@ Kreidenweis, 2007)][pk2007]
 populations, based on user-controlled empirical or parameterized size distributions
 * Improved, modular numerical framework for integrating the model, including bindings
 to several different stiff integrators:
-    - `lsoda` - [scipy ODEINT wrapper](http://docs.scipy
-    .org/doc/scipy/reference/generated/scipy.integrate.odeint.html)
+    - `lsoda` - [scipy ODEINT wrapper](http://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html)
     - `vode, lsode*, lsoda*` - ODEPACK via [odespy][hplgit]
-    - `cvode` - SUNDIALS via [Assimulo](http://www.jmodelica.org/assimulo_home/index
-    .html#)
+    - `cvode` - SUNDIALS via [Assimulo](http://www.jmodelica.org/assimulo_home/index.html#)
 
 among other details. It also includes a library of droplet activation routines and scripts/notebooks for evaluating those schemes against equivalent calculations done with the parcel model.
 
@@ -34,8 +32,7 @@ Requirements
 **Required**
 
 * Python
-    + Python 3 is strongly encouraged; Python 2.7 is supported via [future]
-    (http://python-future.org/). Python 2.6 is **not** supported!
+    + Python 3 is strongly encouraged; Python 2.7 is supported via [future](http://python-future.org/). Python 2.6 is **not** supported!
 * [NumPy](http://www.numpy.org)
 * [SciPy](http://www.scipy.org)
 * [pandas](http://pandas.pydata.org) - v0.17+
