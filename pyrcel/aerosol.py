@@ -131,7 +131,7 @@ class AerosolSpecies(object):
         an instance of :class:`Lognorm`.
 
     """
-    def __init__(self, species, distribution, kappa, 
+    def __init__(self, species, distribution, kappa,
                  rho=None, mw=None,
                  bins=None, r_min=None, r_max=None):
         self.species = species  # Species molecular formula
@@ -149,12 +149,17 @@ class AerosolSpecies(object):
             # edge of the first bin is the geometric mean of the two smallest
             # dry radii. Then, always assume that r_dry is the geometric mean
             # of a bin and use that to back out all other edges in sequence
-            mid1 = np.sqrt(self.r_drys[0]*self.r_drys[1])
-            lr = (self.r_drys[0]**2.) / mid1
-            rs = [lr, mid1, ]
-            for r_dry in self.r_drys[1:]:
-                rs.append(r_dry**2. / rs[-1])
-            self.rs = np.array(rs)*1e6
+            if len(self.r_drys) > 1:
+                mid1 = np.sqrt(self.r_drys[0]*self.r_drys[1])
+                lr = (self.r_drys[0]**2.) / mid1
+                rs = [lr, mid1, ]
+                for r_dry in self.r_drys[1:]:
+                    rs.append(r_dry**2. / rs[-1])
+                self.rs = np.array(rs)*1e6
+            else:
+                # Truly mono-disperse, so no boundaries (we don't actually need
+                # them in this case anyways)
+                self.rs = None
             self.Nis = np.array(distribution['Nis'])
             self.N = np.sum(self.Nis)
 
@@ -169,7 +174,7 @@ class AerosolSpecies(object):
             else:
                 if not r_min:
                     lr = np.log10(distribution.mu/(10.*distribution.sigma))
-                else: 
+                else:
                     lr = np.log10(r_min)
                 if not r_max:
                     rr = np.log10(distribution.mu*10.*distribution.sigma)
@@ -201,7 +206,7 @@ class AerosolSpecies(object):
                     lr = np.log10(small_mu/(10.*small_sigma))
                 else:
                     lr = np.log10(r_min)
-                if not r_max: 
+                if not r_max:
                     rr = np.log10(big_mu*10.*big_sigma)
                 else:
                     rr = np.log10(r_max)
