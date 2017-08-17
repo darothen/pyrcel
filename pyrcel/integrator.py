@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from builtins import object
 from future.utils import with_metaclass
 from abc import ABCMeta, abstractmethod
+import time
 import numpy as np
 import warnings
 
@@ -254,15 +255,32 @@ class CVODEIntegrator(Integrator):
         if self.console:
             print()
             print("Integration Loop")
-            print("--------------------------")
+            print()
+            print("  step     time  walltime  Δwalltime |     z       T       S")
+            print(" "
+                  "------------------------------------|----------------------")
+            step_fmt = " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |" \
+                       " {:5.1f} {:7.2f} {:6.2f}%"
 
         txs, xxs = [], []
         n_steps = 1
+        total_walltime = 0.
+        now = time.process_time()
         while t_current < t_end:
             if self.console:
-                print(" {0:5d} | t = {1:7.2f}".format(n_steps, t_current))
+                # Update timing estimates
+                delta_walltime = time.process_time() - now
+                total_walltime += delta_walltime
 
+                # Grab state vars
+                state = self.y0 if n_steps == 1 else xxs[-1][-1]
+                _z = state[c.STATE_VAR_MAP['z']]
+                _T = state[c.STATE_VAR_MAP['T']]
+                _S = state[c.STATE_VAR_MAP['S']]*100
+                print(step_fmt.format(n_steps, t_current, total_walltime,
+                                      delta_walltime, _z, _T, _S))
             try:
+                now = time.process_time()
                 out_list = np.linspace(t_current, t_current + t_increment,
                                        n_out + 1)
                 tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
