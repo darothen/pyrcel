@@ -24,8 +24,9 @@ if DEV:
     import subprocess
 
     pipe = subprocess.Popen(
-        ['git', "describe", "--always", "--match", "v[0-9]*"],
-        stdout=subprocess.PIPE)
+        ['git', "describe", "--always", "--match", "'v[0-9]*'"],
+        stdout=subprocess.PIPE
+    )
     so, err = pipe.communicate()
 
     if pipe.returncode != 0:
@@ -34,9 +35,9 @@ if DEV:
         VERSION += ".dev"
     else:
         git_rev = so.strip()
-        git_rev = git_rev.decode('ascii') # necessary for Python >= 3
+        git_rev = git_rev.decode('ascii')  # necessary for Python >= 3
 
-        VERSION += ".dev-{}".format(git_rev)
+        VERSION += ".dev-" + format(git_rev)
 
 extensions = [
     Extension("pyrcel.parcel_aux",
@@ -92,6 +93,9 @@ setup(
     package_data = {
         'pyrcel': ['data/std_atm.csv', ],
     },
+    scripts = [
+        'scripts/run_parcel',
+    ],
     ext_modules = extensions,
     cmdclass = {'build_ext': build_ext},
 
