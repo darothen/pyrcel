@@ -172,7 +172,7 @@ class Lognorm(BaseDistribution):
         """
         scaling = (self.mu**k)*self.N
         exponent = (((k**2)/2.)*(self.log(self.sigma))**2)
-        return scaling*self.N*np.exp(exponent)
+        return scaling*np.exp(exponent)
 
     @property
     def stats(self):
