@@ -19,15 +19,16 @@ This is an implementation of a simple, 0D adiabatic cloud parcel model tool (fol
 .. image:: figs/model_example.png
 
 You are invited to use the model (in accordance with the `licensing <https://raw
-.githubusercontent.com/darothen/pyrcel/master/LICENSE>`_), but please get in touch with
- the author via `e-mail <mailto:darothen@mit.edu>`_ or on `twitter <https://twitter.com/darothen>`_. Up-to-date versions can be obtained through the model's `github repository <https://github.com/darothen/pyrcel>`_ or directly from the
- author. If you use the model for research, please cite `this journal article <http://journals.ametsoc.org/doi/abs/10.1175/JAS-D-15-0223.1>`_ which details the original model formulation:
-
+.githubusercontent.com/darothen/pyrcel/master/LICENSE>`_), but please get in
+touch with the author via `e-mail <mailto:darothen@mit.edu>`_ or on
+`twitter <https://twitter.com/darothen>`_. p-to-date versions can be obtained
+through the model's `github repository <https://github.com/darothen/pyrcel>`_
+or directly from the author. If you use the model for research, please cite
+`this journal article <http://journals.ametsoc.org/doi/abs/10.1175/JAS-D-15-0223.1>`_
+which details the original model formulation:
 
 | Daniel Rothenberg and Chien Wang, 2016: Metamodeling of Droplet Activation for Global Climate Models. *J. Atmos. Sci.*, **73**, 1255–1272. doi: http://dx.doi.org/10.1175/JAS-D-15-0223.1
 
-|
-|
 
 Documentation Outline
 ---------------------
