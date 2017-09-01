@@ -18,14 +18,16 @@ matrix:
     env: CONDA_ENV=py34
   - python: 3.5
     env: CONDA_ENV=py35
+  - python: 3.6
+    env: CONDA_ENV=py36
 
 # Packages to install into test linux environment
-addons:
-  apt:
-    packages:
-    - liblapack-dev
-    - libsundials-serial-dev
-    - gfortran
+#addons:
+#  apt:
+#    packages:
+#    - liblapack-dev
+#    - libsundials-serial-dev
+#    - gfortran
 
 # command to install dependencies (adapted from jakevdp/supersmoother)
 # using miniconda
@@ -68,8 +70,8 @@ install:
     - pip install -e .
 
 script:
-    # Automated testng will go here
-    # - echo "Executing test simulation, 'simple'"
-    # - ./run_parcel examples/simple.yml
-    # - echo "Simple test executed sucessfully."
+    # Automated testing will go here
+    - echo "Executing test simulation, 'simple'"
+    - run_parcel examples/simple.yml
+    - echo "Simple test executed sucessfully."
     - echo "Done"

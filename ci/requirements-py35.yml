@@ -1,8 +1,9 @@
 name: pyrcel
 channels:
-    - darothen
+    - conda-forge
 dependencies:
     - python=3.5
+    - assimulo
     - cython
     - future
     - pandas
