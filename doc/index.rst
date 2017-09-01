@@ -2,10 +2,12 @@
 pyrcel: cloud parcel model
 ==========================
 
-|DOI|\ |Build Status|\ |Documentation Status|
+|DOI|\ |PyPI version|\ |Build Status|\ |Documentation Status|
 
 .. |DOI| image:: https://zenodo.org/badge/12927551.svg
    :target: https://zenodo.org/badge/latestdoi/12927551
+.. |PyPI version| image:: https://badge.fury.io/py/pyrcel.svg
+   :target: https://badge.fury.io/py/pyrcel
 .. |Build Status| image:: https://travis-ci.org/darothen/pyrcel.svg?branch=master
    :target: https://travis-ci.org/darothen/pyrcel
 .. |Documentation Status| image:: https://readthedocs.org/projects/pyrcel/badge/?version=stable
@@ -29,6 +31,8 @@ which details the original model formulation:
 
 | Daniel Rothenberg and Chien Wang, 2016: Metamodeling of Droplet Activation for Global Climate Models. *J. Atmos. Sci.*, **73**, 1255–1272. doi: http://dx.doi.org/10.1175/JAS-D-15-0223.1
 
+|
+|
 
 Documentation Outline
 ---------------------

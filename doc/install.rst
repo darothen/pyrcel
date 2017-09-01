@@ -3,8 +3,30 @@
 Installation
 ============
 
-To grab and build the latest version of the model, you should use ``pip`` and
-point it to the source code `repository`_ on github:
+From conda
+----------
+
+Coming soon!
+
+
+From PyPI
+---------
+
+If you already have all the dependencies satisfied, then you can install the
+latest release from `PyPI <https://badge.fury.io/py/pyrcel>`_ by using
+``pip``:
+
+.. code-block:: bash
+
+    $ pip install pyrcel
+
+
+From source code
+----------------
+
+To grab and build the latest bleeding-edge version of the model, you should use
+``pip`` and point it to the source code `repository`_ on github:
+
 
 .. code-block:: bash
 
@@ -42,12 +64,18 @@ backwards compatibility. By far, the simplest way to run this code is to grab a
 scientific python distribution, such as
 `Anaconda <https://store.continuum.io/cshop/anaconda/>`_. This code should work
 out-of-the box with almost all dependencies filled (exception being numerical
-solvers) on a recent version (1.2+) of this distribution. To faciliate this,
+solvers) on a recent version (1.2+) of this distribution. To facilitate this,
 `conda <http://conda.pydata.org/docs/>`_ environments for Python versions 2.7
-and 3.4+ are provided in the ``pyrcel/ci`` directory.
+and 3.5+ are provided in the ``pyrcel/ci`` directory.
 
 Necessary dependencies
 ^^^^^^^^^^^^^^^^^^^^^^
+
+- `Assimulo <http://www.jmodelica.org/assimulo_home/index.html>`_
+
+- `Cython <http://cython.org/>`_
+
+- `future <http://python-future.org/>`_
 
 - `numpy <http://www.numpy.org/>`_
 
@@ -55,20 +83,22 @@ Necessary dependencies
 
 - `pandas <http://pandas.pydata.org/>`_
 
-- `Cython <http://cython.org/>`_
-
-- `future <http://python-future.org/>`_
-
-- `Assimulo <http://www.jmodelica.org/assimulo_home/index.html>`_
-
 .. note::
 
     As of version 1.2.0, the model integration components are being re-written
     and only the CVODE interface is exposed. As such, Assimulo is temporarily
     a core and required dependency; in the future the other solvers will
-    be re-enabled. For best results, you will want to `manually install
-    Assimulo <http://www.jmodelica.org/assimulo_home/installation.html>`_, as
-    I've encountered issues using the available `pip` or `conda` packages.
+    be re-enabled. You should first try to install Assimulo via conda
+
+    .. code-block:: bash
+
+        $ conda install -c conda-forge assimulo
+
+    since this will automatically take care of obtaining necessary compiled
+    dependencies like sundials. However, for best results you may want to
+    `manually install Assimulo <http://www.jmodelica.org/assimulo_home/installation.html>`_,
+    since the conda-forge recipe may default to a sundials/OpenBLAS combination
+    which could degare the performance of the model.
 
 Numerical solver dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
