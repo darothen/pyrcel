@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Interface to numerical ODE solvers.
 """
 from __future__ import print_function
@@ -8,6 +9,16 @@ from abc import ABCMeta, abstractmethod
 import time
 import numpy as np
 import warnings
+
+import sys
+# Compatibility - timer functions
+# In Python 3, the more accurate `time.process_time()` method is available. But
+# for legacy support, can default instead to `time.clock()`
+import time
+if sys.version_info[0] < 3:
+    timer = time.clock
+else:
+    timer = time.process_time
 
 from . import constants as c
 
@@ -265,11 +276,11 @@ class CVODEIntegrator(Integrator):
         txs, xxs = [], []
         n_steps = 1
         total_walltime = 0.
-        now = time.process_time()
+        now = timer()
         while t_current < t_end:
             if self.console:
                 # Update timing estimates
-                delta_walltime = time.process_time() - now
+                delta_walltime = timer() - now
                 total_walltime += delta_walltime
 
                 # Grab state vars
@@ -280,7 +291,7 @@ class CVODEIntegrator(Integrator):
                 print(step_fmt.format(n_steps, t_current, total_walltime,
                                       delta_walltime, _z, _T, _S))
             try:
-                now = time.process_time()
+                now = timer()
                 out_list = np.linspace(t_current, t_current + t_increment,
                                        n_out + 1)
                 tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
