@@ -32,10 +32,10 @@ jobs:
             conda activate pyrcel
       - run:
           name: Install Pyrcel
-          run: pip install -e .
+          command: pip install -e .
       - run:
           name: Test Pyrcel Simulation
-          run: run_parcel examples/simple.yml
+          command: run_parcel examples/simple.yml
 
 workflows:
   version: 2
