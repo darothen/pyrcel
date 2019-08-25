@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def plot_distribution(aer, aer_kwargs={}, ax=None, **kwargs):
     """ Generate a comparison plot of a given aerosol or
     droplet distribution

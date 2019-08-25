@@ -34,7 +34,6 @@ class BaseDistribution(metaclass=ABCMeta):
         """ Representation function. """
 
 
-
 class Gamma(BaseDistribution):
     """ Gamma size distribution 
 

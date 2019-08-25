@@ -5,14 +5,7 @@ import numpy as np
 from scipy.special import erfc
 
 from . import constants as c
-from .thermo import (
-    es,
-    ka_cont,
-    dv,
-    dv_cont,
-    sigma_w,
-    kohler_crit,
-)
+from .thermo import es, ka_cont, dv, dv_cont, sigma_w, kohler_crit
 
 
 def _unpack_aerosols(aerosols):

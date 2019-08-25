@@ -11,6 +11,7 @@ from . import output
 from .aerosol import AerosolSpecies
 from .thermo import es, Seq, rho_air, kohler_crit
 from .util import ParcelModelError
+
 # Special import of derivative ODE rhs to main namespace
 from ._parcel_aux_numba import parcel_ode_sys
 
@@ -511,6 +512,7 @@ class ParcelModel(object):
             # from .parcel_aux import der as rhs_fcn
             # Numba - JIT
             from ._parcel_aux_numba import parcel_ode_sys as rhs_fcn
+
             # Numba - AOT
             # from .parcel_aux_numba import parcel_ode_sys as rhs_fcn
         except ImportError:
@@ -692,6 +694,7 @@ class ParcelModel(object):
         # Write aerosol data
         for species, data in list(aerosol_data.items()):
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
+
 
 #
 # def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):

@@ -2,6 +2,7 @@
 """ Interface to numerical ODE solvers.
 """
 import sys
+
 # Compatibility - timer functions
 # In Python 3, the more accurate `time.process_time()` method is available. But
 # for legacy support, can default instead to `time.clock()`
