@@ -70,7 +70,7 @@ License
 
 [All scientific code should be licensed](http://www.astrobetter.com/the-whys-and-hows-of-licensing-scientific-code/). This code is released under the New BSD (3-clause) [license](LICENSE.md).
 
-[author_email]: mailto:darothen@mit.edu
+[author_email]: mailto:daniel@danielrothenberg.com
 [nenes2001]: http://nenes.eas.gatech.edu/Preprints/KinLimitations_TellusPP.pdf
 [pk2007]: http://www.atmos-chem-phys.net/7/1961/2007/acp-7-1961-2007.html
 [hplgit]: https://github.com/hplgit/odespy

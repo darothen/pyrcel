@@ -22,7 +22,7 @@ This is an implementation of a simple, 0D adiabatic cloud parcel model tool (fol
 
 You are invited to use the model (in accordance with the `licensing <https://raw
 .githubusercontent.com/darothen/pyrcel/master/LICENSE>`_), but please get in
-touch with the author via `e-mail <mailto:darothen@mit.edu>`_ or on
+touch with the author via `e-mail <mailto:daniel@danielrothenberg.com>`_ or on
 `twitter <https://twitter.com/darothen>`_. p-to-date versions can be obtained
 through the model's `github repository <https://github.com/darothen/pyrcel>`_
 or directly from the author. If you use the model for research, please cite

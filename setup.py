@@ -6,11 +6,6 @@ try:
 except ImportError:
     from distutils.core import setup
 
-# Must have Cython!!
-from Cython.Distutils import build_ext
-from distutils.extension import Extension
-import numpy
-
 from pyrcel._parcel_aux_numba import auxcc
 
 import os
@@ -64,9 +59,9 @@ _write_version_file()
 setup(
     name = "pyrcel",
     author = "Daniel Rothenberg",
-    author_email = "darothen@mit.edu",
+    author_email = "daniel@danielrothenberg.com",
     maintainer = "Daniel Rothenberg",
-    maintainer_email = "darothen@mit.edu",
+    maintainer_email = "daniel@danielrothenberg.com",
     description = "pyrcel: 0D adiabatic cloud parcel model",
     long_description = """
         This code implements a relatively simple, adiabatic cloud parcel model for studying aerosol
@@ -81,7 +76,13 @@ setup(
     download_url = "https://github.com/darothen/pyrcel",
 
     # TODO: Update install requirements and corresponding documentation
-    install_requires = ['numpy', 'scipy', 'pandas', 'future'],
+    install_requires = [
+        'numba==0.45.1',
+        'numpy==0.17.0',
+        'pandas==0.25.1',
+        'scipy==1.3.1',
+        'xarray==0.12.3'
+    ],
     packages = ["pyrcel", ],
     package_data = {
         'pyrcel': ['data/std_atm.csv', ],
@@ -90,19 +91,16 @@ setup(
         'scripts/run_parcel',
     ],
     ext_modules = extensions,
-    cmdclass = {'build_ext': build_ext},
-
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
         'Operating System :: Unix',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-        'Programming Language :: Fortran',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Scientific/Engineering :: Atmospheric Science',
     ],
 )

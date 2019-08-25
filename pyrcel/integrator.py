@@ -147,7 +147,7 @@ class ExtendedProblem(Explicit_Problem):
             # should be looking at self.rhs_args, not self.args (which isn't saved).
             # I'm going to comment out this line which I think is broken and replace it
             # with the correct one for now, but leave a record of this change
-            # Daniel Rothenberg <darothen@mit.edu> - 2/15/2016
+            # Daniel Rothenberg <daniel@danielrothenberg.com> - 2/15/2016
             # dode_dt = np.zeros(c.N_STATE_VARS + self.args[0])  # FROM INIT ARGS
             dode_dt = np.zeros(c.N_STATE_VARS + self.rhs_args[0])
         return dode_dt

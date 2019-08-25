@@ -143,7 +143,7 @@ The code has an
 and I strongly encourage you to note any problems with the model there, such
 as typos or weird behavior and results. Furthermore, I'm looking for ways to
 expand and extend the model, so if there is something you might wish to see
-added, please note it there or `send me an e-mail <mailto:darothen@mit.edu>`_.
+added, please note it there or `send me an e-mail <mailto:daniel@danielrothenberg.com>`_.
 The code was written in such a way that it should be trivial to add physics in a modular fashion.
 
 .. _repository: http://github.com/darothen/pyrcel

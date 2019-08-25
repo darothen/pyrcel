@@ -12,7 +12,7 @@ from __future__ import absolute_import
 
 from .version import __version__
 
-__author__ = "Daniel Rothenberg <darothen@mit.edu>"
+__author__ = "Daniel Rothenberg <daniel@danielrothenberg.com>"
 
 from .activation import *
 from .aerosol import *
