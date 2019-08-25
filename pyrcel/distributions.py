@@ -36,6 +36,7 @@ class Gamma(BaseDistribution):
     """ Gamma size distribution 
 
     """
+
     # TODO: Implement Gamma size distribution
     pass
 
@@ -85,15 +86,15 @@ class Lognorm(BaseDistribution):
         self.base = base
         if self.base == np.e:
             self.log = np.log
-        elif self.base == 10.:
+        elif self.base == 10.0:
             self.log = np.log10
         else:
             self.log_base = np.log(self.base)
-            self.log = lambda x: np.log(x)/self.log_base
+            self.log = lambda x: np.log(x) / self.log_base
 
         # Compute moments
         self.median = self.mu
-        self.mean = self.mu*np.exp(0.5*self.sigma**2)
+        self.mean = self.mu * np.exp(0.5 * self.sigma ** 2)
 
     def invcdf(self, y):
         """ Inverse of cumulative density function.
@@ -112,8 +113,10 @@ class Lognorm(BaseDistribution):
         if (np.any(y) < 0) or (np.any(y) > 1):
             raise ValueError("y must be between (0, 1)")
 
-        erfinv_arg = 2.*y/self.N - 1.
-        return self.mu*np.exp(np.log(self.sigma) * np.sqrt(2.) * erfinv(erfinv_arg))
+        erfinv_arg = 2.0 * y / self.N - 1.0
+        return self.mu * np.exp(
+            np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg)
+        )
 
     def cdf(self, x):
         """ Cumulative density function
@@ -131,8 +134,10 @@ class Lognorm(BaseDistribution):
         value of CDF at ordinate
 
         """
-        erf_arg = (self.log(x/self.mu))/(np.sqrt(2.0)*self.log(self.sigma))
-        return (self.N/2.0)*(1.0+erf(erf_arg))
+        erf_arg = (self.log(x / self.mu)) / (
+            np.sqrt(2.0) * self.log(self.sigma)
+        )
+        return (self.N / 2.0) * (1.0 + erf(erf_arg))
 
     def pdf(self, x):
         """ Probability density function
@@ -150,9 +155,11 @@ class Lognorm(BaseDistribution):
         value of CDF at ordinate
 
         """
-        scaling = self.N/(np.sqrt(2.0*np.pi)*self.log(self.sigma))
-        exponent = ((self.log(x/self.mu))**2)/(2.0*(self.log(self.sigma))**2)
-        return (scaling/x)*np.exp(-exponent)
+        scaling = self.N / (np.sqrt(2.0 * np.pi) * self.log(self.sigma))
+        exponent = ((self.log(x / self.mu)) ** 2) / (
+            2.0 * (self.log(self.sigma)) ** 2
+        )
+        return (scaling / x) * np.exp(-exponent)
 
     def moment(self, k):
         """ Compute the k-th moment of the lognormal distribution
@@ -170,9 +177,9 @@ class Lognorm(BaseDistribution):
         moment of distribution
 
         """
-        scaling = (self.mu**k)*self.N
-        exponent = (((k**2)/2.)*(self.log(self.sigma))**2)
-        return scaling*np.exp(exponent)
+        scaling = (self.mu ** k) * self.N
+        exponent = ((k ** 2) / 2.0) * (self.log(self.sigma)) ** 2
+        return scaling * np.exp(exponent)
 
     @property
     def stats(self):
@@ -187,17 +194,20 @@ class Lognorm(BaseDistribution):
 
         """
         stats_dict = dict()
-        stats_dict['mean_radius'] = self.mu*np.exp(0.5*self.sigma**2)
+        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * self.sigma ** 2)
 
-        stats_dict['total_diameter'] = self.N*stats_dict['mean_radius']
-        stats_dict['total_surface_area'] = 4.*np.pi*self.moment(2.0)
-        stats_dict['total_volume'] = (4.*np.pi/3.)*self.moment(3.0)
+        stats_dict["total_diameter"] = self.N * stats_dict["mean_radius"]
+        stats_dict["total_surface_area"] = 4.0 * np.pi * self.moment(2.0)
+        stats_dict["total_volume"] = (4.0 * np.pi / 3.0) * self.moment(3.0)
 
-        stats_dict['mean_surface_area'] = stats_dict['total_surface_area']/self.N
-        stats_dict['mean_volume'] = stats_dict['total_volume']/self.N
+        stats_dict["mean_surface_area"] = (
+            stats_dict["total_surface_area"] / self.N
+        )
+        stats_dict["mean_volume"] = stats_dict["total_volume"] / self.N
 
-        stats_dict['effective_radius'] = \
-            stats_dict['total_volume']/stats_dict['total_surface_area']
+        stats_dict["effective_radius"] = (
+            stats_dict["total_volume"] / stats_dict["total_surface_area"]
+        )
 
         return stats_dict
 
@@ -218,6 +228,7 @@ class MultiModeLognorm(BaseDistribution):
 
         dist_params = list(zip(mus, sigmas, Ns))
         from operator import itemgetter
+
         dist_params = sorted(dist_params, key=itemgetter(0))
 
         self.mus, self.sigmas, self.Ns = list(zip(*dist_params))
@@ -236,63 +247,96 @@ class MultiModeLognorm(BaseDistribution):
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
     def __repr__(self):
-        mus_str = "("+", ".join("%2.2e" % mu for mu in self.mus)+")"
-        sigmas_str = "("+", ".join("%2.2e" % sigma for sigma in self.sigmas)+")"
-        Ns_str = "("+", ".join("%2.2e" % N for N in self.Ns)+")"
+        mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"
+        sigmas_str = (
+            "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
+        )
+        Ns_str = "(" + ", ".join("%2.2e" % N for N in self.Ns) + ")"
         return "MultiModeLognorm| mus = {}, sigmas = {}, Totals = {} |".format(
             mus_str, sigmas_str, Ns_str
         )
+
 
 #: Single mode aerosols
 # TODO: Re-factor saved size distributions into a resource like 'constants'
 
 FN2005_single_modes = {
-    'SM1': Lognorm(0.025/2, 1.3, 100.0),
-    'SM2': Lognorm(0.025/2, 1.3, 500.0),
-    'SM3': Lognorm(0.05/2, 1.8, 500.0),
-    'SM4': Lognorm(0.25/2, 1.8, 100.0),
-    'SM5': Lognorm(0.75/2, 1.8, 1000.0),
+    "SM1": Lognorm(0.025 / 2, 1.3, 100.0),
+    "SM2": Lognorm(0.025 / 2, 1.3, 500.0),
+    "SM3": Lognorm(0.05 / 2, 1.8, 500.0),
+    "SM4": Lognorm(0.25 / 2, 1.8, 100.0),
+    "SM5": Lognorm(0.75 / 2, 1.8, 1000.0),
 }
 
 NS2003_single_modes = {
-    'SM1': Lognorm(0.02/2, 2.5, 200.0),
-    'SM2': Lognorm(0.02/2, 2.5, 1000.0),
-    'SM3': Lognorm(0.02/2, 1.5, 1000.0),
-    'SM4': Lognorm(0.2/2, 2.5, 200.0),
-    'SM5': Lognorm(0.02/2, 2.5, 10000.0),
+    "SM1": Lognorm(0.02 / 2, 2.5, 200.0),
+    "SM2": Lognorm(0.02 / 2, 2.5, 1000.0),
+    "SM3": Lognorm(0.02 / 2, 1.5, 1000.0),
+    "SM4": Lognorm(0.2 / 2, 2.5, 200.0),
+    "SM5": Lognorm(0.02 / 2, 2.5, 10000.0),
 }
 
 whitby_distributions = {
     # name: [nucleation, accumulation, coarse]
     #        mu = micron, N = cm**-3
-    'marine': [Lognorm(0.01/2., 1.6, 340.), Lognorm(0.07/2., 2., 6.0),
-               Lognorm(0.62/2., 2.7, 3.1)],
-    'continental': [Lognorm(0.016/2., 1.6, 1000.), Lognorm(0.068/2., 2.1, 800.),
-                    Lognorm(0.92/2., 2.2, 0.72)],
-    'background': [Lognorm(0.01/2., 1.7, 6400.), Lognorm(0.076/2., 2., 2300.0),
-                   Lognorm(1.02/2., 2.16, 3.2)],
-    'urban': [Lognorm(0.014/2., 1.8, 10600.), Lognorm(0.054/2., 2.16, 32000.0),
-              Lognorm(0.86/2., 2.21, 5.4)]
+    "marine": [
+        Lognorm(0.01 / 2.0, 1.6, 340.0),
+        Lognorm(0.07 / 2.0, 2.0, 6.0),
+        Lognorm(0.62 / 2.0, 2.7, 3.1),
+    ],
+    "continental": [
+        Lognorm(0.016 / 2.0, 1.6, 1000.0),
+        Lognorm(0.068 / 2.0, 2.1, 800.0),
+        Lognorm(0.92 / 2.0, 2.2, 0.72),
+    ],
+    "background": [
+        Lognorm(0.01 / 2.0, 1.7, 6400.0),
+        Lognorm(0.076 / 2.0, 2.0, 2300.0),
+        Lognorm(1.02 / 2.0, 2.16, 3.2),
+    ],
+    "urban": [
+        Lognorm(0.014 / 2.0, 1.8, 10600.0),
+        Lognorm(0.054 / 2.0, 2.16, 32000.0),
+        Lognorm(0.86 / 2.0, 2.21, 5.4),
+    ],
 }
 
 # Source = Aerosol-Cloud-Climate Interactions by Peter V. Hobbs, pg. 14
 jaenicke_distributions = {
-    "Polar": MultiModeLognorm(mus=(0.0689, 0.375, 4.29),
-                              sigmas=(10**0.245, 10**0.300, 10**0.291),
-                              Ns=(21.7, 0.186, 3.04e-4), base=10.),
-    "Urban": MultiModeLognorm(mus=(0.00651, 0.00714, 0.0248),
-                              sigmas=(10.**0.245, 10.**0.666, 10.**0.337),
-                              Ns=(9.93e4, 1.11e3, 3.64e4), base=10.),
-    "Background": MultiModeLognorm(mus=(0.0036, 0.127, 0.259),
-                                   sigmas=(10.**0.645, 10.**0.253, 10.**0.425),
-                                   Ns=(129., 59.7, 63.5), base=10.),
-    "Maritime": MultiModeLognorm(mus=(0.0039, 0.133, 0.29),
-                                 sigmas=(10.**0.657, 10.**0.210, 10.**0.396),
-                                 Ns=(133., 66.6, 3.06), base=10.),
-    "Remote Continental": MultiModeLognorm(mus=(0.01, 0.058, 0.9),
-                                           sigmas=(10.**0.161, 10.**0.217, 10.**0.38),
-                                           Ns=(3.2e3, 2.9e3, 0.3), base=10.),
-    "Rural": MultiModeLognorm(mus=(0.00739, 0.0269, 0.0149),
-                              sigmas=(10.**0.225, 10.**0.557, 10.**0.266),
-                              Ns=(6.65e3, 147., 1990.), base=10.),
+    "Polar": MultiModeLognorm(
+        mus=(0.0689, 0.375, 4.29),
+        sigmas=(10 ** 0.245, 10 ** 0.300, 10 ** 0.291),
+        Ns=(21.7, 0.186, 3.04e-4),
+        base=10.0,
+    ),
+    "Urban": MultiModeLognorm(
+        mus=(0.00651, 0.00714, 0.0248),
+        sigmas=(10.0 ** 0.245, 10.0 ** 0.666, 10.0 ** 0.337),
+        Ns=(9.93e4, 1.11e3, 3.64e4),
+        base=10.0,
+    ),
+    "Background": MultiModeLognorm(
+        mus=(0.0036, 0.127, 0.259),
+        sigmas=(10.0 ** 0.645, 10.0 ** 0.253, 10.0 ** 0.425),
+        Ns=(129.0, 59.7, 63.5),
+        base=10.0,
+    ),
+    "Maritime": MultiModeLognorm(
+        mus=(0.0039, 0.133, 0.29),
+        sigmas=(10.0 ** 0.657, 10.0 ** 0.210, 10.0 ** 0.396),
+        Ns=(133.0, 66.6, 3.06),
+        base=10.0,
+    ),
+    "Remote Continental": MultiModeLognorm(
+        mus=(0.01, 0.058, 0.9),
+        sigmas=(10.0 ** 0.161, 10.0 ** 0.217, 10.0 ** 0.38),
+        Ns=(3.2e3, 2.9e3, 0.3),
+        base=10.0,
+    ),
+    "Rural": MultiModeLognorm(
+        mus=(0.00739, 0.0269, 0.0149),
+        sigmas=(10.0 ** 0.225, 10.0 ** 0.557, 10.0 ** 0.266),
+        Ns=(6.65e3, 147.0, 1990.0),
+        base=10.0,
+    ),
 }

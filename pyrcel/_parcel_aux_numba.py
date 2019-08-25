@@ -11,7 +11,7 @@ PI = 3.14159265358979323846264338328
 N_STATE_VARS = c.N_STATE_VARS
 
 # AOT/numba stuff
-auxcc = CC('parcel_aux_numba')
+auxcc = CC("parcel_aux_numba")
 auxcc.verbose = True
 
 

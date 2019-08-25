@@ -524,6 +524,7 @@ class ParcelModel(object):
         try:
             # Cython
             from .parcel_aux import der as der_fcn
+
             # Numba - JIT
             # from ._parcel_aux_numba import der as der_fcn
             # Numba - AOT

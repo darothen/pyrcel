@@ -11,10 +11,12 @@ import numpy as np
 import warnings
 
 import sys
+
 # Compatibility - timer functions
 # In Python 3, the more accurate `time.process_time()` method is available. But
 # for legacy support, can default instead to `time.clock()`
 import time
+
 if sys.version_info[0] < 3:
     timer = time.clock
 else:
@@ -22,29 +24,35 @@ else:
 
 from . import constants as c
 
-available_integrators = ['odeint']
+available_integrators = ["odeint"]
 
 try:
     from odespy.odepack import Lsode, Lsoda
     from odespy import Vode
-    available_integrators.extend(['lsode', 'lsoda', 'vode'])
+
+    available_integrators.extend(["lsode", "lsoda", "vode"])
 except ImportError:
-    warnings.warn("Could not import odespy package; "
-                  "invoking the 'lsoda' or 'lsode' options will fail!")
+    warnings.warn(
+        "Could not import odespy package; "
+        "invoking the 'lsoda' or 'lsode' options will fail!"
+    )
 
 
 try:
     from assimulo.problem import Explicit_Problem
     from assimulo.solvers.sundials import CVode, CVodeError
+
     # from assimulo.solvers.odepack import LSODAR
     from assimulo.exception import TimeLimitExceeded
-    available_integrators.extend(['cvode', 'lsodar'])
+
+    available_integrators.extend(["cvode", "lsodar"])
 except ImportError:
-    warnings.warn("Could not import Assimulo; "
-                  "invoking the CVode solver will fail!")
+    warnings.warn(
+        "Could not import Assimulo; " "invoking the CVode solver will fail!"
+    )
 
 
-__all__ = ['Integrator', ]
+__all__ = ["Integrator"]
 
 state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 state_rtol = 1e-7
@@ -60,7 +68,9 @@ class Integrator(with_metaclass(ABCMeta, object)):
 
     """
 
-    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False):
+    def __init__(
+        self, rhs, output_dt, solver_dt, y0, args, t0=0.0, console=False
+    ):
 
         self.output_dt = output_dt
         self.solver_dt = solver_dt
@@ -98,8 +108,7 @@ class Integrator(with_metaclass(ABCMeta, object)):
             # # Assimulo interfaces
             # 'cvode': partial(Integrator._solve_with_assimulo, method='cvode'),
             # 'lsodar': partial(Integrator._solve_with_assimulo, method='lsodar'),
-
-            'cvode': CVODEIntegrator,
+            "cvode": CVODEIntegrator
         }
 
         if method in available_integrators:
@@ -116,11 +125,8 @@ class ExtendedProblem(Explicit_Problem):
     specifically rules for terminating the simulation and detecting
     events such as the maximum supersaturation occurring """
 
-    name = 'Parcel model ODEs'
-    sw0 = [
-        True,   # Normal integration switch
-        False,  # Past cut-off switch
-    ]
+    name = "Parcel model ODEs"
+    sw0 = [True, False]  # Normal integration switch  # Past cut-off switch
     t_cutoff = 1e5
     dS_dt = 1.0
 
@@ -128,7 +134,7 @@ class ExtendedProblem(Explicit_Problem):
         self.rhs_fcn = rhs_fcn
         self.rhs_args = rhs_args
         self.V = rhs_args[3]
-        self.terminate_time = terminate_depth/self.V
+        self.terminate_time = terminate_depth / self.V
         super(Explicit_Problem, self).__init__(*args, **kwargs)
 
     def rhs(self, t, y, sw):
@@ -163,7 +169,9 @@ class ExtendedProblem(Explicit_Problem):
     def handle_event(self, solver, event_info):
         """ Event handling. This function is called when Assimulo finds
         an event as specified by the event function. """
-        event_info = event_info[0]  # Only state events, event_info[1] is time events
+        event_info = event_info[
+            0
+        ]  # Only state events, event_info[1] is time events
         if event_info[0] != 0:
             solver.sw[0] = False
             self.t_cutoff = solver.t + self.terminate_time
@@ -175,10 +183,23 @@ class ExtendedProblem(Explicit_Problem):
 
 class CVODEIntegrator(Integrator):
 
-    kwargs = None  # Save the kwargs used for setting up the interface to CVODE!
+    kwargs = (
+        None
+    )  # Save the kwargs used for setting up the interface to CVODE!
 
-    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0., console=False,
-                 terminate=False, terminate_depth=100., **kwargs):
+    def __init__(
+        self,
+        rhs,
+        output_dt,
+        solver_dt,
+        y0,
+        args,
+        t0=0.0,
+        console=False,
+        terminate=False,
+        terminate_depth=100.0,
+        **kwargs
+    ):
         self.terminate = terminate
         super(CVODEIntegrator, self).__init__(
             rhs, output_dt, solver_dt, y0, args, t0, console
@@ -186,8 +207,9 @@ class CVODEIntegrator(Integrator):
 
         # Setup solver
         if terminate:
-            self.prob = ExtendedProblem(self.rhs, self.args, terminate_depth,
-                                        y0=self.y0)
+            self.prob = ExtendedProblem(
+                self.rhs, self.args, terminate_depth, y0=self.y0
+            )
         else:
             self.prob = Explicit_Problem(self.rhs, self.y0)
 
@@ -203,36 +225,36 @@ class CVODEIntegrator(Integrator):
 
         # Create Assimulo interface
         sim = CVode(self.prob)
-        sim.discr = 'BDF'
+        sim.discr = "BDF"
         sim.maxord = 5
 
         # Setup some default arguments for the ODE solver, or override
         # if available. This is very hackish, but it's fine for now while
         # the number of anticipated tuning knobs is small.
-        if 'maxh' in kwargs:
-            sim.maxh = kwargs['maxh']
+        if "maxh" in kwargs:
+            sim.maxh = kwargs["maxh"]
         else:
             sim.maxh = np.min([0.1, self.output_dt])
 
-        if 'minh' in kwargs:
-            sim.minh = kwargs['minh']
+        if "minh" in kwargs:
+            sim.minh = kwargs["minh"]
         # else: sim.minh = 0.001
 
         if "iter" in kwargs:
-            sim.iter = kwargs['iter']
+            sim.iter = kwargs["iter"]
         else:
-            sim.iter = 'Newton'
+            sim.iter = "Newton"
 
         if "linear_solver" in kwargs:
-            sim.linear_solver = kwargs['linear_solver']
+            sim.linear_solver = kwargs["linear_solver"]
 
         if "max_steps" in kwargs:  # DIFFERENT NAME!!!!
-            sim.maxsteps = kwargs['max_steps']
+            sim.maxsteps = kwargs["max_steps"]
         else:
             sim.maxsteps = 1000
 
         if "time_limit" in kwargs:
-            sim.time_limit = kwargs['time_limit']
+            sim.time_limit = kwargs["time_limit"]
             sim.report_continuously = True
         else:
             sim.time_limit = 0.0
@@ -243,7 +265,7 @@ class CVODEIntegrator(Integrator):
         # Setup tolerances
         nr = self.args[0]
         sim.rtol = state_rtol
-        sim.atol = state_atol + [1e-12]*nr
+        sim.atol = state_atol + [1e-12] * nr
 
         if not self.console:
             sim.verbosity = 50
@@ -260,22 +282,28 @@ class CVODEIntegrator(Integrator):
         # 1) How are we iterating the solver loop?
         t_increment = self.solver_dt
         # 2) How many points do we want to interpolate for output?
-        n_out = int(self.solver_dt/self.output_dt)
+        n_out = int(self.solver_dt / self.output_dt)
         t_current = self.t0
 
         if self.console:
             print()
             print("Integration Loop")
             print()
-            print("  step     time  walltime  Δwalltime |     z       T       S")
-            print(" "
-                  "------------------------------------|----------------------")
-            step_fmt = " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |" \
-                       " {:5.1f} {:7.2f} {:6.2f}%"
+            print(
+                "  step     time  walltime  Δwalltime |     z       T       S"
+            )
+            print(
+                " "
+                "------------------------------------|----------------------"
+            )
+            step_fmt = (
+                " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |"
+                " {:5.1f} {:7.2f} {:6.2f}%"
+            )
 
         txs, xxs = [], []
         n_steps = 1
-        total_walltime = 0.
+        total_walltime = 0.0
         now = timer()
         while t_current < t_end:
             if self.console:
@@ -285,16 +313,28 @@ class CVODEIntegrator(Integrator):
 
                 # Grab state vars
                 state = self.y0 if n_steps == 1 else xxs[-1][-1]
-                _z = state[c.STATE_VAR_MAP['z']]
-                _T = state[c.STATE_VAR_MAP['T']]
-                _S = state[c.STATE_VAR_MAP['S']]*100
-                print(step_fmt.format(n_steps, t_current, total_walltime,
-                                      delta_walltime, _z, _T, _S))
+                _z = state[c.STATE_VAR_MAP["z"]]
+                _T = state[c.STATE_VAR_MAP["T"]]
+                _S = state[c.STATE_VAR_MAP["S"]] * 100
+                print(
+                    step_fmt.format(
+                        n_steps,
+                        t_current,
+                        total_walltime,
+                        delta_walltime,
+                        _z,
+                        _T,
+                        _S,
+                    )
+                )
             try:
                 now = timer()
-                out_list = np.linspace(t_current, t_current + t_increment,
-                                       n_out + 1)
-                tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
+                out_list = np.linspace(
+                    t_current, t_current + t_increment, n_out + 1
+                )
+                tx, xx = self.sim.simulate(
+                    t_current + t_increment, 0, out_list
+                )
             except CVodeError as e:
                 raise ValueError("Something broke in CVode: %r" % e)
             except TimeLimitExceeded:

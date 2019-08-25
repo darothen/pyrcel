@@ -11,7 +11,6 @@ try:
 except ImportError:
     import unittest
 
+
 def prod_to_array(*iterables):
     return np.array(list(product(*iterables)))
-
-

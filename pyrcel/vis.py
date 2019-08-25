@@ -5,8 +5,8 @@ import pyrcel as pm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def plot_distribution(aer, aer_kwargs={},
-                      ax=None, **kwargs):
+
+def plot_distribution(aer, aer_kwargs={}, ax=None, **kwargs):
     """ Generate a comparison plot of a given aerosol or
     droplet distribution
 
@@ -26,20 +26,22 @@ def plot_distribution(aer, aer_kwargs={},
         raise ValueError("Must provide axes instance for plotting.")
 
     ## Add some basic aer_kwargs if not provided
-    if not 'color' in aer_kwargs: aer_kwargs['color'] = 'g'
-    if not 'alpha' in aer_kwargs: aer_kwargs['alpha'] = 0.5
+    if not "color" in aer_kwargs:
+        aer_kwargs["color"] = "g"
+    if not "alpha" in aer_kwargs:
+        aer_kwargs["alpha"] = 0.5
 
     rl, rr = aer.rs[0], aer.rs[-1]
     r_left = aer.rs[:-1]
     r_width = aer.rs[1:] - r_left
-    r_mean = np.sqrt(aer.rs[1:]*r_left)
-    bin_height = aer.Nis/1e6
+    r_mean = np.sqrt(aer.rs[1:] * r_left)
+    bin_height = aer.Nis / 1e6
     bars = ax.bar(r_left, bin_height, width=r_width, **aer_kwargs)
-    
-    legend_objects = [(bars[0], "%s bins" % aer.species), ]
-    
+
+    legend_objects = [(bars[0], "%s bins" % aer.species)]
+
     handles, labels = list(zip(*legend_objects))
-    ax.legend(handles, labels, loc='upper right')
+    ax.legend(handles, labels, loc="upper right")
 
     ax.semilogx()
     ax.set_xlim([rl, rr])

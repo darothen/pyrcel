@@ -11,10 +11,11 @@ from builtins import map
 import numpy as np
 from scipy.optimize import fminbound
 
-from . constants import *
+from .constants import *
 
 
 # THERMODYNAMIC FUNCTIONS
+
 
 def dv_cont(T, P):
     """ Diffusivity of water vapor in air, neglecting non-continuum effects.
@@ -38,8 +39,8 @@ def dv_cont(T, P):
     dv : includes correction for non-continuum effects
 
     """
-    P_atm = P*1.01325e-5  # Pa -> atm
-    return 1e-4*(0.211/P_atm)*((T/273.)**1.94)
+    P_atm = P * 1.01325e-5  # Pa -> atm
+    return 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
 
 
 def dv(T, r, P, accom=ac):
@@ -95,8 +96,8 @@ def dv(T, r, P, accom=ac):
 
     """
     dv_t = dv_cont(T, P)
-    denom = 1.0 + (dv_t/(accom*r))*np.sqrt((2.*np.pi*Mw)/(R*T))
-    return dv_t/denom
+    denom = 1.0 + (dv_t / (accom * r)) * np.sqrt((2.0 * np.pi * Mw) / (R * T))
+    return dv_t / denom
 
 
 def rho_air(T, P, RH=1.0):
@@ -132,9 +133,9 @@ def rho_air(T, P, RH=1.0):
        Sundog Publishing, 2006. Print.
 
     """
-    qsat = RH*0.622*(es(T-273.15)/P)
-    Tv = T*(1.0 + 0.61*qsat)
-    rho_a = P/Rd/Tv  # air density
+    qsat = RH * 0.622 * (es(T - 273.15) / P)
+    Tv = T * (1.0 + 0.61 * qsat)
+    rho_a = P / Rd / Tv  # air density
 
     return rho_a
 
@@ -172,7 +173,7 @@ def es(T_c):
        Burlington, MA: Butterworth Heinemann, 1989.
 
     """
-    return 611.2*np.exp(17.67*T_c/(T_c+243.5))
+    return 611.2 * np.exp(17.67 * T_c / (T_c + 243.5))
 
 
 def ka_cont(T):
@@ -195,7 +196,7 @@ def ka_cont(T):
     ka : includes correction for non-continuum effects.
 
     """
-    return 1e-3*(4.39 + 0.071*T)
+    return 1e-3 * (4.39 + 0.071 * T)
 
 
 def ka(T, rho, r):
@@ -246,8 +247,10 @@ def ka(T, rho, r):
 
     """
     ka_t = ka_cont(T)
-    denom = 1.0 + (ka_t/(at*r*rho*Cp))*np.sqrt((2.*np.pi*Ma)/(R*T))
-    return ka_t/denom
+    denom = 1.0 + (ka_t / (at * r * rho * Cp)) * np.sqrt(
+        (2.0 * np.pi * Ma) / (R * T)
+    )
+    return ka_t / denom
 
 
 def sigma_w(T):
@@ -269,7 +272,7 @@ def sigma_w(T):
         :math:`\sigma_w(T)` in J/m^2
 
     """
-    return 0.0761 - 1.55e-4*(T-273.15)
+    return 0.0761 - 1.55e-4 * (T - 273.15)
 
 
 # KOHLER THEORY FUNCTIONS
@@ -327,9 +330,9 @@ def Seq(r, r_dry, T, kappa):
     kohler_crit : compute critical radius and equilibrium supersaturation
 
     """
-    A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    B = (r**3 - (r_dry**3))/(r**3 - (r_dry**3)*(1.-kappa))
-    s = np.exp(A)*B - 1.0
+    A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w * r)
+    B = (r ** 3 - (r_dry ** 3)) / (r ** 3 - (r_dry ** 3) * (1.0 - kappa))
+    s = np.exp(A) * B - 1.0
     return s
 
 
@@ -372,8 +375,10 @@ def Seq_approx(r, r_dry, T, kappa):
     kohler_crit : compute critical radius and equilibrium supersaturation
 
     """
-    A = (2.*Mw*sigma_w(T))/(R*T*rho_w*r)
-    return A - kappa*(r_dry**3)/(r**3)  # the minus 1.0 is built into this  expression
+    A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w * r)
+    return A - kappa * (r_dry ** 3) / (
+        r ** 3
+    )  # the minus 1.0 is built into this  expression
 
 
 def kohler_crit(T, r_dry, kappa, approx=False):
@@ -413,14 +418,15 @@ def kohler_crit(T, r_dry, kappa, approx=False):
 
     """
     if approx:
-        A = (2.*Mw*sigma_w(T))/(R*T*rho_w)
-        s_crit = np.sqrt((4.*(A**3))/(27*kappa*(r_dry**3)))
-        r_crit = np.sqrt((3.*kappa*(r_dry**3))/A)
+        A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w)
+        s_crit = np.sqrt((4.0 * (A ** 3)) / (27 * kappa * (r_dry ** 3)))
+        r_crit = np.sqrt((3.0 * kappa * (r_dry ** 3)) / A)
 
     else:
-        neg_Seq = lambda r : -1.*Seq(r, r_dry, T, kappa)
-        out = fminbound(neg_Seq, r_dry, r_dry*1e4,
-                        xtol=1e-10, full_output=True, disp=0)
+        neg_Seq = lambda r: -1.0 * Seq(r, r_dry, T, kappa)
+        out = fminbound(
+            neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0
+        )
         r_crit, s_crit = out[:2]
         s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq
 
@@ -454,6 +460,7 @@ def critical_curve(T, r_a, r_b, kappa, approx=False):
     kohler_crit : critical supersaturation calculation
 
     """
+
     def crit_func(rd):
         kohler_crit(T, rd, kappa, approx)
 
@@ -464,6 +471,7 @@ def critical_curve(T, r_a, r_b, kappa, approx=False):
     scrits = ss[:, 1]
 
     return rs, rcrits, scrits
+
 
 # MICROPHYSICS
 
@@ -499,4 +507,4 @@ def r_eff(rho, wc, Ni):
         Not completely implemented yet.
 
     """
-    return (3.*rho*wc/(4.*np.pi*rho_w*Ni))**(1./3.)
+    return (3.0 * rho * wc / (4.0 * np.pi * rho_w * Ni)) ** (1.0 / 3.0)
