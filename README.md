@@ -3,7 +3,7 @@ pyrcel: cloud parcel model
 
 ![sample parcel model run](doc/figs/model_example.png)
 
-[![DOI](https://zenodo.org/badge/12927551.svg)](https://zenodo.org/badge/latestdoi/12927551)[![PyPI Version](https://badge.fury.io/py/pyrcel.svg)](https://badge.fury.io/py/pyrcel)[![Build Status](https://travis-ci.org/darothen/pyrcel.svg?branch=master)](https://travis-ci.org/darothen/pyrcel)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](http://pyrcel.readthedocs.org/en/stable/?badge=stable)
+[![DOI](https://zenodo.org/badge/12927551.svg)](https://zenodo.org/badge/latestdoi/12927551)[![PyPI Version](https://badge.fury.io/py/pyrcel.svg)](https://badge.fury.io/py/pyrcel)[![Build Status](https://travis-ci.org/darothen/pyrcel.svg?branch=master)](https://travis-ci.org/darothen/pyrcel)[![CircleCI Build Status](https://circleci.com/gh/darothen/pyrcel/tree/master.svg?style=svg)](https://circleci.com/gh/darothen/pyrcel/tree/master)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](http://pyrcel.readthedocs.org/en/stable/?badge=stable)
 
 
 This is an implementation of a simple, adiabatic cloud parcel model for use in

@@ -2,14 +2,15 @@
 pyrcel: cloud parcel model
 ==========================
 
-|DOI|\ |PyPI version|\ |Build Status|\ |Documentation Status|
+|DOI|\ |PyPI version|\ |Build Status|\ |Documentation Status|\ |Code Style|
 
 .. |DOI| image:: https://zenodo.org/badge/12927551.svg
    :target: https://zenodo.org/badge/latestdoi/12927551
 .. |PyPI version| image:: https://badge.fury.io/py/pyrcel.svg
    :target: https://badge.fury.io/py/pyrcel
-.. |Build Status| image:: https://travis-ci.org/darothen/pyrcel.svg?branch=master
-   :target: https://travis-ci.org/darothen/pyrcel
+.. |Build Status| image:: https://circleci.com/gh/darothen/pyrcel/tree/master
+.svg?style=svg
+   :target: https://circleci.com/gh/darothen/pyrcel/tree/master
 .. |Documentation Status| image:: https://readthedocs.org/projects/pyrcel/badge/?version=stable
    :target: http://pyrcel.readthedocs.org/en/stable/?badge=stable
 .. |Code Style| image:: https://img.shields.io/badge/code%20style-black-000000

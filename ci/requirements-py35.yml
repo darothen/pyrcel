@@ -6,6 +6,7 @@ dependencies:
     - gcc_linux-64
     - gxx_linux-64
     - assimulo
+    - cython>=0.19
     - numba
     - numpy
     - pandas
