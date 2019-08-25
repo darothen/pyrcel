@@ -84,9 +84,6 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     with the state vector (i.e. if being used as the callback function in an ODE
     solver).
 
-    This function is implemented in NumPy and Python, and is likely *very* slow
-    compared to the available Cython version.
-
     Parameters
     ----------
     y : array_like
@@ -122,12 +119,9 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
 
     Notes
     -----
-    This Python sketch of the derivative function shouldn't really be used for
-    any computational purposes. Instead, see the cythonized version in the auxiliary
-    file, **parcel_aux.pyx**. In the default configuration, once the code has been
-    built, you can set the environmental variable **OMP_NUM_THREADS** to control
-    the parallel for loop which calculates the condensational growth rate for each
-    bin.
+    This function is implemented using numba; it does not need to be just-in-
+    time compiled in order ot function correctly, but it is set up ahead of time
+    so that the internal loop over each bin growth term is parallelized.
 
     """
     z = y[0]
@@ -221,12 +215,10 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     """
 
     ## GHAN (2011)
-    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T ** 2)) - (c.g * c.Ma) / (
-        c.R * T
-    )
-    gamma = (P * c.Ma) / (c.Mw * pv_sat) + (c.Mw * c.L * c.L) / (
-        c.Cp * c.R * T * T
-    )
+    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T ** 2))
+    alpha -= (c.g * c.Ma) / (c.R * T)
+    gamma = (P * c.Ma) / (c.Mw * pv_sat)
+    gamma += (c.Mw * c.L * c.L) / (c.Cp * c.R * T * T)
     dS_dt = alpha * V - gamma * dwc_dt
 
     # x = np.empty(shape=(nr+N_STATE_VARS), dtype='d')
