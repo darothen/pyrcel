@@ -31,8 +31,8 @@ Requirements
 
 **Required**
 
-* Python
-    + Python 3 is strongly encouraged; Python 2.7 is supported via [future](http://python-future.org/). Python 2.6 is **not** supported!
+* Python >= 3.5
+* [numba](http://numba.pydata.org)
 * [NumPy](http://www.numpy.org)
 * [SciPy](http://www.scipy.org)
 * [pandas](http://pandas.pydata.org) - v0.17+
@@ -43,7 +43,6 @@ Requirements
 
 The following packages are used for better numerics (ODE solving)
 
-* [odespy](http://hplgit.github.io/odespy/doc/web/index.html) (*Python 2.7 only*)
 * [Assimulo](http://www.jmodelica.org/assimulo)
 
 The easiest way to satisfy the basic requirements for building and running the

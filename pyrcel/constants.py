@@ -43,11 +43,7 @@ height level.
 
 """
 import pandas as pd
-from io import StringIO
 import pkg_resources
-from future import standard_library
-
-standard_library.install_aliases()
 
 g = 9.81  #: Gravitational constant, m/s^2
 Cp = 1004.0  #: Specific heat of dry air at constant pressure, J/kg

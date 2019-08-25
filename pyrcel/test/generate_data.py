@@ -1,7 +1,5 @@
 """ Generate test case data for future reference.
 """
-from __future__ import absolute_import, print_function
-
 from pyrcel import thermo
 
 from itertools import product

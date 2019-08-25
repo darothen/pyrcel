@@ -6,16 +6,13 @@ included here, with the notion that this package could be extended to
 describe droplet size distributions or other collections of objects.
 
 """
-from builtins import zip
-from builtins import object
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from scipy.special import erf, erfinv
-from future.utils import with_metaclass
 
 
-class BaseDistribution(with_metaclass(ABCMeta, object)):
+class BaseDistribution(metaclass=ABCMeta):
     """ Interface for distributions, to ensure that they contain a pdf method.
     """
 

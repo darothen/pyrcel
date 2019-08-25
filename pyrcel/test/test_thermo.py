@@ -4,8 +4,6 @@ Most of these test cases just compare the current version of the code's results
 for parameter sets versus a reference to serve as basic regression testing.
 
 """
-from __future__ import absolute_import
-
 import os, pickle
 import unittest
 

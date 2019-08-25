@@ -1,14 +1,10 @@
 #!/usr/env python
 
-from __future__ import print_function
 import numpy as np
 import pandas as pd
 import time
 
 import matplotlib.pyplot as plt
-import seaborn as sns
-
-sns.set_style("darkgrid")
 
 import pyrcel as pm
 from pyrcel.postprocess import simulation_activation

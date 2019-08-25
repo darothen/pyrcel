@@ -1,11 +1,5 @@
 """ Main implementation of parcel model.
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import zip
-from builtins import range
-from builtins import object
-
 import os
 
 from scipy.optimize import bisect

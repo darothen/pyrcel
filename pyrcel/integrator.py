@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """ Interface to numerical ODE solvers.
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import object
-from future.utils import with_metaclass
 from abc import ABCMeta, abstractmethod
-import time
 import numpy as np
 import warnings
 
@@ -58,7 +53,7 @@ state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 state_rtol = 1e-7
 
 
-class Integrator(with_metaclass(ABCMeta, object)):
+class Integrator(metaclass=ABCMeta):
     """
     Container class for the various integrators to use in the parcel model.
 

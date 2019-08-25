@@ -10,10 +10,6 @@ serve as an example for more complex integration strategies. Alternatively,
 its output.
 
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from builtins import range
-
 from numpy import empty, nan
 from pandas import DataFrame
 

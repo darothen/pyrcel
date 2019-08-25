@@ -73,9 +73,7 @@ Necessary dependencies
 
 - `Assimulo <http://www.jmodelica.org/assimulo_home/index.html>`_
 
-- `Cython <http://cython.org/>`_
-
-- `future <http://python-future.org/>`_
+- `numba <http://numba.pydata.org>`_
 
 - `numpy <http://www.numpy.org/>`_
 

@@ -1,10 +1,6 @@
 """ Collection of activation parameterizations.
 
 """
-from __future__ import absolute_import
-from builtins import zip
-from builtins import range
-
 import numpy as np
 from scipy.special import erfc
 
