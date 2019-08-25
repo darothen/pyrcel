@@ -1,7 +1,7 @@
 name: pyrcel
 dependencies:
     - python=2.7
-    - Assimulo
+    - assimulo
     - pandas
     - pyyaml
     - scipy
@@ -11,3 +11,4 @@ dependencies:
     - numpydoc
     - ipython
     - sphinx
+    - sphinx_rtd_theme
