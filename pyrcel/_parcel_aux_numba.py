@@ -20,7 +20,7 @@ auxcc.verbose = True
 @nb.njit()
 @auxcc.export("sigma_w", "f8(f8)")
 def sigma_w(T):
-    """See :func:`pyrcel.micro.sigma_w` for full documentation
+    """See :func:`pyrcel.thermo.sigma_w` for full documentation
     """
     return 0.0761 - (1.55e-4) * (T - 273.15)
 
@@ -28,7 +28,7 @@ def sigma_w(T):
 @nb.njit()
 @auxcc.export("ka", "f8(f8, f8, f8)")
 def ka(T, r, rho):
-    """See :func:`pyrcel.micro.ka` for full documentation
+    """See :func:`pyrcel.thermo.ka` for full documentation
     """
     ka_cont = 1e-3 * (4.39 + 0.071 * T)
     denom = 1.0 + (ka_cont / (c.at * r * rho * c.Cp)) * np.sqrt(
@@ -40,7 +40,7 @@ def ka(T, r, rho):
 @nb.njit()
 @auxcc.export("dv", "f8(f8, f8, f8, f8)")
 def dv(T, r, P, accom):
-    """See :func:`pyrcel.micro.dv` for full documentation
+    """See :func:`pyrcel.thermo.dv` for full documentation
     """
     P_atm = P * 1.01325e-5  # Pa -> atm
     dv_cont = 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
@@ -53,7 +53,7 @@ def dv(T, r, P, accom):
 @nb.njit()
 @auxcc.export("es", "f8(f8)")
 def es(T):
-    """See :func:`pyrcel.micro.es` for full documentation
+    """See :func:`pyrcel.thermo.es` for full documentation
     """
     return 611.2 * np.exp(17.67 * T / (T + 243.5))
 
@@ -61,7 +61,7 @@ def es(T):
 @nb.njit()
 @auxcc.export("Seq", "f8(f8, f8, f8)")
 def Seq(r, r_dry, T, kappa):
-    """See :func:`pyrcel.micro.Seq` for full documentation.
+    """See :func:`pyrcel.thermo.Seq` for full documentation.
     """
     A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r)
     B = 1.0

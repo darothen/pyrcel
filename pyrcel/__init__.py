@@ -12,6 +12,7 @@ from .version import __version__
 
 __author__ = "Daniel Rothenberg <daniel@danielrothenberg.com>"
 
+# TODO: Re-factor module-wide implicit imports
 from .activation import *
 from .aerosol import *
 from .distributions import *
