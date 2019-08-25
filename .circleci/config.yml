@@ -1,0 +1,44 @@
+version: 2
+jobs:
+  build-python37:  # required for runs that don't use workflows
+    working_directory: ~/circleci-pyrcel37
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v2-dependencies
+      - run: echo "Building Python 3.7 version..."
+      - run:
+          name: Install dependencies
+          command: |
+            if [ ! -d "/home/circleci/conda" ]; then
+                wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+                /bin/bash Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/conda
+                export PATH=$HOME/conda/bin:$PATH
+                # conda install -y -c defaults -c conda-forge sregistry
+            else
+                echo "Miniconda is already installed, continuing to build."
+            fi
+            chmod u+x ~/circleci-pyrcel37/.circleci/*.sh
+      - run:
+          name: Create Conda Environment
+          command: |
+            cd ~/circleci-pyrcel37
+            conda env create -y -f ci/requirements-py37.yml
+            conda activate pyrcel
+      - run:
+          name: Install Pyrcel
+          run: pip install -e .
+      - run:
+          name: Test Pyrcel Simulation
+          run: run_parcel examples/simple.yml
+
+workflows:
+  version: 2
+    build:
+      jobs:
+        - build-python37

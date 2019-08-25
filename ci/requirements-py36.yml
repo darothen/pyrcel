@@ -4,10 +4,9 @@ channels:
 dependencies:
     - python=3.6
     - assimulo
-    - cython
-    - future
+    - numba
+    - numpy
     - pandas
     - pyyaml
     - scipy
-    - numpy
     - xarray
