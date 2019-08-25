@@ -39,6 +39,6 @@ jobs:
 
 workflows:
   version: 2
-    build:
-      jobs:
-        - build-python37
+  build:
+    jobs:
+      - build-python37

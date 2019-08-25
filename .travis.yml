@@ -12,12 +12,12 @@ notifications:
 # Borrowing schema from https://github.com/pydata/xarray/
 matrix:
   include:
-  - python: 2.7
-    env: CONDA_ENV=py27
   - python: 3.5
     env: CONDA_ENV=py35
   - python: 3.6
     env: CONDA_ENV=py36
+  - python: 3.7
+    env: CONDA_ENV=py37
 
 # Packages to install into test linux environment
 #addons:
@@ -48,7 +48,7 @@ before_install:
 
 install:
     - conda env create --file ci/requirements-$CONDA_ENV.yml
-    - source activate pyrcel
+    - conda activate pyrcel
     # Build and install assimulo. If Python 3.5, we have to do this by hand
     # else we can rely on the existing conda package
     # - if [[ "$CONDA_ENV" == "py35" ]]; then
