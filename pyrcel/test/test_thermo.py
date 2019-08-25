@@ -4,16 +4,14 @@ Most of these test cases just compare the current version of the code's results
 for parameter sets versus a reference to serve as basic regression testing.
 
 """
-import os, pickle
+import pickle
 import unittest
-
 from itertools import product
 
-import numpy as np
 from numpy.testing import assert_allclose
 
-from ..thermo import *
 from .generate_data import REFERENCE_FN
+from ..thermo import *
 
 
 class TestThermoTestCases(unittest.TestCase):

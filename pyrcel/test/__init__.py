@@ -1,7 +1,6 @@
-import numpy as np
-from numpy.testing import assert_array_equal, assert_allclose
-
 from itertools import product
+
+import numpy as np
 
 ## Import unit testing librarys
 try:

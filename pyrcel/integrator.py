@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 """ Interface to numerical ODE solvers.
 """
-from abc import ABCMeta, abstractmethod
-import numpy as np
-import warnings
-
 import sys
-
 # Compatibility - timer functions
 # In Python 3, the more accurate `time.process_time()` method is available. But
 # for legacy support, can default instead to `time.clock()`
 import time
+import warnings
+from abc import ABCMeta, abstractmethod
+
+import numpy as np
 
 if sys.version_info[0] < 3:
     timer = time.clock

@@ -28,6 +28,11 @@ class BaseDistribution(metaclass=ABCMeta):
     def __repr__(self):
         """ Representation function. """
 
+    @property
+    @abstractmethod
+    def stats(self):
+        pass
+
 
 class Gamma(BaseDistribution):
     """ Gamma size distribution 

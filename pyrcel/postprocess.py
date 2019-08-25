@@ -1,9 +1,9 @@
 """ Collection of output post-processing routines.
 """
-from .activation import binned_activation
-
 import numpy as np
 import pandas as pd
+
+from .activation import binned_activation
 
 
 def simulation_activation(model, parcel_df, aerosols_panel):

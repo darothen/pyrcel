@@ -6,8 +6,6 @@ that arise in aerosol-cloud studies. Where possible, the source of the
 parameterization for each function is documented.
 
 """
-from builtins import map
-
 import numpy as np
 from scipy.optimize import fminbound
 

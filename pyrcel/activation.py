@@ -4,18 +4,15 @@
 import numpy as np
 from scipy.special import erfc
 
+from . import constants as c
 from .thermo import (
     es,
-    rho_air,
-    ka,
     ka_cont,
     dv,
     dv_cont,
     sigma_w,
     kohler_crit,
-    Seq,
 )
-from . import constants as c
 
 
 def _unpack_aerosols(aerosols):
@@ -167,6 +164,7 @@ def binned_activation(Smax, T, rs, aerosol, approx=False):
     return eq_frac, kn_frac, alpha, phi
 
 
+# noinspection PyUnresolvedReferences
 def multi_mode_activation(Smax, T, aerosols, rss):
     """ Compute the activation statistics of a multi-mode, binned_activation
     aerosol population.

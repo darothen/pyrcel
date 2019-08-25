@@ -1,10 +1,4 @@
-from builtins import zip
 import numpy as np
-import pyrcel as pm
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 
 def plot_distribution(aer, aer_kwargs={}, ax=None, **kwargs):
     """ Generate a comparison plot of a given aerosol or

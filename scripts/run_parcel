@@ -3,12 +3,13 @@
 CLI interface to run parcel model simulation.
 
 """
-import pyrcel as pm
 import os
 import sys
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
 import yaml
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
+import pyrcel as pm
 
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)

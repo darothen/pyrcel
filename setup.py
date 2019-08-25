@@ -6,8 +6,6 @@ try:
 except ImportError:
     from distutils.core import setup
 
-from pyrcel._parcel_aux_numba import auxcc
-
 import os
 import warnings
 from textwrap import dedent

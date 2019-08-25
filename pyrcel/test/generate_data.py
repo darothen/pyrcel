@@ -1,11 +1,12 @@
 """ Generate test case data for future reference.
 """
-from pyrcel import thermo
-
+import os
+import pickle
 from itertools import product
 
-import os, pickle
 import numpy as np
+
+from pyrcel import thermo
 
 REFERENCE_FN = "results.dict"
 

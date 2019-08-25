@@ -1,6 +1,6 @@
 import numba as nb
-from numba.pycc import CC
 import numpy as np
+from numba.pycc import CC
 
 import pyrcel.constants as c
 

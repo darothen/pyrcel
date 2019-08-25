@@ -1,22 +1,15 @@
 
-from datetime import datetime as ddt
-import pickle
 import os.path
+import pickle
+from datetime import datetime as ddt
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
-try:
-    import xarray
-
-    _XARRAY = True
-except ImportError:
-    _XARRAY = False
-
-from .thermo import es, rho_air
-from .postprocess import simulation_activation
+from . import constants as c, ParcelModelError
+from .thermo import rho_air
 from .version import __version__ as ver
-from . import constants as c
 
 #: Acceptable output formats
 OUTPUT_FORMATS = ["nc", "obj", "csv"]
@@ -115,13 +108,8 @@ def write_parcel_output(
     # 2) nc
     elif format == "nc":
 
-        if not _XARRAY:
-            raise ValueError(
-                "Module `xarray` must be installed to output " "to netcdf!"
-            )
-
-        ## Construct xray datastructure to write to netCDF
-        ds = xarray.Dataset(
+        ## Construct xarray datastructure to write to netCDF
+        ds = xr.Dataset(
             attrs={"Conventions": "CF-1.0", "source": "pyrcel v%s" % ver}
         )
 

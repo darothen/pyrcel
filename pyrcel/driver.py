@@ -13,8 +13,8 @@ its output.
 from numpy import empty, nan
 from pandas import DataFrame
 
-from .parcel import ParcelModel, ParcelModelError
 from .activation import mbn2014, arg2000
+from .parcel import ParcelModel, ParcelModelError
 
 
 def run_model(
