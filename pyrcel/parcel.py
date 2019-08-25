@@ -523,9 +523,9 @@ class ParcelModel(object):
         # Setup/run integrator
         try:
             # Cython
-            # from .parcel_aux import der as der_fcn
+            from .parcel_aux import der as der_fcn
             # Numba - JIT
-            from ._parcel_aux_numba import der as der_fcn
+            # from ._parcel_aux_numba import der as der_fcn
             # Numba - AOT
             # from .parcel_aux_numba import der as der_fcn
         except ImportError:

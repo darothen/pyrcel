@@ -11,7 +11,7 @@ from Cython.Distutils import build_ext
 from distutils.extension import Extension
 import numpy
 
-from pyrcel._parcel_aux_numba import cc
+from pyrcel._parcel_aux_numba import auxcc
 
 import os
 import warnings
@@ -42,14 +42,8 @@ if DEV:
         VERSION += ".dev-" + format(git_rev)
 
 extensions = [
-    # Cython extension module
-    # Extension("pyrcel.parcel_aux",
-    #           ["pyrcel/parcel_aux.pyx"],
-    #           include_dirs=[numpy.get_include(), ],
-    #
-    #         ),
     # Numba AOT extension module
-    # cc.distutils_extension()
+    # auxcc.distutils_extension(),
 ]
 
 def _write_version_file():

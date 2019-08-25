@@ -11,14 +11,14 @@ PI = 3.14159265358979323846264338328
 N_STATE_VARS = c.N_STATE_VARS
 
 # AOT/numba stuff
-cc = CC('parcel_aux_numba')
-cc.verbose = True
+auxcc = CC('parcel_aux_numba')
+auxcc.verbose = True
 
 
 ## Auxiliary, single-value calculations with GIL released for derivative
 ## calculations
 @nb.njit()
-@cc.export("sigma_w", "f8(f8)")
+@auxcc.export("sigma_w", "f8(f8)")
 def sigma_w(T):
     """See :func:`pyrcel.micro.sigma_w` for full documentation
     """
@@ -26,7 +26,7 @@ def sigma_w(T):
 
 
 @nb.njit()
-@cc.export("ka", "f8(f8, f8, f8)")
+@auxcc.export("ka", "f8(f8, f8, f8)")
 def ka(T, r, rho):
     """See :func:`pyrcel.micro.ka` for full documentation
     """
@@ -38,7 +38,7 @@ def ka(T, r, rho):
 
 
 @nb.njit()
-@cc.export("dv", "f8(f8, f8, f8, f8)")
+@auxcc.export("dv", "f8(f8, f8, f8, f8)")
 def dv(T, r, P, accom):
     """See :func:`pyrcel.micro.dv` for full documentation
     """
@@ -51,7 +51,7 @@ def dv(T, r, P, accom):
 
 
 @nb.njit()
-@cc.export("es", "f8(f8)")
+@auxcc.export("es", "f8(f8)")
 def es(T):
     """See :func:`pyrcel.micro.es` for full documentation
     """
@@ -59,7 +59,7 @@ def es(T):
 
 
 @nb.njit()
-@cc.export("Seq", "f8(f8, f8, f8)")
+@auxcc.export("Seq", "f8(f8, f8, f8)")
 def Seq(r, r_dry, T, kappa):
     """See :func:`pyrcel.micro.Seq` for full documentation.
     """
@@ -72,7 +72,7 @@ def Seq(r, r_dry, T, kappa):
 
 ## RHS Derivative callback function
 @nb.njit(parallel=True)
-@cc.export("der", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
+@auxcc.export("der", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
 def der(y, t, nr, r_drys, Nis, V, kappas, accom):
     """See :func:`pyrcel.parcel.der` for full documentation
 
