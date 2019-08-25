@@ -1,11 +1,11 @@
 name: pyrcel
 dependencies:
     - python=2.7
-    - cython
-    - future
+    - Assimulo
     - pandas
     - pyyaml
     - scipy
+    - numba
     - numpy
     - xarray
     - numpydoc
