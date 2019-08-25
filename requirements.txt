@@ -1,3 +1,4 @@
+Assimulo=3.1
 numba==0.45.1
 numpy==1.17.0
 pandas==0.25.1

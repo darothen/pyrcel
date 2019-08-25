@@ -75,6 +75,7 @@ setup(
 
     # TODO: Update install requirements and corresponding documentation
     install_requires = [
+        'Assimulo=3.0',
         'numba==0.45.1',
         'numpy==1.17.0',
         'pandas==0.25.1',

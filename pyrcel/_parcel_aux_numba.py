@@ -74,7 +74,58 @@ def Seq(r, r_dry, T, kappa):
 @nb.njit(parallel=True)
 @auxcc.export("der", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
 def der(y, t, nr, r_drys, Nis, V, kappas, accom):
-    """See :func:`pyrcel.parcel.der` for full documentation
+    """ Calculates the instantaneous time-derivative of the parcel model system.
+
+    Given a current state vector `y` of the parcel model, computes the tendency
+    of each term including thermodynamic (pressure, temperature, etc) and aerosol
+    terms. The basic aerosol properties used in the model must be passed along
+    with the state vector (i.e. if being used as the callback function in an ODE
+    solver).
+
+    This function is implemented in NumPy and Python, and is likely *very* slow
+    compared to the available Cython version.
+
+    Parameters
+    ----------
+    y : array_like
+        Current state of the parcel model system,
+            * y[0] = altitude, m
+            * y[1] = Pressure, Pa
+            * y[2] = temperature, K
+            * y[3] = water vapor mass mixing ratio, kg/kg
+            * y[4] = cloud liquid water mass mixing ratio, kg/kg
+            * y[5] = cloud ice water mass mixing ratio, kg/kg
+            * y[6] = parcel supersaturation
+            * y[7:] = aerosol bin sizes (radii), m
+    t : float
+        Current simulation time, in seconds.
+    nr : Integer
+        Number of aerosol radii being tracked.
+    r_drys : array_like
+        Array recording original aerosol dry radii, m.
+    Nis : array_like
+        Array recording aerosol number concentrations, 1/(m**3).
+    V : float
+        Updraft velocity, m/s.
+    kappas : array_like
+        Array recording aerosol hygroscopicities.
+    accom : float, optional (default=:const:`constants.ac`)
+        Condensation coefficient.
+
+    Returns
+    -------
+    x : array_like
+        Array of shape (``nr``+7, ) containing the evaluated parcel model
+        instaneous derivative.
+
+    Notes
+    -----
+    This Python sketch of the derivative function shouldn't really be used for
+    any computational purposes. Instead, see the cythonized version in the auxiliary
+    file, **parcel_aux.pyx**. In the default configuration, once the code has been
+    built, you can set the environmental variable **OMP_NUM_THREADS** to control
+    the parallel for loop which calculates the condensational growth rate for each
+    bin.
 
     """
     z = y[0]
