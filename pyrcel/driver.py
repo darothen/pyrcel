@@ -14,7 +14,8 @@ from numpy import empty, nan
 from pandas import DataFrame
 
 from .activation import mbn2014, arg2000
-from .parcel import ParcelModel, ParcelModelError
+from .parcel import ParcelModel
+from pyrcel.util import ParcelModelError
 
 
 def run_model(

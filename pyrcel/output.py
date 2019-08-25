@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from . import constants as c, ParcelModelError
+from . import constants as c
+from .util import ParcelModelError
 from .thermo import rho_air
 from .version import __version__ as ver
 

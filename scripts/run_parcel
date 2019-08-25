@@ -10,6 +10,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import yaml
 
 import pyrcel as pm
+import pyrcel.util
 
 parser = ArgumentParser(description=__doc__,
                         formatter_class=RawDescriptionHelpFormatter)
@@ -59,7 +60,7 @@ if __name__ == "__main__":
                                P0=ic['pressure'],
                                console=True,
                                truncate_aerosols=True)
-    except pm.ParcelModelError:
+    except pyrcel.util.ParcelModelError:
         print("Something went wrong setting up the model")
         sys.exit(0)
 
@@ -72,7 +73,7 @@ if __name__ == "__main__":
                                      # terminate=True,
                                      # terminate_depth=10.,
                                      **mc)
-    except pm.ParcelModelError:
+    except pyrcel.util.ParcelModelError:
         print("Something went wrong during model run")
         sys.exit(0)
 

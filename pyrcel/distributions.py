@@ -24,14 +24,15 @@ class BaseDistribution(metaclass=ABCMeta):
     def pdf(self, x):
         """ Probability density function. """
 
-    @abstractmethod
-    def __repr__(self):
-        """ Representation function. """
-
     @property
     @abstractmethod
     def stats(self):
         pass
+
+    @abstractmethod
+    def __repr__(self):
+        """ Representation function. """
+
 
 
 class Gamma(BaseDistribution):
@@ -183,7 +184,6 @@ class Lognorm(BaseDistribution):
         exponent = ((k ** 2) / 2.0) * (self.log(self.sigma)) ** 2
         return scaling * np.exp(exponent)
 
-    @property
     def stats(self):
         """ Compute useful statistics for a lognormal distribution
 
@@ -247,6 +247,13 @@ class MultiModeLognorm(BaseDistribution):
 
     def pdf(self, x):
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
+
+    def stats(self):
+        """ Compute useful statistics for a multi-mode lognormal distribution
+
+        TODO: Implement multi-mode lognorm stats
+        """
+        raise NotImplementedError()
 
     def __repr__(self):
         mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"

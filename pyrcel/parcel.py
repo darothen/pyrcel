@@ -2,27 +2,17 @@
 """
 import os
 
+import numpy as np
 from scipy.optimize import bisect
 
 # Parcel model imports
 from . import constants as c
 from . import output
 from .aerosol import AerosolSpecies
-# from . integrator import Integrator
-from .thermo import *
+from .thermo import es, Seq, rho_air, kohler_crit
+from .util import ParcelModelError
 
 __all__ = ["ParcelModel"]
-
-
-class ParcelModelError(Exception):
-    """ Custom exception to throw during parcel model execution.
-    """
-
-    def __init__(self, error_str):
-        self.error_str = error_str
-
-    def __str__(self):
-        return repr(self.error_str)
 
 
 class ParcelModel(object):
@@ -349,7 +339,7 @@ class ParcelModel(object):
         # c) compute equilibrium droplet water content
         water_vol = (
             lambda r0, r_dry, Ni: (4.0 * np.pi / 3.0)
-            * rho_w
+            * c.rho_w
             * Ni
             * (r0 ** 3 - r_dry ** 3)
         )
@@ -516,10 +506,9 @@ class ParcelModel(object):
         # Setup/run integrator
         try:
             # Cython
-            from .parcel_aux import der as der_fcn
-
+            # from .parcel_aux import der as der_fcn
             # Numba - JIT
-            # from ._parcel_aux_numba import der as der_fcn
+            from ._parcel_aux_numba import der as der_fcn
             # Numba - AOT
             # from .parcel_aux_numba import der as der_fcn
         except ImportError:
@@ -758,6 +747,8 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
     bin.
 
     """
+    from . import thermo
+
     z = y[0]
     P = y[1]
     T = y[2]
@@ -768,15 +759,15 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
     rs = np.asarray(y[c.N_STATE_VARS :])
 
     T_c = T - 273.15  # convert temperature to Celsius
-    pv_sat = es(T - T_c)  # saturation vapor pressure
+    pv_sat = thermo.es(T - T_c)  # saturation vapor pressure
     wv_sat = wv / (S + 1.0)  # saturation mixing ratio
     Tv = (1.0 + 0.61 * wv) * T  # virtual temperature given parcel humidity
     e = (1.0 + S) * pv_sat  # water vapor pressure
-    rho_air = P / (Rd * Tv)  # current air density accounting for humidity
-    rho_air_dry = (P - e) / Rd / T  # dry air density
+    rho_air = P / (c.Rd * Tv)  # current air density accounting for humidity
+    rho_air_dry = (P - e) / c.Rd / T  # dry air density
 
     # 1) Pressure
-    dP_dt = -1.0 * rho_air * g * V
+    dP_dt = -1.0 * rho_air * c.g * V
 
     # 2/3) Wet particle growth rates and droplet liquid water
     drs_dt = np.zeros(shape=(nr,))
@@ -786,14 +777,14 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
         r_dry = r_drys[i]
         kappa = kappas[i]
 
-        dv_r = dv(T, r, P, accom)
-        ka_r = ka(T, rho_air, r)
+        dv_r = thermo.dv(T, r, P, accom)
+        ka_r = thermo.ka(T, rho_air, r)
 
-        G_a = (rho_w * R * T) / (pv_sat * dv_r * Mw)
-        G_b = (L * rho_w * ((L * Mw / (R * T)) - 1.0)) / (ka_r * T)
+        G_a = (c.rho_w * c.R * T) / (pv_sat * dv_r * c.Mw)
+        G_b = (c.L * c.rho_w * ((c.L * c.Mw / (c.R * T)) - 1.0)) / (ka_r * T)
         G = 1.0 / (G_a + G_b)
 
-        delta_S = S - Seq(r, r_dry, T, kappa)
+        delta_S = S - thermo.Seq(r, r_dry, T, kappa)
         dr_dt = (G / r) * delta_S
         Ni = Nis[i]
         dwc_dt += Ni * (r * r) * dr_dt
@@ -806,7 +797,7 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
         #    print 4, Seq(r, r_dry, T, kappa, 1.0)
         #    print 5, dr_dt
 
-    dwc_dt *= 4.0 * np.pi * rho_w / rho_air_dry
+    dwc_dt *= 4.0 * np.pi * c.rho_w / rho_air_dry
 
     # 4) ice water content
     dwi_dt = 0.0
@@ -815,11 +806,14 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
     dwv_dt = -1.0 * (dwc_dt + dwi_dt)
 
     # 6) Temperature
-    dT_dt = -g * V / Cp - L * dwv_dt / Cp
+    dT_dt = -c.g * V / c.Cp - c.L * dwv_dt / c.Cp
 
     # 7) Supersaturation
-    alpha = (g * Mw * L) / (Cp * R * (T ** 2)) - (g * Ma) / (R * T)
-    gamma = (P * Ma) / (Mw * es(T - 273.15)) + (Mw * L * L) / (Cp * R * T * T)
+    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T ** 2))
+    alpha -= (c.g * c.Ma) / (c.R * T)
+
+    gamma = (P * c.Ma) / (c.Mw * thermo.es(T - 273.15))
+    gamma += (c.Mw * c.L * c.L) / (c.Cp * c.R * T * T)
     dS_dt = alpha * V - gamma * dwc_dt
 
     dz_dt = V
