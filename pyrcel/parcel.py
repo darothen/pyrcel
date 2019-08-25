@@ -12,7 +12,7 @@ from .aerosol import AerosolSpecies
 from .thermo import es, Seq, rho_air, kohler_crit
 from .util import ParcelModelError
 # Special import of derivative ODE rhs to main namespace
-from ._parcel_aux_numba import der as der
+from ._parcel_aux_numba import parcel_ode_sys
 
 __all__ = ["ParcelModel"]
 
@@ -508,26 +508,26 @@ class ParcelModel(object):
         # Setup/run integrator
         try:
             # Cython
-            # from .parcel_aux import der as der_fcn
+            # from .parcel_aux import der as rhs_fcn
             # Numba - JIT
-            from ._parcel_aux_numba import der as der_fcn
+            from ._parcel_aux_numba import parcel_ode_sys as rhs_fcn
             # Numba - AOT
-            # from .parcel_aux_numba import der as der_fcn
+            # from .parcel_aux_numba import parcel_ode_sys as rhs_fcn
         except ImportError:
             print("Could not load Cython derivative; using Python version.")
-            from .parcel import der as der_fcn
+            from .parcel import parcel_ode_sys as rhs_fcn
         # Hack in Python derivative function
-        # der_fcn = der
+        # rhs_fcn = der
 
         # Is the updraft speed a function of time?
         v_is_func = hasattr(self.V, "__call__")
         if v_is_func:  # Re-wrap the function to correctly figure out V
-            orig_der_fcn = der_fcn
+            orig_rhs_fcn = rhs_fcn
 
-            def der_fcn(y, t, *args):
+            def rhs_fcn(y, t, *args):
                 V_t = self.V(t)
                 args[3] = V_t
-                return orig_der_fcn(y, t, *args)
+                return orig_rhs_fcn(y, t, *args)
 
         # Will the simulation terminate early?
         if not terminate:
@@ -552,7 +552,7 @@ class ParcelModel(object):
         args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator_type = Integrator.solver(solver)
         integrator = integrator_type(
-            der_fcn,
+            rhs_fcn,
             output_dt,
             solver_dt,
             y0,
@@ -694,7 +694,7 @@ class ParcelModel(object):
             data.to_csv(os.path.join(output_dir, "%s.csv" % species))
 
 #
-# def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
+# def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
 #     """ Calculates the instantaneous time-derivate of the parcel model system.
 #
 #     Given a current state vector `y` of the parcel model, computes the tendency

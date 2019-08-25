@@ -72,8 +72,9 @@ def Seq(r, r_dry, T, kappa):
 
 ## RHS Derivative callback function
 @nb.njit(parallel=True)
-@auxcc.export("der", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
-def der(y, t, nr, r_drys, Nis, V, kappas, accom):
+@auxcc.export("parcel_ode_sys",
+              "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
+def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     """ Calculates the instantaneous time-derivative of the parcel model system.
 
     Given a current state vector `y` of the parcel model, computes the tendency

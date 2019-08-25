@@ -18,4 +18,4 @@ Implementation
 Derivative Equation
 -------------------
 
-.. automethod:: parcel.der
+.. automethod:: parcel.parcel_ode_sys
