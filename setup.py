@@ -11,12 +11,14 @@ from Cython.Distutils import build_ext
 from distutils.extension import Extension
 import numpy
 
+from pyrcel._parcel_aux_numba import cc
+
 import os
 import warnings
 from textwrap import dedent
 
 MAJOR, MINOR, MICRO = 1, 3, 1
-DEV = False
+DEV = True
 VERSION = "{}.{}.{}".format(MAJOR, MINOR, MICRO)
 
 # Correct versioning with git info if DEV
@@ -40,17 +42,14 @@ if DEV:
         VERSION += ".dev-" + format(git_rev)
 
 extensions = [
-    Extension("pyrcel.parcel_aux",
-              ["pyrcel/parcel_aux.pyx"],
-              include_dirs=[numpy.get_include(), ],
-              #extra_compile_args=['-fopenmp', ],
-              #extra_link_args=['-fopenmp', ],
-            ),
-   #Extension("parcel_aux_bin", ["parcel_aux_bin.pyx"],
-   #          libraries=cgsl.get_libraries(),
-   #          library_dirs=[cgsl.get_library_dir(), ],
-   #          include_dirs=[numpy.get_include(), cgsl.get_cython_include_dir()],
-   #          ),
+    # Cython extension module
+    # Extension("pyrcel.parcel_aux",
+    #           ["pyrcel/parcel_aux.pyx"],
+    #           include_dirs=[numpy.get_include(), ],
+    #
+    #         ),
+    # Numba AOT extension module
+    # cc.distutils_extension()
 ]
 
 def _write_version_file():

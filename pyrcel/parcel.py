@@ -13,16 +13,18 @@ from scipy.optimize import bisect
 # Parcel model imports
 from . import constants as c
 from . import output
-from . aerosol import AerosolSpecies
-# from . integrator import Integrator
-from . thermo import *
+from .aerosol import AerosolSpecies
 
-__all__ = ['ParcelModel', ]
+# from . integrator import Integrator
+from .thermo import *
+
+__all__ = ["ParcelModel"]
 
 
 class ParcelModelError(Exception):
     """ Custom exception to throw during parcel model execution.
     """
+
     def __init__(self, error_str):
         self.error_str = error_str
 
@@ -103,8 +105,17 @@ class ParcelModel(object):
 
     """
 
-    def __init__(self, aerosols, V, T0, S0, P0, console=False, accom=c.ac,
-                 truncate_aerosols=False):
+    def __init__(
+        self,
+        aerosols,
+        V,
+        T0,
+        S0,
+        P0,
+        console=False,
+        accom=c.ac,
+        truncate_aerosols=False,
+    ):
         """ Initialize the parcel model.
 
         Parameters
@@ -145,7 +156,9 @@ class ParcelModel(object):
 
         self._setup_run()
 
-    def set_initial_conditions(self, V=None, T0=None, S0=None, P0=None, aerosols=None):
+    def set_initial_conditions(
+        self, V=None, T0=None, S0=None, P0=None, aerosols=None
+    ):
         """ Set the initial conditions and parameters for a new parcel
         model run without having to create a new :class:`ParcelModel` instance.
 
@@ -223,17 +236,29 @@ class ParcelModel(object):
 
         for aer in aerosols:
             N_old = np.sum(aer.Nis)
-            bin_count = np.count_nonzero(aer.r_drys[aer.r_drys < smallest_rdry])
+            bin_count = np.count_nonzero(
+                aer.r_drys[aer.r_drys < smallest_rdry]
+            )
             if bin_count > 0:
-                aer_new = AerosolSpecies(aer.species,
-                                         aer.distribution,
-                                         kappa=aer.kappa,
-                                         bins=aer.bins,
-                                         r_min=smallest_rdry*1e6)
+                aer_new = AerosolSpecies(
+                    aer.species,
+                    aer.distribution,
+                    kappa=aer.kappa,
+                    bins=aer.bins,
+                    r_min=smallest_rdry * 1e6,
+                )
                 N_new = np.sum(aer_new.Nis)
                 if self.console:
-                    print("%s: Removed %03d bins, N change: %5.1f -> %5.1f (%2.1f%%)" %
-                          (aer.species, bin_count, N_old, N_new, (N_new-N_old)/N_new))
+                    print(
+                        "%s: Removed %03d bins, N change: %5.1f -> %5.1f (%2.1f%%)"
+                        % (
+                            aer.species,
+                            bin_count,
+                            N_old,
+                            N_new,
+                            (N_new - N_old) / N_new,
+                        )
+                    )
                 fixed_aerosols.append(aer_new)
             else:
                 fixed_aerosols.append(aer)
@@ -260,17 +285,17 @@ class ParcelModel(object):
         r_drys, Nis, kappas = [], [], []
         for aerosol in self.aerosols:
             r_drys.extend(aerosol.r_drys)
-            kappas.extend([aerosol.kappa]*aerosol.nr)
+            kappas.extend([aerosol.kappa] * aerosol.nr)
             Nis.extend(aerosol.Nis)
-            species.extend([aerosol.species]*aerosol.nr)
+            species.extend([aerosol.species] * aerosol.nr)
 
         r_drys = np.array(r_drys)
         kappas = np.array(kappas)
         Nis = np.array(Nis)
 
-        out['r_drys'] = r_drys
-        out['kappas'] = kappas
-        out['Nis'] = Nis
+        out["r_drys"] = r_drys
+        out["kappas"] = kappas
+        out["Nis"] = Nis
 
         if self.console:
             # TODO: Fix print table formatting
@@ -278,12 +303,14 @@ class ParcelModel(object):
             print("%8s %6s" % ("r", "N"))
             for sp, r, N in zip(species, r_drys, Nis):
                 print("%10s %2.2e %4.1f" % (sp, r, N))
-            print("\n"+"-"*44)
+            print("\n" + "-" * 44)
 
         # 2) Setup parcel initial conditions
         # a) water vapor
         #        RH    * (Rd/Rv = epsilon) * ( es / P - es )
-        wv0 = (S0 + 1.)*(c.epsilon*es(T0-273.15)/(P0-es(T0-273.15)))  # Water Vapor mixing ratio, kg/kg
+        wv0 = (S0 + 1.0) * (
+            c.epsilon * es(T0 - 273.15) / (P0 - es(T0 - 273.15))
+        )  # Water Vapor mixing ratio, kg/kg
 
         # b) find equilibrium wet particle radius
         # wrapper function for quickly computing deviation from chosen
@@ -294,12 +321,14 @@ class ParcelModel(object):
         # r_b, _ = kohler_crit(T0, r_drys[-1], kappas[-1])
         # for r_dry , kappa in zip(r_drys, kappas)[::-1]:
         for r_dry, kappa in zip(reversed(r_drys), reversed(kappas)):
-        # Locate the critical value (f(r_crit) > 0), and use bisection from it and
-        # r_dry (f(r_dry) < 0) to find equilibrium wet particle radius for a given S0
+            # Locate the critical value (f(r_crit) > 0), and use bisection from it and
+            # r_dry (f(r_dry) < 0) to find equilibrium wet particle radius for a given S0
             r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
-            r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30, maxiter=500)
+            r0 = bisect(
+                f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30, maxiter=500
+            )
             r0s.append(r0)
 
         r0s = np.array(r0s[::-1])
@@ -314,18 +343,30 @@ class ParcelModel(object):
                 if self.console:
                     print("Found bad r", r, r_dry, sp)
                 raised = True
-            if np.abs(ss-S0) > 1e-4:
+            if np.abs(ss - S0) > 1e-4:
                 if self.console:
                     print("Found S discrepancy", ss, S0, r_dry)
                 raised = True
         if raised:
-            raise ParcelModelError("Couldn't calculate initial aerosol population wet sizes.")
-        out['r0s'] = r0s
+            raise ParcelModelError(
+                "Couldn't calculate initial aerosol population wet sizes."
+            )
+        out["r0s"] = r0s
 
         # c) compute equilibrium droplet water content
-        water_vol = lambda r0, r_dry, Ni: (4.*np.pi/3.)*rho_w*Ni*(r0**3 - r_dry**3)
-        wc0 = np.sum([water_vol(r0, r_dry, Ni) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
-        wc0 /= rho_air(T0, P0, 0.)
+        water_vol = (
+            lambda r0, r_dry, Ni: (4.0 * np.pi / 3.0)
+            * rho_w
+            * Ni
+            * (r0 ** 3 - r_dry ** 3)
+        )
+        wc0 = np.sum(
+            [
+                water_vol(r0, r_dry, Ni)
+                for r0, r_dry, Ni in zip(r0s, r_drys, Nis)
+            ]
+        )
+        wc0 /= rho_air(T0, P0, 0.0)
 
         # d) compute initial ice water content
         wi0 = 0.0
@@ -334,13 +375,25 @@ class ParcelModel(object):
         y0 = [z0, P0, T0, wv0, wc0, wi0, S0]
         if self.console:
             print("PARCEL INITIAL CONDITIONS")
-            print(("    " + "{:>9} "*6).format("P (hPa)", "T (K)", "wv (g/kg)",
-                                               "wc (g/kg)", "wi (g/kg)", "S"))
-            print("    " + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
-                           P0/100., T0, wv0*1e3, wc0*1e3, wi0*1e3, S0))
+            print(
+                ("    " + "{:>9} " * 6).format(
+                    "P (hPa)",
+                    "T (K)",
+                    "wv (g/kg)",
+                    "wc (g/kg)",
+                    "wi (g/kg)",
+                    "S",
+                )
+            )
+            print(
+                "    "
+                + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
+                    P0 / 100.0, T0, wv0 * 1e3, wc0 * 1e3, wi0 * 1e3, S0
+                )
+            )
         y0.extend(r0s)
         y0 = np.array(y0)
-        out['y0'] = y0
+        out["y0"] = y0
         self.y0 = y0
 
         # Store the model configuration
@@ -355,10 +408,18 @@ class ParcelModel(object):
         if self.console:
             print("Initial conditions set successfully.")
 
-    def run(self, t_end,
-            output_dt=1., solver_dt=None,
-            max_steps=1000, solver="odeint", output_fmt="dataframes",
-            terminate=False, terminate_depth=100., **solver_args):
+    def run(
+        self,
+        t_end,
+        output_dt=1.0,
+        solver_dt=None,
+        max_steps=1000,
+        solver="odeint",
+        output_fmt="dataframes",
+        terminate=False,
+        terminate_depth=100.0,
+        **solver_args
+    ):
         """ Run the parcel model simulation.
 
         Once the model has been instantiated, a simulation can immediately be
@@ -440,13 +501,15 @@ class ParcelModel(object):
         der : right-hand side derivative evaluated during model integration.
 
         """
-        from . integrator import Integrator
+        from .integrator import Integrator
 
         if output_fmt not in ["dataframes", "arrays", "smax"]:
-            raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
+            raise ParcelModelError(
+                "Invalid value ('%s') specified for output format." % output
+            )
 
         if solver_dt is None:
-            solver_dt = 10.*output_dt
+            solver_dt = 10.0 * output_dt
 
         if not self._model_set:
             self._setup_run()
@@ -459,7 +522,12 @@ class ParcelModel(object):
 
         # Setup/run integrator
         try:
-            from .parcel_aux import der as der_fcn
+            # Cython
+            # from .parcel_aux import der as der_fcn
+            # Numba - JIT
+            from ._parcel_aux_numba import der as der_fcn
+            # Numba - AOT
+            # from .parcel_aux_numba import der as der_fcn
         except ImportError:
             print("Could not load Cython derivative; using Python version.")
             from .parcel import der as der_fcn
@@ -467,7 +535,7 @@ class ParcelModel(object):
         # der_fcn = der
 
         # Is the updraft speed a function of time?
-        v_is_func = hasattr(self.V, '__call__')
+        v_is_func = hasattr(self.V, "__call__")
         if v_is_func:  # Re-wrap the function to correctly figure out V
             orig_der_fcn = der_fcn
 
@@ -478,10 +546,12 @@ class ParcelModel(object):
 
         # Will the simulation terminate early?
         if not terminate:
-            terminate_depth = 0.
+            terminate_depth = 0.0
         else:
-            if terminate_depth <= 0.:
-                raise ParcelModelError("`terminate_depth` must be greater than 0!")
+            if terminate_depth <= 0.0:
+                raise ParcelModelError(
+                    "`terminate_depth` must be greater than 0!"
+                )
 
         if self.console:
             print()
@@ -489,15 +559,24 @@ class ParcelModel(object):
             print("----------------------------")
             print("        output dt: ", output_dt)
             print("    max solver dt: ", solver_dt)
-            print(" solver int steps: ", int(solver_dt/output_dt))
-            print("      termination: %r (%5dm)" % (terminate, terminate_depth))
+            print(" solver int steps: ", int(solver_dt / output_dt))
+            print(
+                "      termination: %r (%5dm)" % (terminate, terminate_depth)
+            )
 
         args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator_type = Integrator.solver(solver)
-        integrator = integrator_type(der_fcn, output_dt, solver_dt, y0, args,
-                                     terminate=terminate, terminate_depth=terminate_depth,
-                                     console=self.console,
-                                     **solver_args)
+        integrator = integrator_type(
+            der_fcn,
+            output_dt,
+            solver_dt,
+            y0,
+            args,
+            terminate=terminate,
+            terminate_depth=terminate_depth,
+            console=self.console,
+            **solver_args
+        )
         success = False
         try:
             # Pack args as tuple for solvers
@@ -507,17 +586,21 @@ class ParcelModel(object):
                 print("\nBEGIN INTEGRATION ->\n")
             x, t, success = integrator.integrate(t_end)
         except ValueError as e:
-            raise ParcelModelError("Something failed during model integration: %r" % e)
+            raise ParcelModelError(
+                "Something failed during model integration: %r" % e
+            )
         finally:
             if not success:
-                raise ParcelModelError("Something failed during model integration.")
+                raise ParcelModelError(
+                    "Something failed during model integration."
+                )
 
             # Success if reached this point!
             if self.console:
                 print("\nEND INTEGRATION <-\n")
 
             self.x = x
-            self.heights = self.x[:, c.STATE_VAR_MAP['z']]
+            self.heights = self.x[:, c.STATE_VAR_MAP["z"]]
             self.time = t
 
             if output_fmt == "dataframes":
@@ -525,7 +608,7 @@ class ParcelModel(object):
             elif output_fmt == "arrays":
                 return self.x, self.heights
             elif output_fmt == "smax":
-                S = self.x[:, c.STATE_VAR_MAP['S']]
+                S = self.x[:, c.STATE_VAR_MAP["S"]]
                 return S.max()
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
@@ -533,6 +616,7 @@ class ParcelModel(object):
         terminal.
         """
         from .activation import lognormal_activation
+
         # Check if parent dir of out_filename exists, and if not,
         # create it
         out_dir = os.path.dirname(out_filename)
@@ -540,7 +624,7 @@ class ParcelModel(object):
             os.makedirs(out_dir)
 
         # Open a file to write to
-        with open(out_filename, 'w') as out_file:
+        with open(out_filename, "w") as out_file:
             # Write header
             out_file.write("PARCEL MODEL\n")
             out_file.write("--------------------------------------\n")
@@ -554,35 +638,48 @@ class ParcelModel(object):
 
             # Write aerosol details
             for aerosol in self.aerosols:
-                out_file.write(aerosol.species+" = "+aerosol.summary_str()+"\n")
+                out_file.write(
+                    aerosol.species + " = " + aerosol.summary_str() + "\n"
+                )
             out_file.write("--------------------------------------\n")
 
             # Write simulation summary results
             # 1) Maximum supersaturation in parcel
-            S_max = parcel_data['S'].max()
+            S_max = parcel_data["S"].max()
             S_max_idx = np.argmax(parcel_data.S)
             out_file.write("S_max = %f\n" % S_max)
 
             # 2) Activated fraction of each species
-            T_at_S_max = parcel_data['T'].ix[S_max_idx]
+            T_at_S_max = parcel_data["T"].ix[S_max_idx]
             total_number = 0.0
             total_activated = 0.0
             for aerosol in self.aerosols:
-                act_frac = lognormal_activation(S_max, aerosol.mu*1e-6, aerosol.sigma,
-                                                aerosol.N, aerosol.kappa, T=T_at_S_max)
-                act_num = act_frac*aerosol.N
-                out_file.write("%s - eq_act_frac = %f (%3.2f/%3.2f)\n" %
-                               (aerosol.species, act_frac, act_num, aerosol.N))
+                act_frac = lognormal_activation(
+                    S_max,
+                    aerosol.mu * 1e-6,
+                    aerosol.sigma,
+                    aerosol.N,
+                    aerosol.kappa,
+                    T=T_at_S_max,
+                )
+                act_num = act_frac * aerosol.N
+                out_file.write(
+                    "%s - eq_act_frac = %f (%3.2f/%3.2f)\n"
+                    % (aerosol.species, act_frac, act_num, aerosol.N)
+                )
 
                 total_number += aerosol.N
                 total_activated += act_num
-            total_act_frac = total_activated/total_number
-            out_file.write("Total activated fraction = %f (%3.2f/%3.2f)\n" %
-                           (total_act_frac, total_activated, total_number))
+            total_act_frac = total_activated / total_number
+            out_file.write(
+                "Total activated fraction = %f (%3.2f/%3.2f)\n"
+                % (total_act_frac, total_activated, total_number)
+            )
 
     def save(self, filename=None, format="nc", other_dfs=None):
-        output.write_parcel_output(filename=filename, format=format, parcel=self,
-                                   other_dfs=other_dfs)
+        output.write_parcel_output(
+            filename=filename, format=format, parcel=self, other_dfs=other_dfs
+        )
 
     @staticmethod
     def write_csv(parcel_data, aerosol_data, output_dir=None):
@@ -674,22 +771,22 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
     wc = y[4]
     wi = y[5]
     S = y[6]
-    rs = np.asarray(y[c.N_STATE_VARS:])
+    rs = np.asarray(y[c.N_STATE_VARS :])
 
-    T_c = T - 273.15   # convert temperature to Celsius
-    pv_sat = es(T-T_c) # saturation vapor pressure
-    wv_sat = wv/(S+1.)  # saturation mixing ratio
-    Tv = (1.+0.61*wv)*T  # virtual temperature given parcel humidity
-    e = (1. + S)*pv_sat  # water vapor pressure
-    rho_air = P/(Rd*Tv)  # current air density accounting for humidity
-    rho_air_dry = (P-e)/Rd/T  # dry air density
+    T_c = T - 273.15  # convert temperature to Celsius
+    pv_sat = es(T - T_c)  # saturation vapor pressure
+    wv_sat = wv / (S + 1.0)  # saturation mixing ratio
+    Tv = (1.0 + 0.61 * wv) * T  # virtual temperature given parcel humidity
+    e = (1.0 + S) * pv_sat  # water vapor pressure
+    rho_air = P / (Rd * Tv)  # current air density accounting for humidity
+    rho_air_dry = (P - e) / Rd / T  # dry air density
 
     # 1) Pressure
-    dP_dt = -1.*rho_air*g*V
+    dP_dt = -1.0 * rho_air * g * V
 
     # 2/3) Wet particle growth rates and droplet liquid water
-    drs_dt = np.zeros(shape=(nr, ))
-    dwc_dt = 0.
+    drs_dt = np.zeros(shape=(nr,))
+    dwc_dt = 0.0
     for i in range(nr):
         r = rs[i]
         r_dry = r_drys[i]
@@ -698,14 +795,14 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
         dv_r = dv(T, r, P, accom)
         ka_r = ka(T, rho_air, r)
 
-        G_a = (rho_w*R*T)/(pv_sat*dv_r*Mw)
-        G_b = (L*rho_w*((L*Mw/(R*T))-1.))/(ka_r*T)
-        G = 1./(G_a + G_b)
+        G_a = (rho_w * R * T) / (pv_sat * dv_r * Mw)
+        G_b = (L * rho_w * ((L * Mw / (R * T)) - 1.0)) / (ka_r * T)
+        G = 1.0 / (G_a + G_b)
 
         delta_S = S - Seq(r, r_dry, T, kappa)
-        dr_dt = (G/r)*delta_S
+        dr_dt = (G / r) * delta_S
         Ni = Nis[i]
-        dwc_dt += Ni*(r*r)*dr_dt
+        dwc_dt += Ni * (r * r) * dr_dt
         drs_dt[i] = dr_dt
 
         # if i == nr-1:
@@ -715,26 +812,26 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
         #    print 4, Seq(r, r_dry, T, kappa, 1.0)
         #    print 5, dr_dt
 
-    dwc_dt *= 4.*np.pi*rho_w/rho_air_dry
+    dwc_dt *= 4.0 * np.pi * rho_w / rho_air_dry
 
     # 4) ice water content
     dwi_dt = 0.0
 
     # 5) Water vapor content
-    dwv_dt = -1.*(dwc_dt + dwi_dt)
+    dwv_dt = -1.0 * (dwc_dt + dwi_dt)
 
     # 6) Temperature
-    dT_dt = -g*V/Cp - L*dwv_dt/Cp
+    dT_dt = -g * V / Cp - L * dwv_dt / Cp
 
     # 7) Supersaturation
-    alpha = (g*Mw*L)/(Cp*R*(T**2)) - (g*Ma)/(R*T)
-    gamma = (P*Ma)/(Mw*es(T-273.15)) + (Mw*L*L)/(Cp*R*T*T)
-    dS_dt = alpha*V - gamma*dwc_dt
+    alpha = (g * Mw * L) / (Cp * R * (T ** 2)) - (g * Ma) / (R * T)
+    gamma = (P * Ma) / (Mw * es(T - 273.15)) + (Mw * L * L) / (Cp * R * T * T)
+    dS_dt = alpha * V - gamma * dwc_dt
 
     dz_dt = V
 
     # Repackage tendencies for feedback to numerical solver
-    x = np.zeros(shape=(nr+c.N_STATE_VARS, ))
+    x = np.zeros(shape=(nr + c.N_STATE_VARS,))
     x[0] = dz_dt
     x[1] = dP_dt
     x[2] = dT_dt
@@ -742,6 +839,6 @@ def der(y, t, nr, r_drys, Nis, V, kappas, accom=c.ac):
     x[4] = dwc_dt
     x[5] = dwi_dt
     x[6] = dS_dt
-    x[c.N_STATE_VARS:] = drs_dt[:]
+    x[c.N_STATE_VARS :] = drs_dt[:]
 
     return x
