@@ -81,12 +81,12 @@ setup(
     download_url="https://github.com/darothen/pyrcel",
     # TODO: Update install requirements and corresponding documentation
     install_requires=[
-        "Assimulo==3.0",
-        "numba==0.45.1",
-        "numpy==1.17.0",
-        "pandas==0.25.1",
-        "scipy==1.3.1",
-        "xarray==0.12.3",
+        # "Assimulo==3.0",
+        "numba>=0.45.1",
+        "numpy>=1.17.0",
+        "pandas>=0.25.1",
+        "scipy>=1.3.1",
+        "xarray>=0.12.3",
     ],
     packages=["pyrcel"],
     package_data={"pyrcel": ["data/std_atm.csv"]},

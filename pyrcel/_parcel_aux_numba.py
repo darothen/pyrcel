@@ -1,80 +1,34 @@
-import numba as nb
-import numpy as np
-from numba.pycc import CC
+# import numba as nb
+# import numpy as np
+# from numba.pycc import CC
+
+import numpy as onp
+import jax.numpy as np
+from jax import jacfwd, jacrev, jit
+from jax.ops import index_update, index
 
 import pyrcel.constants as c
 
 ## Define double DTYPE
-DTYPE = np.float
+DTYPE = onp.float
 
 PI = 3.14159265358979323846264338328
 N_STATE_VARS = c.N_STATE_VARS
 
 # AOT/numba stuff
-auxcc = CC("parcel_aux_numba")
-auxcc.verbose = True
+# auxcc = CC("parcel_aux_numba")
+# auxcc.verbose = True
 
 
 ## Auxiliary, single-value calculations with GIL released for derivative
 ## calculations
-@nb.njit()
-@auxcc.export("sigma_w", "f8(f8)")
-def sigma_w(T):
-    """See :func:`pyrcel.thermo.sigma_w` for full documentation
-    """
-    return 0.0761 - (1.55e-4) * (T - 273.15)
-
-
-@nb.njit()
-@auxcc.export("ka", "f8(f8, f8, f8)")
-def ka(T, r, rho):
-    """See :func:`pyrcel.thermo.ka` for full documentation
-    """
-    ka_cont = 1e-3 * (4.39 + 0.071 * T)
-    denom = 1.0 + (ka_cont / (c.at * r * rho * c.Cp)) * np.sqrt(
-        (2 * PI * c.Ma) / (c.R * T)
-    )
-    return ka_cont / denom
-
-
-@nb.njit()
-@auxcc.export("dv", "f8(f8, f8, f8, f8)")
-def dv(T, r, P, accom):
-    """See :func:`pyrcel.thermo.dv` for full documentation
-    """
-    P_atm = P * 1.01325e-5  # Pa -> atm
-    dv_cont = 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
-    denom = 1.0 + (dv_cont / (accom * r)) * np.sqrt(
-        (2 * PI * c.Mw) / (c.R * T)
-    )
-    return dv_cont / denom
-
-
-@nb.njit()
-@auxcc.export("es", "f8(f8)")
-def es(T):
-    """See :func:`pyrcel.thermo.es` for full documentation
-    """
-    return 611.2 * np.exp(17.67 * T / (T + 243.5))
-
-
-@nb.njit()
-@auxcc.export("Seq", "f8(f8, f8, f8)")
-def Seq(r, r_dry, T, kappa):
-    """See :func:`pyrcel.thermo.Seq` for full documentation.
-    """
-    A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r)
-    B = 1.0
-    if kappa > 0.0:
-        B = (r ** 3 - (r_dry ** 3)) / (r ** 3 - (r_dry ** 3) * (1.0 - kappa))
-    return np.exp(A) * B - 1.0
-
 
 ## RHS Derivative callback function
-@nb.njit(parallel=True)
-@auxcc.export(
-    "parcel_ode_sys", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)"
-)
+#@nb.njit(parallel=True)
+# @auxcc.export(
+#     "parcel_ode_sys", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)"
+# )
+# @jit
 def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     """ Calculates the instantaneous time-derivative of the parcel model system.
 
@@ -132,9 +86,11 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     wi = y[5]
     S = y[6]
     rs = y[N_STATE_VARS:]
+    nr = len(rs)
 
     T_c = T - 273.15  # convert temperature to Celsius
-    pv_sat = es(T_c)  # saturation vapor pressure
+    # pv_sat = es(T_c)  # saturation vapor pressure
+    pv_sat = 611.2 * np.exp(17.67 * T_c / (T_c + 243.5))
     wv_sat = wv / (S + 1.0)  # saturation mixing ratio
     Tv = (1.0 + 0.61 * wv) * T
     e = (1.0 + S) * pv_sat  # water vapor pressure
@@ -148,9 +104,10 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     dP_dt = -1.0 * rho_air * c.g * V
     dwc_dt = 0.0
     # drs_dt = np.empty(shape=(nr), dtype=DTYPE)
-    drs_dt = np.empty_like(rs)
+    drs_dt = np.zeros(nr)
 
-    for i in nb.prange(nr):
+    # for i in nb.prange(nr):
+    for i in range(nr):
         r = rs[i]
         r_dry = r_drys[i]
         kappa = kappas[i]
@@ -158,8 +115,20 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
 
         ## Non-continuum diffusivity/thermal conductivity of air near
         ## near particle
-        dv_r = dv(T, r, P, accom)
-        ka_r = ka(T, r, rho_air)
+        # dv_r = dv(T, r, P, accom)
+        P_atm = P * 1.01325e-5  # Pa -> atm
+        dv_cont = 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
+        denom = 1.0 + (dv_cont / (accom * r)) * np.sqrt(
+            (2 * PI * c.Mw) / (c.R * T)
+        )
+        dv_r = dv_cont / denom
+
+        # ka_r = ka(T, r, rho_air)
+        ka_cont = 1e-3 * (4.39 + 0.071 * T)
+        denom = 1.0 + (ka_cont / (c.at * r * rho_air * c.Cp)) * np.sqrt(
+            (2 * PI * c.Ma) / (c.R * T)
+        )
+        ka_r = ka_cont / denom
 
         ## Condensation coefficient
         G_a = (c.rho_w * c.R * T) / (pv_sat * dv_r * c.Mw)
@@ -167,7 +136,13 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
         G = 1.0 / (G_a + G_b)
 
         ## Difference between ambient and particle equilibrium supersaturation
-        Seq_r = Seq(r, r_dry, T, kappa)
+        # Seq_r = Seq(r, r_dry, T, kappa)
+        swt = 0.0761 - (1.55e-4) * (T - 273.15)
+        A = (2.0 * c.Mw * swt) / (c.R * T * c.rho_w * r)
+        B = 1.0
+        # if kappa > 0.0:
+        B = (r ** 3 - (r_dry ** 3)) / (r ** 3 - (r_dry ** 3) * (1.0 - kappa))
+        Seq_r = np.exp(A) * B - 1.0
         delta_S = S - Seq_r
 
         ## Size and liquid water tendencies
@@ -175,7 +150,8 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
         dwc_dt += (
             Ni * r * r * dr_dt
         )  # Contribution to liq. water tendency due to growth
-        drs_dt[i] = dr_dt
+        # drs_dt[i] = dr_dt
+        drs_dt = index_update(drs_dt, index[i], dr_dt)
 
     dwc_dt *= (
         4.0 * PI * c.rho_w / rho_air_dry
@@ -222,14 +198,16 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     dS_dt = alpha * V - gamma * dwc_dt
 
     # x = np.empty(shape=(nr+N_STATE_VARS), dtype='d')
-    x = np.empty_like(y)
-    x[0] = dz_dt
-    x[1] = dP_dt
-    x[2] = dT_dt
-    x[3] = dwv_dt
-    x[4] = dwc_dt
-    x[5] = dwi_dt
-    x[6] = dS_dt
-    x[N_STATE_VARS:] = drs_dt[:]
+    x = np.zeros(len(y))
+    x = index_update(x, index[0:7], [dz_dt, dP_dt, dT_dt, dwv_dt, dwc_dt, dwi_dt, dS_dt])
+    x = index_update(x, index[7:], drs_dt)
+    # x[0] = dz_dt
+    # x[1] = dP_dt
+    # x[2] = dT_dt
+    # x[3] = dwv_dt
+    # x[4] = dwc_dt
+    # x[5] = dwi_dt
+    # x[6] = dS_dt
+    # x[N_STATE_VARS:] = drs_dt[:]
 
     return x
