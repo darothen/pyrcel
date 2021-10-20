@@ -79,7 +79,7 @@ def quick_plot(ax):
 
     c = plt_meta.lines[-1].get_color()
     plt.vlines(parcel.z.ix[tmax], ylims[0], Smax, color=c, linestyle="dashed")
-    plt.hlines(Smax, 0, parcel.z.ix[tmax], color=c, linestyle="dashed")
+    plt.hlines(Smax, 0, parcel.z.iloc[tmax], color=c, linestyle="dashed")
     plt.ylim(S0)
 
 

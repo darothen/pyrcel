@@ -637,7 +637,7 @@ class ParcelModel(object):
             out_file.write("S_max = %f\n" % S_max)
 
             # 2) Activated fraction of each species
-            T_at_S_max = parcel_data["T"].ix[S_max_idx]
+            T_at_S_max = parcel_data["T"].iloc[S_max_idx]
             total_number = 0.0
             total_activated = 0.0
             for aerosol in self.aerosols:
