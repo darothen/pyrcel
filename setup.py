@@ -85,7 +85,7 @@ setup(
         "numba==0.45.1",
         "numpy==1.22.0",
         "pandas==0.25.1",
-        "scipy==1.3.1",
+        "scipy==1.10.0",
         "xarray==0.12.3",
     ],
     packages=["pyrcel"],
