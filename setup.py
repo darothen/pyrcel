@@ -12,30 +12,13 @@ import warnings
 from textwrap import dedent
 
 MAJOR, MINOR, MICRO = 1, 3, 1
+DEV_ITER = 0
 DEV = True
-VERSION = "{}.{}.{}".format(MAJOR, MINOR, MICRO)
 
-# Correct versioning with git info if DEV
 if DEV:
-    import subprocess
-
-    pipe = subprocess.Popen(
-        ["git", "describe", "--always", "--match", "'v[0-9]*'"],
-        stdout=subprocess.PIPE,
-    )
-    so, err = pipe.communicate()
-
-    if pipe.returncode != 0:
-        # no git or something wrong with git (not in dir?)
-        warnings.warn(
-            "WARNING: Couldn't identify git revision, using generic version string"
-        )
-        VERSION += ".dev"
-    else:
-        git_rev = so.strip()
-        git_rev = git_rev.decode("ascii")  # necessary for Python >= 3
-
-        VERSION += ".dev-" + format(git_rev)
+    VERSION = "{}.{}.dev{}".format(MAJOR, MINOR, DEV_ITER)
+else:
+    VERSION = "{}.{}.{}".format(MAJOR, MINOR, MICRO)
 
 extensions = [
     # Numba AOT extension module
