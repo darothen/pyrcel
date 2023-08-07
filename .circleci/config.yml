@@ -1,5 +1,49 @@
 version: 2
 jobs:
+  build-python39:  # required for runs that don't use workflows
+    docker:
+      - image: continuumio/miniconda3
+    working_directory: ~/circleci-pyrcel39
+    steps:
+      - checkout
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v2-dependencies
+      - run: echo "Building Python 3.9 version..."
+      - run:
+          name: Create Conda Environment
+          command: |
+            conda env create -f ci/requirements-py39.yml
+      - run:
+          name: Install and Test Pyrcel Simulation
+          command: |
+            source activate pyrcel
+            pip install -e .
+            run_parcel examples/simple.yml
+
+  build-python38:  # required for runs that don't use workflows
+    docker:
+      - image: continuumio/miniconda3
+    working_directory: ~/circleci-pyrcel38
+    steps:
+      - checkout
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v2-dependencies
+      - run: echo "Building Python 3.8 version..."
+      - run:
+          name: Create Conda Environment
+          command: |
+            conda env create -f ci/requirements-py38.yml
+      - run:
+          name: Install and Test Pyrcel Simulation
+          command: |
+            source activate pyrcel
+            pip install -e .
+            run_parcel examples/simple.yml
+
   build-python37:  # required for runs that don't use workflows
     docker:
       - image: continuumio/miniconda3
@@ -22,56 +66,10 @@ jobs:
             pip install -e .
             run_parcel examples/simple.yml
 
-  build-python36:  # required for runs that don't use workflows
-    docker:
-      - image: continuumio/miniconda3
-    working_directory: ~/circleci-pyrcel36
-    steps:
-      - checkout
-      # Download and cache dependencies
-      - restore_cache:
-          keys:
-            - v2-dependencies
-      - run: echo "Building Python 3.6 version..."
-      - run:
-          name: Create Conda Environment
-          command: |
-            conda env create -f ci/requirements-py36.yml
-      - run:
-          name: Install and Test Pyrcel Simulation
-          command: |
-            source activate pyrcel
-            pip install -e .
-            run_parcel examples/simple.yml
-
-#  build-python35:  # required for runs that don't use workflows
-#    docker:
-#      - image: continuumio/miniconda3
-#    working_directory: ~/circleci-pyrcel35
-#    steps:
-#      - checkout
-#      # Download and cache dependencies
-#      - restore_cache:
-#          keys:
-#            - v2-dependencies
-#      - run: echo "Building Python 3.5 version..."
-#      - run:
-#          name: Create Conda Environment
-#          command: |
-#            conda env create -f ci/requirements-py35.yml
-#      - run:
-#          name: Install and Test Pyrcel Simulation
-#          command: |
-#            source activate pyrcel
-#            pip install -e .
-#            run_parcel examples/simple.yml
-
-
-
 workflows:
   version: 2
   build:
     jobs:
+      - build-python39
+      - build-python38
       - build-python37
-      - build-python36
-#      - build-python35

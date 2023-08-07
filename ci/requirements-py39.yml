@@ -2,11 +2,10 @@ name: pyrcel
 channels:
     - conda-forge
 dependencies:
-    - python=3.5
+    - python=3.9
     - gcc_linux-64
     - gxx_linux-64
     - assimulo
-    - cython>=0.19
     - numba
     - numpy
     - pandas

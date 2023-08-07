@@ -31,12 +31,12 @@ Requirements
 
 **Required**
 
-* Python >= 3.5
+* Python >= 3.7
 * [numba](http://numba.pydata.org)
 * [NumPy](http://www.numpy.org)
 * [SciPy](http://www.scipy.org)
-* [pandas](http://pandas.pydata.org) - v0.17+
-* [xarray](http://xarray.pydata.org/en/stable/) - v0.7+
+* [pandas](http://pandas.pydata.org) - v0.25+
+* [xarray](http://xarray.pydata.org/en/stable/) - v2023+
 * [PyYAML](http://pyyaml.org/)
 
 **Optional**
