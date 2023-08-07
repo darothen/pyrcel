@@ -70,7 +70,7 @@ setup(
         'pandas==2',
         'pyyaml',
         'scipy==1.11',
-        'setuptools==60',
+        'setuptools==65.5.1',
         'xarray==2023.7',
     ],
     packages=["pyrcel"],
