@@ -5,7 +5,7 @@ from numba.pycc import CC
 import pyrcel.constants as c
 
 ## Define double DTYPE
-DTYPE = np.float
+DTYPE = np.float64
 
 PI = 3.14159265358979323846264338328
 N_STATE_VARS = c.N_STATE_VARS
