@@ -2,7 +2,8 @@ version: 2
 jobs:
   build-python39:  # required for runs that don't use workflows
     docker:
-      - image: continuumio/miniconda3
+      - image: mambaorg/micromamba
+    resource_class: small
     working_directory: ~/circleci-pyrcel39
     steps:
       - checkout
@@ -18,14 +19,15 @@ jobs:
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            source activate pyrcel
+            mamba activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
   build-python38:  # required for runs that don't use workflows
     docker:
-      - image: continuumio/miniconda3
+      - image: mambaorg/micromamba
     working_directory: ~/circleci-pyrcel38
+    resource_class: small
     steps:
       - checkout
       # Download and cache dependencies
@@ -40,14 +42,15 @@ jobs:
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            source activate pyrcel
+            mamba activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
   build-python37:  # required for runs that don't use workflows
     docker:
-      - image: continuumio/miniconda3
+      - image: mambaorg/micromamba
     working_directory: ~/circleci-pyrcel37
+    resource_class: small
     steps:
       - checkout
       # Download and cache dependencies
@@ -58,7 +61,7 @@ jobs:
       - run:
           name: Create Conda Environment
           command: |
-            conda env create -f ci/requirements-py37.yml
+            mamba env create -f ci/requirements-py37.yml
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
