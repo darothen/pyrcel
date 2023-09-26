@@ -1,0 +1,10 @@
+numba<0.57
+numpy<1.25
+numpydoc
+pandas
+pyyaml
+scipy<1.11
+setuptools
+sphinx
+sphinx_rtd_theme
+xarray
