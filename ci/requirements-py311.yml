@@ -2,7 +2,7 @@ name: pyrcel
 channels:
     - conda-forge
 dependencies:
-    - python=3.7
+    - python=3.11
     - gcc_linux-64
     - gxx_linux-64
     - assimulo
