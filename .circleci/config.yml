@@ -1,5 +1,51 @@
 version: 2
 jobs:
+  build-python311:  
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: large
+    working_directory: ~/circleci-pyrcel311
+    steps:
+      - checkout
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v2-dependencies
+      - run: echo "Building Python 3.11 version..."
+      - run:
+          name: Create Conda Environment
+          command: |
+            conda env create -f ci/requirements-py311.yml
+      - run:
+          name: Install and Test Pyrcel Simulation
+          command: |
+            source activate pyrcel
+            pip install -e .
+            run_parcel examples/simple.yml
+
+  build-python310:  
+    docker:
+      - image: continuumio/miniconda3
+    resource_class: large
+    working_directory: ~/circleci-pyrcel310
+    steps:
+      - checkout
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v2-dependencies
+      - run: echo "Building Python 3.10 version..."
+      - run:
+          name: Create Conda Environment
+          command: |
+            conda env create -f ci/requirements-py310.yml
+      - run:
+          name: Install and Test Pyrcel Simulation
+          command: |
+            source activate pyrcel
+            pip install -e .
+            run_parcel examples/simple.yml
+
   build-python39:  # required for runs that don't use workflows
     docker:
       - image: continuumio/miniconda3
@@ -46,33 +92,11 @@ jobs:
             pip install -e .
             run_parcel examples/simple.yml
 
-  build-python37:  # required for runs that don't use workflows
-    docker:
-      - image: continuumio/miniconda3
-    working_directory: ~/circleci-pyrcel37
-    resource_class: large
-    steps:
-      - checkout
-      # Download and cache dependencies
-      - restore_cache:
-          keys:
-            - v2-dependencies
-      - run: echo "Building Python 3.7 version..."
-      - run:
-          name: Create Conda Environment
-          command: |
-            conda env create -f ci/requirements-py37.yml
-      - run:
-          name: Install and Test Pyrcel Simulation
-          command: |
-            source activate pyrcel
-            pip install -e .
-            run_parcel examples/simple.yml
-
 workflows:
   version: 2
   build:
     jobs:
+      - build-python311
+      - build-python310
       - build-python39
       - build-python38
-      - build-python37
