@@ -1,0 +1,33 @@
+# Simple, example configuration script for a parcel model simulation
+
+# Save the simulation output in a folder "output/" with the name "simple"
+experiment_control:
+    name: "simple"
+    output_dir: "output/"
+
+# Here, we set the model to run in 10 second chunks and save output interpolated to every
+# 1 second. It will end after 9999 simulation seconds, unless termination criteria
+# (a supersaturation max) is reached, after which it will stop once the simulated parcel has
+# ascended 10 more meters.
+model_control:
+    output_dt: 0.5
+    solver_dt: 1.0
+    t_end: 9999.0
+    terminate: true
+    terminate_depth: 25.0
+
+# Initialize the model with two aerosol species:
+initial_aerosol:
+    # 1) a sulfate mode, with 250 bins, and
+    - name: sulfate
+      distribution: lognormal
+      distribution_args: { mu: 0.15, N: 1000, sigma: 1.2 }
+      kappa: 0.54
+      bins: 250
+
+# Set the model initial conditions
+initial_conditions:
+    temperature: 283.15 # K
+    relative_humidity: 0.95 # %, as a fraction
+    pressure: 85000.0 # Pa
+    updraft_speed: 0.44 # m/s
