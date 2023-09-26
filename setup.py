@@ -27,7 +27,6 @@ extensions = [
 
 
 def _write_version_file():
-
     fn = os.path.join(os.path.dirname(__file__), "pyrcel", "version.py")
 
     version_str = dedent(
@@ -64,13 +63,13 @@ setup(
     download_url="https://github.com/darothen/pyrcel",
     # TODO: Update install requirements and corresponding documentation
     install_requires=[
-        'numba<0.57',
-        'numpy<1.25',
-        'pandas',
-        'pyyaml',
-        'scipy<1.11',
-        'setuptools',
-        'xarray',
+        "numba",
+        "numpy",
+        "pandas",
+        "pyyaml",
+        "scipy",
+        "setuptools",
+        "xarray",
     ],
     packages=["pyrcel"],
     package_data={"pyrcel": ["data/std_atm.csv"]},

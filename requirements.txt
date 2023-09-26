@@ -1,7 +1,7 @@
-numba<0.57
-numpy<1.25
+numba
+numpy
 pandas
 pyyaml
-scipy<1.11
+scipy
 setuptools
 xarray
