@@ -18,14 +18,16 @@ dist/
 ############################
 *.pdf
 *.csv
+*.nc
 *.html
+pyrcel.egg-info
 
 # Documentation
 ############################
-doc/_build/
-doc/generated/
-doc/examples/*.rst
-doc/examples/*files/
+docs/_build/
+docs/generated/
+docs/examples/*.rst
+docs/examples/*files/
 
 # Other
 #######
@@ -34,3 +36,4 @@ doc/examples/*files/
 parcel_model.egg-info
 .idea/*
 *.dat
+*.DS_Store
