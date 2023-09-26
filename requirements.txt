@@ -1,8 +1,8 @@
 Cython
 numba<0.57
 numpy<1.25
-pandas==2
+pandas
 pyyaml
-scipy<1.11
+scipy==1.10
 setuptools>=60
 xarray>=2023.7
