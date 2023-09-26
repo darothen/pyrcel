@@ -3,5 +3,5 @@ numpy<1.25
 pandas
 pyyaml
 scipy<1.11
-setuptools>=60
-xarray>=2023.7
+setuptools
+xarray
