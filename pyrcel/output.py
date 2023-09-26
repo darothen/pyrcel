@@ -7,9 +7,10 @@ import pandas as pd
 import xarray as xr
 
 from . import constants as c
+from . import __version__ as ver
 from .util import ParcelModelError
 from .thermo import rho_air
-from .version import __version__ as ver
+
 
 #: Acceptable output formats
 OUTPUT_FORMATS = ["nc", "obj", "csv"]

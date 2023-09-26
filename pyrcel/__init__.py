@@ -8,7 +8,6 @@ on droplet activation.
 
 """
 
-# from .version import __version__
 from importlib.metadata import version as _version
 try:
     __version__ = _version('pyrcel')
