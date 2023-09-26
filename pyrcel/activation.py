@@ -5,11 +5,11 @@ import numpy as np
 from scipy.special import erfc
 
 from . import constants as c
-from .thermo import es, ka_cont, dv, dv_cont, sigma_w, kohler_crit
+from .thermo import dv, dv_cont, es, ka_cont, kohler_crit, sigma_w
 
 
 def _unpack_aerosols(aerosols):
-    """ Convert a list of :class:`AerosolSpecies` into lists of aerosol properties.
+    """Convert a list of :class:`AerosolSpecies` into lists of aerosol properties.
 
     Parameters
     ----------
@@ -38,10 +38,8 @@ def _unpack_aerosols(aerosols):
     return dict(species=species, mus=mus, sigmas=sigmas, Ns=Ns, kappas=kappas)
 
 
-def lognormal_activation(
-    smax, mu, sigma, N, kappa, sgi=None, T=None, approx=True
-):
-    """ Compute the activated number/fraction from a lognormal mode
+def lognormal_activation(smax, mu, sigma, N, kappa, sgi=None, T=None, approx=True):
+    """Compute the activated number/fraction from a lognormal mode
 
     Parameters
     ----------
@@ -79,7 +77,7 @@ def lognormal_activation(
 
 
 def binned_activation(Smax, T, rs, aerosol, approx=False):
-    """ Compute the activation statistics of a given aerosol, its transient
+    """Compute the activation statistics of a given aerosol, its transient
     size distribution, and updraft characteristics. Following Nenes et al, 2001
     also compute the kinetic limitation statistics for the aerosol.
 
@@ -159,7 +157,7 @@ def binned_activation(Smax, T, rs, aerosol, approx=False):
 
 # noinspection PyUnresolvedReferences
 def multi_mode_activation(Smax, T, aerosols, rss):
-    """ Compute the activation statistics of a multi-mode, binned_activation
+    """Compute the activation statistics of a multi-mode, binned_activation
     aerosol population.
 
     Parameters
@@ -194,7 +192,7 @@ def multi_mode_activation(Smax, T, aerosols, rss):
 
 
 def _vpres(T):
-    """ Polynomial approximation of saturated water vapour pressure as
+    """Polynomial approximation of saturated water vapour pressure as
     a function of temperature.
 
     Parameters
@@ -231,7 +229,7 @@ def _vpres(T):
 
 
 def _erfp(x):
-    """ Polynomial approximation to error function """
+    """Polynomial approximation to error function"""
     AA = [0.278393, 0.230389, 0.000972, 0.078108]
     y = np.abs(1.0 * x)
     axx = 1.0 + y * (AA[0] + y * (AA[1] + y * (AA[2] + y * AA[3])))
@@ -260,7 +258,7 @@ def mbn2014(
     tol=1e-6,
     max_iters=100,
 ):
-    """ Computes droplet activation using an iterative scheme.
+    """Computes droplet activation using an iterative scheme.
 
     This method implements the iterative activation scheme under development by
     the Nenes' group at Georgia Tech. It encompasses modifications made over a
@@ -346,9 +344,7 @@ def mbn2014(
     A = 4.0 * Mw * surt / R / T / Rho_w
     # There are three different ways to do this:
     #    1) original formula from MBN2014
-    f = lambda T, dpg, kappa: np.sqrt(
-        (A ** 3.0) * 4.0 / 27.0 / kappa / (dpg ** 3.0)
-    )
+    f = lambda T, dpg, kappa: np.sqrt((A**3.0) * 4.0 / 27.0 / kappa / (dpg**3.0))
     #    2) detailed kohler calculation
     # f = lambda T, dpg, kappa: kohler_crit(T, dpg/2., kappa)
     #    3) approximate kohler calculation
@@ -379,9 +375,7 @@ def mbn2014(
     )
 
     # Setup constants used in supersaturation equation
-    wv_pres_sat = _vpres(T) * (
-        1e5 / 1e3
-    )  # MBN2014: could also use thermo.es()
+    wv_pres_sat = _vpres(T) * (1e5 / 1e3)  # MBN2014: could also use thermo.es()
     alpha = g * Mw * L / Cp / R / T / T - g * Ma / R / T
     beta1 = P * Ma / wv_pres_sat / Mw + Mw * L * L / Cp / R / T / T
     beta2 = (
@@ -394,14 +388,14 @@ def mbn2014(
     cf2 = A / 3.0
 
     def _sintegral(smax):
-        """ Integrate the activation equation, using ``spar`` as the population
+        """Integrate the activation equation, using ``spar`` as the population
         splitting threshold.
 
         Inherits the workspace thermodynamic/constant variables from one level
         of scope higher.
         """
 
-        zeta_c = ((16.0 / 9.0) * alpha * V * beta2 * (A ** 2)) ** 0.25
+        zeta_c = ((16.0 / 9.0) * alpha * V * beta2 * (A**2)) ** 0.25
         delta = 1.0 - (zeta_c / smax) ** 4.0  # spar -> smax
         critical = delta <= 0.0
 
@@ -558,7 +552,7 @@ def arg2000(
     kappas=[],
     min_smax=False,
 ):
-    """ Computes droplet activation using a psuedo-analytical scheme.
+    """Computes droplet activation using a psuedo-analytical scheme.
 
     This method implements the psuedo-analytical scheme of [ARG2000] to
     calculate droplet activation an an adiabatically ascending parcel. It
@@ -625,12 +619,8 @@ def arg2000(
 
     # Originally from Abdul-Razzak 1998 w/ Ma. Need kappa formulation
     wv_sat = es(T - 273.15)
-    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T ** 2)) - (c.g * c.Ma) / (
-        c.R * T
-    )
-    gamma = (c.R * T) / (wv_sat * c.Mw) + (c.Mw * (c.L ** 2)) / (
-        c.Cp * c.Ma * T * P
-    )
+    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T**2)) - (c.g * c.Ma) / (c.R * T)
+    gamma = (c.R * T) / (wv_sat * c.Mw) + (c.Mw * (c.L**2)) / (c.Cp * c.Ma * T * P)
 
     # Condensation effects - base calculation
     G_a = (c.rho_w * c.R * T) / (wv_sat * dv_cont(T, P) * c.Mw)
@@ -639,8 +629,7 @@ def arg2000(
 
     Smis = []
     Sparts = []
-    for (mu, sigma, N, kappa) in zip(mus, sigmas, Ns, kappas):
-
+    for mu, sigma, N, kappa in zip(mus, sigmas, Ns, kappas):
         am = mu * 1e-6
         N = N * 1e6
 
@@ -657,19 +646,13 @@ def arg2000(
             # Scale using the formula from [GHAN2011]
             # G_ac - estimate using critical radius of number mode radius,
             #        and new value for condensation coefficient
-            G_a = (c.rho_w * c.R * T) / (
-                wv_sat * dv(T, rc_mode, P, accom) * c.Mw
-            )
-            G_b = (c.L * c.rho_w * ((c.L * c.Mw / (c.R * T)) - 1)) / (
-                ka_cont(T) * T
-            )
+            G_a = (c.rho_w * c.R * T) / (wv_sat * dv(T, rc_mode, P, accom) * c.Mw)
+            G_b = (c.L * c.rho_w * ((c.L * c.Mw / (c.R * T)) - 1)) / (ka_cont(T) * T)
             G_ac = 1.0 / (G_a + G_b)
 
             # G_ac1 - estimate using critical radius of number mode radius,
             #         unity condensation coefficient; re_use G_b (no change)
-            G_a = (c.rho_w * c.R * T) / (
-                wv_sat * dv(T, rc_mode, P, accom=1.0) * c.Mw
-            )
+            G_a = (c.rho_w * c.R * T) / (wv_sat * dv(T, rc_mode, P, accom=1.0) * c.Mw)
             G_ac1 = 1.0 / (G_a + G_b)
 
             # Combine using scaling formula (40) from [GHAN2011]
@@ -677,14 +660,12 @@ def arg2000(
 
         # Parameterization integral solutions
         zeta = (2.0 / 3.0) * A * (np.sqrt(alpha * V / G))
-        etai = ((alpha * V / G) ** (3.0 / 2.0)) / (
-            N * gamma * c.rho_w * 2.0 * np.pi
-        )
+        etai = ((alpha * V / G) ** (3.0 / 2.0)) / (N * gamma * c.rho_w * 2.0 * np.pi)
 
         # Contributions to maximum supersaturation
         Spa = fi * ((zeta / etai) ** (1.5))
-        Spb = gi * (((Smi2 ** 2) / (etai + 3.0 * zeta)) ** (0.75))
-        S_part = (1.0 / (Smi2 ** 2)) * (Spa + Spb)
+        Spb = gi * (((Smi2**2) / (etai + 3.0 * zeta)) ** (0.75))
+        S_part = (1.0 / (Smi2**2)) * (Spa + Spb)
 
         Smis.append(Smi2)
         Sparts.append(S_part)
@@ -700,9 +681,7 @@ def arg2000(
 
     n_acts, act_fracs = [], []
     for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, Smis):
-        N_act, act_frac = lognormal_activation(
-            smax, mu * 1e-6, sigma, N, kappa, sgi
-        )
+        N_act, act_frac = lognormal_activation(smax, mu * 1e-6, sigma, N, kappa, sgi)
         n_acts.append(N_act)
         act_fracs.append(act_frac)
 
@@ -710,7 +689,7 @@ def arg2000(
 
 
 def shipwayabel2010(V, T, P, aerosol):
-    """ Activation scheme following Shipway and Abel, 2010
+    """Activation scheme following Shipway and Abel, 2010
     (doi:10.1016/j.atmosres.2009.10.005).
 
     """

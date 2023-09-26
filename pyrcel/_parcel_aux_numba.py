@@ -20,16 +20,14 @@ auxcc.verbose = True
 @nb.njit()
 @auxcc.export("sigma_w", "f8(f8)")
 def sigma_w(T):
-    """See :func:`pyrcel.thermo.sigma_w` for full documentation
-    """
+    """See :func:`pyrcel.thermo.sigma_w` for full documentation"""
     return 0.0761 - (1.55e-4) * (T - 273.15)
 
 
 @nb.njit()
 @auxcc.export("ka", "f8(f8, f8, f8)")
 def ka(T, r, rho):
-    """See :func:`pyrcel.thermo.ka` for full documentation
-    """
+    """See :func:`pyrcel.thermo.ka` for full documentation"""
     ka_cont = 1e-3 * (4.39 + 0.071 * T)
     denom = 1.0 + (ka_cont / (c.at * r * rho * c.Cp)) * np.sqrt(
         (2 * PI * c.Ma) / (c.R * T)
@@ -40,43 +38,36 @@ def ka(T, r, rho):
 @nb.njit()
 @auxcc.export("dv", "f8(f8, f8, f8, f8)")
 def dv(T, r, P, accom):
-    """See :func:`pyrcel.thermo.dv` for full documentation
-    """
+    """See :func:`pyrcel.thermo.dv` for full documentation"""
     P_atm = P * 1.01325e-5  # Pa -> atm
     dv_cont = 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
-    denom = 1.0 + (dv_cont / (accom * r)) * np.sqrt(
-        (2 * PI * c.Mw) / (c.R * T)
-    )
+    denom = 1.0 + (dv_cont / (accom * r)) * np.sqrt((2 * PI * c.Mw) / (c.R * T))
     return dv_cont / denom
 
 
 @nb.njit()
 @auxcc.export("es", "f8(f8)")
 def es(T):
-    """See :func:`pyrcel.thermo.es` for full documentation
-    """
+    """See :func:`pyrcel.thermo.es` for full documentation"""
     return 611.2 * np.exp(17.67 * T / (T + 243.5))
 
 
 @nb.njit()
 @auxcc.export("Seq", "f8(f8, f8, f8)")
 def Seq(r, r_dry, T, kappa):
-    """See :func:`pyrcel.thermo.Seq` for full documentation.
-    """
+    """See :func:`pyrcel.thermo.Seq` for full documentation."""
     A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r)
     B = 1.0
     if kappa > 0.0:
-        B = (r ** 3 - (r_dry ** 3)) / (r ** 3 - (r_dry ** 3) * (1.0 - kappa))
+        B = (r**3 - (r_dry**3)) / (r**3 - (r_dry**3) * (1.0 - kappa))
     return np.exp(A) * B - 1.0
 
 
 ## RHS Derivative callback function
 @nb.njit(parallel=True)
-@auxcc.export(
-    "parcel_ode_sys", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)"
-)
+@auxcc.export("parcel_ode_sys", "f8[:](f8[:], f8, i4, f8[:], f8[:], f8, f8[:], f8)")
 def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
-    """ Calculates the instantaneous time-derivative of the parcel model system.
+    """Calculates the instantaneous time-derivative of the parcel model system.
 
     Given a current state vector `y` of the parcel model, computes the tendency
     of each term including thermodynamic (pressure, temperature, etc) and aerosol
@@ -177,9 +168,7 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
         )  # Contribution to liq. water tendency due to growth
         drs_dt[i] = dr_dt
 
-    dwc_dt *= (
-        4.0 * PI * c.rho_w / rho_air_dry
-    )  # Hydrated aerosol size -> water mass
+    dwc_dt *= 4.0 * PI * c.rho_w / rho_air_dry  # Hydrated aerosol size -> water mass
     # use rho_air_dry for mixing ratio definition consistency
     # No freezing implemented yet
     dwi_dt = 0.0
@@ -215,7 +204,7 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     """
 
     ## GHAN (2011)
-    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T ** 2))
+    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * (T**2))
     alpha -= (c.g * c.Ma) / (c.R * T)
     gamma = (P * c.Ma) / (c.Mw * pv_sat)
     gamma += (c.Mw * c.L * c.L) / (c.Cp * c.R * T * T)

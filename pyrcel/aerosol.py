@@ -7,7 +7,7 @@ from .distributions import BaseDistribution, Lognorm, MultiModeLognorm
 
 
 def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
-    """ Converts a swath of a size distribution function to an actual number
+    """Converts a swath of a size distribution function to an actual number
     concentration.
 
     Aerosol size distributions are typically reported by normalizing the
@@ -53,7 +53,7 @@ def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
 
 
 class AerosolSpecies(object):
-    """ Container class for organizing aerosol metadata.
+    """Container class for organizing aerosol metadata.
 
     To allow flexibility with how aerosols are defined in the model, this class is
     meant to act as a wrapper to contain metadata about aerosols (their species
@@ -146,9 +146,7 @@ class AerosolSpecies(object):
         self.kappa = kappa  # Kappa hygroscopicity parameter
         self.rho = rho  # aerosol density kg/m^3
         self.mw = mw
-        self.bins = (
-            bins
-        )  # Number of bins for discretizing the size distribution
+        self.bins = bins  # Number of bins for discretizing the size distribution
 
         # Handle the size distribution passed to the constructor
         self.distribution = distribution
@@ -164,7 +162,7 @@ class AerosolSpecies(object):
                 lr = (self.r_drys[0] ** 2.0) / mid1
                 rs = [lr, mid1]
                 for r_dry in self.r_drys[1:]:
-                    rs.append(r_dry ** 2.0 / rs[-1])
+                    rs.append(r_dry**2.0 / rs[-1])
                 self.rs = np.array(rs) * 1e6
             else:
                 # Truly mono-disperse, so no boundaries (we don't actually need
@@ -185,9 +183,7 @@ class AerosolSpecies(object):
                 self.rs = bins[:]
             else:
                 if not r_min:
-                    lr = np.log10(
-                        distribution.mu / (10.0 * distribution.sigma)
-                    )
+                    lr = np.log10(distribution.mu / (10.0 * distribution.sigma))
                 else:
                     lr = np.log10(r_min)
                 if not r_max:
@@ -247,8 +243,7 @@ class AerosolSpecies(object):
 
         else:
             raise ValueError(
-                "Could not work with size distribution of type %r"
-                % type(distribution)
+                "Could not work with size distribution of type %r" % type(distribution)
             )
 
         # Correct to SI units
@@ -258,7 +253,7 @@ class AerosolSpecies(object):
         self.nr = len(self.r_drys)
 
     def stats(self):
-        """ Compute useful statistics about this aerosol's size distribution.
+        """Compute useful statistics about this aerosol's size distribution.
 
         Returns
         -------
@@ -278,10 +273,7 @@ class AerosolSpecies(object):
             stats_dict = self.distribution.stats()
 
             if self.rho:
-
-                stats_dict["total_mass"] = (
-                    stats_dict["total_volume"] * self.rho
-                )
+                stats_dict["total_mass"] = stats_dict["total_volume"] * self.rho
                 stats_dict["mean_mass"] = stats_dict["mean_volume"] * self.rho
                 stats_dict["specific_surface_area"] = (
                     stats_dict["total_surface_area"] / stats_dict["total_mass"]

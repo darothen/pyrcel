@@ -22,8 +22,8 @@ from . import constants as c
 available_integrators = ["odeint"]
 
 try:
-    from odespy.odepack import Lsode, Lsoda
     from odespy import Vode
+    from odespy.odepack import Lsoda, Lsode
 
     available_integrators.extend(["lsode", "lsoda", "vode"])
 except ImportError:
@@ -34,17 +34,14 @@ except ImportError:
 
 
 try:
+    # from assimulo.solvers.odepack import LSODAR
+    from assimulo.exception import TimeLimitExceeded
     from assimulo.problem import Explicit_Problem
     from assimulo.solvers.sundials import CVode, CVodeError
 
-    # from assimulo.solvers.odepack import LSODAR
-    from assimulo.exception import TimeLimitExceeded
-
     available_integrators.extend(["cvode", "lsodar"])
 except ImportError:
-    warnings.warn(
-        "Could not import Assimulo; " "invoking the CVode solver will fail!"
-    )
+    warnings.warn("Could not import Assimulo; " "invoking the CVode solver will fail!")
 
 
 __all__ = ["Integrator"]
@@ -63,10 +60,7 @@ class Integrator(metaclass=ABCMeta):
 
     """
 
-    def __init__(
-        self, rhs, output_dt, solver_dt, y0, args, t0=0.0, console=False
-    ):
-
+    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0.0, console=False):
         self.output_dt = output_dt
         self.solver_dt = solver_dt
         self.y0 = y0
@@ -91,8 +85,7 @@ class Integrator(metaclass=ABCMeta):
 
     @staticmethod
     def solver(method):
-        """ Maps a solver name to a function.
-        """
+        """Maps a solver name to a function."""
         solvers = {
             # # SciPy interfaces
             # 'odeint': Integrator._solve_odeint,
@@ -115,10 +108,10 @@ class Integrator(metaclass=ABCMeta):
 
 
 class ExtendedProblem(Explicit_Problem):
-    """ This extension of the Assimulo 'Explicit_Problem' class
+    """This extension of the Assimulo 'Explicit_Problem' class
     encodes some of the logic particular to the parcel model simulation,
     specifically rules for terminating the simulation and detecting
-    events such as the maximum supersaturation occurring """
+    events such as the maximum supersaturation occurring"""
 
     name = "Parcel model ODEs"
     sw0 = [True, False]  # Normal integration switch  # Past cut-off switch
@@ -149,8 +142,8 @@ class ExtendedProblem(Explicit_Problem):
 
     # The event function
     def state_events(self, t, y, sw):
-        """ Check whether an 'event' has occurred. We want to see if the
-        supersaturation is decreasing or not. """
+        """Check whether an 'event' has occurred. We want to see if the
+        supersaturation is decreasing or not."""
         if sw[0]:
             smax_event = self.dS_dt
         else:
@@ -162,11 +155,9 @@ class ExtendedProblem(Explicit_Problem):
 
     # Event handling function
     def handle_event(self, solver, event_info):
-        """ Event handling. This function is called when Assimulo finds
-        an event as specified by the event function. """
-        event_info = event_info[
-            0
-        ]  # Only state events, event_info[1] is time events
+        """Event handling. This function is called when Assimulo finds
+        an event as specified by the event function."""
+        event_info = event_info[0]  # Only state events, event_info[1] is time events
         if event_info[0] != 0:
             solver.sw[0] = False
             self.t_cutoff = solver.t + self.terminate_time
@@ -177,10 +168,7 @@ class ExtendedProblem(Explicit_Problem):
 
 
 class CVODEIntegrator(Integrator):
-
-    kwargs = (
-        None
-    )  # Save the kwargs used for setting up the interface to CVODE!
+    kwargs = None  # Save the kwargs used for setting up the interface to CVODE!
 
     def __init__(
         self,
@@ -213,7 +201,7 @@ class CVODEIntegrator(Integrator):
         self.kwargs = kwargs
 
     def _setup_sim(self, **kwargs):
-        """ Create a simulation interface to Assimulo using CVODE, given
+        """Create a simulation interface to Assimulo using CVODE, given
         a problem definition
 
         """
@@ -272,7 +260,6 @@ class CVODEIntegrator(Integrator):
         return sim
 
     def integrate(self, t_end, **kwargs):
-
         # Compute integration logic. We need to know:
         # 1) How are we iterating the solver loop?
         t_increment = self.solver_dt
@@ -284,16 +271,10 @@ class CVODEIntegrator(Integrator):
             print()
             print("Integration Loop")
             print()
-            print(
-                "  step     time  walltime  Δwalltime |     z       T       S"
-            )
-            print(
-                " "
-                "------------------------------------|----------------------"
-            )
+            print("  step     time  walltime  Δwalltime |     z       T       S")
+            print(" " "------------------------------------|----------------------")
             step_fmt = (
-                " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |"
-                " {:5.1f} {:7.2f} {:6.2f}%"
+                " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |" " {:5.1f} {:7.2f} {:6.2f}%"
             )
 
         txs, xxs = [], []
@@ -324,12 +305,8 @@ class CVODEIntegrator(Integrator):
                 )
             try:
                 now = timer()
-                out_list = np.linspace(
-                    t_current, t_current + t_increment, n_out + 1
-                )
-                tx, xx = self.sim.simulate(
-                    t_current + t_increment, 0, out_list
-                )
+                out_list = np.linspace(t_current, t_current + t_increment, n_out + 1)
+                tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
             except CVodeError as e:
                 raise ValueError("Something broke in CVode: %r" % e)
             except TimeLimitExceeded:

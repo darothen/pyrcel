@@ -13,9 +13,10 @@ its output.
 from numpy import empty, nan
 from pandas import DataFrame
 
-from .activation import mbn2014, arg2000
-from .parcel import ParcelModel
 from pyrcel.util import ParcelModelError
+
+from .activation import arg2000, mbn2014
+from .parcel import ParcelModel
 
 
 def run_model(
@@ -33,7 +34,7 @@ def run_model(
     solver_kws=None,
     model_kws=None,
 ):
-    """ Setup and run the parcel model with given solver configuration.
+    """Setup and run the parcel model with given solver configuration.
 
     Parameters
     ----------
@@ -108,7 +109,7 @@ def iterate_runs(
     output_fmt="smax",
     fail_easy=True,
 ):
-    """ Iterate through several different strategies for integrating the parcel model.
+    """Iterate through several different strategies for integrating the parcel model.
 
     As long as `fail_easy` is set to `False`, the strategies this method implements are:
 
@@ -196,10 +197,8 @@ def iterate_runs(
 
     # Strategy 2: Iterate over some increasingly relaxed tolerances for LSODA.
     if (S_max is None) and not fail_easy:
-        while dt > dt_orig / (2 ** dt_iters):
-            print(
-                " Trying LSODA, dt = %1.3e, max_steps = %d" % (dt, max_steps)
-            )
+        while dt > dt_orig / (2**dt_iters):
+            print(" Trying LSODA, dt = %1.3e, max_steps = %d" % (dt, max_steps))
             S_max = run_model(
                 V,
                 aerosols,
@@ -249,4 +248,6 @@ def iterate_runs(
             S_max = nan
         print(" failed", V, dt)
 
+    return S_max, S_max_arg, S_max_fn
+    return S_max, S_max_arg, S_max_fn
     return S_max, S_max_arg, S_max_fn

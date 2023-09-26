@@ -13,16 +13,15 @@ from scipy.special import erf, erfinv
 
 
 class BaseDistribution(metaclass=ABCMeta):
-    """ Interface for distributions, to ensure that they contain a pdf method.
-    """
+    """Interface for distributions, to ensure that they contain a pdf method."""
 
     @abstractmethod
     def cdf(self, x):
-        """ Cumulative density function """
+        """Cumulative density function"""
 
     @abstractmethod
     def pdf(self, x):
-        """ Probability density function. """
+        """Probability density function."""
 
     @property
     @abstractmethod
@@ -31,20 +30,18 @@ class BaseDistribution(metaclass=ABCMeta):
 
     @abstractmethod
     def __repr__(self):
-        """ Representation function. """
+        """Representation function."""
 
 
 class Gamma(BaseDistribution):
-    """ Gamma size distribution 
-
-    """
+    """Gamma size distribution"""
 
     # TODO: Implement Gamma size distribution
     pass
 
 
 class Lognorm(BaseDistribution):
-    """ Lognormal size distribution.
+    """Lognormal size distribution.
 
     An instance of :class:`Lognorm` contains a construction of a lognormal distribution
     and the utilities necessary for computing statistical functions associated
@@ -96,10 +93,10 @@ class Lognorm(BaseDistribution):
 
         # Compute moments
         self.median = self.mu
-        self.mean = self.mu * np.exp(0.5 * self.sigma ** 2)
+        self.mean = self.mu * np.exp(0.5 * self.sigma**2)
 
     def invcdf(self, y):
-        """ Inverse of cumulative density function.
+        """Inverse of cumulative density function.
 
         Parameters
         ----------
@@ -116,12 +113,10 @@ class Lognorm(BaseDistribution):
             raise ValueError("y must be between (0, 1)")
 
         erfinv_arg = 2.0 * y / self.N - 1.0
-        return self.mu * np.exp(
-            np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg)
-        )
+        return self.mu * np.exp(np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg))
 
     def cdf(self, x):
-        """ Cumulative density function
+        """Cumulative density function
 
         .. math::
             \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}(\\frac{\log{x/\mu}}{\sqrt{2}\log{\sigma}}) \\right)
@@ -136,13 +131,11 @@ class Lognorm(BaseDistribution):
         value of CDF at ordinate
 
         """
-        erf_arg = (self.log(x / self.mu)) / (
-            np.sqrt(2.0) * self.log(self.sigma)
-        )
+        erf_arg = (self.log(x / self.mu)) / (np.sqrt(2.0) * self.log(self.sigma))
         return (self.N / 2.0) * (1.0 + erf(erf_arg))
 
     def pdf(self, x):
-        """ Probability density function
+        """Probability density function
 
         .. math::
             \\text{PDF} = \\frac{N}{\sqrt{2\pi}\log\sigma x}\exp\\left( -\\frac{\log{x/\mu}^2}{2\log^2\sigma} \\right)
@@ -158,13 +151,11 @@ class Lognorm(BaseDistribution):
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * self.log(self.sigma))
-        exponent = ((self.log(x / self.mu)) ** 2) / (
-            2.0 * (self.log(self.sigma)) ** 2
-        )
+        exponent = ((self.log(x / self.mu)) ** 2) / (2.0 * (self.log(self.sigma)) ** 2)
         return (scaling / x) * np.exp(-exponent)
 
     def moment(self, k):
-        """ Compute the k-th moment of the lognormal distribution
+        """Compute the k-th moment of the lognormal distribution
 
         .. math::
             F(k) = N\mu^k\exp\\left( \\frac{k^2}{2} \ln^2 \sigma \\right)
@@ -179,12 +170,12 @@ class Lognorm(BaseDistribution):
         moment of distribution
 
         """
-        scaling = (self.mu ** k) * self.N
-        exponent = ((k ** 2) / 2.0) * (self.log(self.sigma)) ** 2
+        scaling = (self.mu**k) * self.N
+        exponent = ((k**2) / 2.0) * (self.log(self.sigma)) ** 2
         return scaling * np.exp(exponent)
 
     def stats(self):
-        """ Compute useful statistics for a lognormal distribution
+        """Compute useful statistics for a lognormal distribution
 
         Returns
         -------
@@ -195,15 +186,13 @@ class Lognorm(BaseDistribution):
 
         """
         stats_dict = dict()
-        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * self.sigma ** 2)
+        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * self.sigma**2)
 
         stats_dict["total_diameter"] = self.N * stats_dict["mean_radius"]
         stats_dict["total_surface_area"] = 4.0 * np.pi * self.moment(2.0)
         stats_dict["total_volume"] = (4.0 * np.pi / 3.0) * self.moment(3.0)
 
-        stats_dict["mean_surface_area"] = (
-            stats_dict["total_surface_area"] / self.N
-        )
+        stats_dict["mean_surface_area"] = stats_dict["total_surface_area"] / self.N
         stats_dict["mean_volume"] = stats_dict["total_volume"] / self.N
 
         stats_dict["effective_radius"] = (
@@ -219,14 +208,13 @@ class Lognorm(BaseDistribution):
 
 
 class MultiModeLognorm(BaseDistribution):
-    """ Multimode lognormal distribution class.
+    """Multimode lognormal distribution class.
 
     Container for multiple Lognorm classes representing a full aerosol size
     distribution.
     """
 
     def __init__(self, mus, sigmas, Ns, base=np.e):
-
         dist_params = list(zip(mus, sigmas, Ns))
         from operator import itemgetter
 
@@ -248,7 +236,7 @@ class MultiModeLognorm(BaseDistribution):
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
     def stats(self):
-        """ Compute useful statistics for a multi-mode lognormal distribution
+        """Compute useful statistics for a multi-mode lognormal distribution
 
         TODO: Implement multi-mode lognorm stats
         """
@@ -256,9 +244,7 @@ class MultiModeLognorm(BaseDistribution):
 
     def __repr__(self):
         mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"
-        sigmas_str = (
-            "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
-        )
+        sigmas_str = "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
         Ns_str = "(" + ", ".join("%2.2e" % N for N in self.Ns) + ")"
         return "MultiModeLognorm| mus = {}, sigmas = {}, Totals = {} |".format(
             mus_str, sigmas_str, Ns_str
@@ -313,37 +299,37 @@ whitby_distributions = {
 jaenicke_distributions = {
     "Polar": MultiModeLognorm(
         mus=(0.0689, 0.375, 4.29),
-        sigmas=(10 ** 0.245, 10 ** 0.300, 10 ** 0.291),
+        sigmas=(10**0.245, 10**0.300, 10**0.291),
         Ns=(21.7, 0.186, 3.04e-4),
         base=10.0,
     ),
     "Urban": MultiModeLognorm(
         mus=(0.00651, 0.00714, 0.0248),
-        sigmas=(10.0 ** 0.245, 10.0 ** 0.666, 10.0 ** 0.337),
+        sigmas=(10.0**0.245, 10.0**0.666, 10.0**0.337),
         Ns=(9.93e4, 1.11e3, 3.64e4),
         base=10.0,
     ),
     "Background": MultiModeLognorm(
         mus=(0.0036, 0.127, 0.259),
-        sigmas=(10.0 ** 0.645, 10.0 ** 0.253, 10.0 ** 0.425),
+        sigmas=(10.0**0.645, 10.0**0.253, 10.0**0.425),
         Ns=(129.0, 59.7, 63.5),
         base=10.0,
     ),
     "Maritime": MultiModeLognorm(
         mus=(0.0039, 0.133, 0.29),
-        sigmas=(10.0 ** 0.657, 10.0 ** 0.210, 10.0 ** 0.396),
+        sigmas=(10.0**0.657, 10.0**0.210, 10.0**0.396),
         Ns=(133.0, 66.6, 3.06),
         base=10.0,
     ),
     "Remote Continental": MultiModeLognorm(
         mus=(0.01, 0.058, 0.9),
-        sigmas=(10.0 ** 0.161, 10.0 ** 0.217, 10.0 ** 0.38),
+        sigmas=(10.0**0.161, 10.0**0.217, 10.0**0.38),
         Ns=(3.2e3, 2.9e3, 0.3),
         base=10.0,
     ),
     "Rural": MultiModeLognorm(
         mus=(0.00739, 0.0269, 0.0149),
-        sigmas=(10.0 ** 0.225, 10.0 ** 0.557, 10.0 ** 0.266),
+        sigmas=(10.0**0.225, 10.0**0.557, 10.0**0.266),
         Ns=(6.65e3, 147.0, 1990.0),
         base=10.0,
     ),

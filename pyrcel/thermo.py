@@ -11,12 +11,11 @@ from scipy.optimize import fminbound
 
 from .constants import *
 
-
 # THERMODYNAMIC FUNCTIONS
 
 
 def dv_cont(T, P):
-    """ Diffusivity of water vapor in air, neglecting non-continuum effects.
+    """Diffusivity of water vapor in air, neglecting non-continuum effects.
 
     See :func:`dv` for details.
 
@@ -42,7 +41,7 @@ def dv_cont(T, P):
 
 
 def dv(T, r, P, accom=ac):
-    """ Diffusivity of water vapor in air, modified for non-continuum effects.
+    """Diffusivity of water vapor in air, modified for non-continuum effects.
 
     The diffusivity of water vapor in air as a function of temperature and pressure
     is given by
@@ -99,7 +98,7 @@ def dv(T, r, P, accom=ac):
 
 
 def rho_air(T, P, RH=1.0):
-    """ Density of moist air with a given relative humidity, temperature, and pressure.
+    """Density of moist air with a given relative humidity, temperature, and pressure.
 
     Uses the traditional formula from the ideal gas law (3.41)[Petty2006].
 
@@ -139,7 +138,7 @@ def rho_air(T, P, RH=1.0):
 
 
 def es(T_c):
-    """ Calculates the saturation vapor pressure over water for a given temperature.
+    """Calculates the saturation vapor pressure over water for a given temperature.
 
     Uses an empirical fit [Bolton1980], which is accurate to :math:`0.1\%` over the
     temperature range :math:`-30^oC \leq T \leq 35^oC`,
@@ -175,7 +174,7 @@ def es(T_c):
 
 
 def ka_cont(T):
-    """ Thermal conductivity of air, neglecting non-continuum effects.
+    """Thermal conductivity of air, neglecting non-continuum effects.
 
     See :func:`ka` for details.
 
@@ -198,7 +197,7 @@ def ka_cont(T):
 
 
 def ka(T, rho, r):
-    """ Thermal conductivity of air, modified for non-continuum effects.
+    """Thermal conductivity of air, modified for non-continuum effects.
 
     The thermal conductivity of air is given by
 
@@ -245,14 +244,12 @@ def ka(T, rho, r):
 
     """
     ka_t = ka_cont(T)
-    denom = 1.0 + (ka_t / (at * r * rho * Cp)) * np.sqrt(
-        (2.0 * np.pi * Ma) / (R * T)
-    )
+    denom = 1.0 + (ka_t / (at * r * rho * Cp)) * np.sqrt((2.0 * np.pi * Ma) / (R * T))
     return ka_t / denom
 
 
 def sigma_w(T):
-    """ Surface tension of water for a given temperature.
+    """Surface tension of water for a given temperature.
 
     .. math::
         \\begin{equation}
@@ -329,13 +326,13 @@ def Seq(r, r_dry, T, kappa):
 
     """
     A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w * r)
-    B = (r ** 3 - (r_dry ** 3)) / (r ** 3 - (r_dry ** 3) * (1.0 - kappa))
+    B = (r**3 - (r_dry**3)) / (r**3 - (r_dry**3) * (1.0 - kappa))
     s = np.exp(A) * B - 1.0
     return s
 
 
 def Seq_approx(r, r_dry, T, kappa):
-    """ Approximate κ-Kohler theory equilibrium saturation over aerosol.
+    """Approximate κ-Kohler theory equilibrium saturation over aerosol.
 
     Calculates the equilibrium supersaturation (relative to 100% RH) over an
     aerosol particle of given dry/wet radius and of specified hygroscopicity
@@ -374,13 +371,13 @@ def Seq_approx(r, r_dry, T, kappa):
 
     """
     A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w * r)
-    return A - kappa * (r_dry ** 3) / (
-        r ** 3
+    return A - kappa * (r_dry**3) / (
+        r**3
     )  # the minus 1.0 is built into this  expression
 
 
 def kohler_crit(T, r_dry, kappa, approx=False):
-    """ Critical radius and supersaturation of an aerosol particle.
+    """Critical radius and supersaturation of an aerosol particle.
 
     The critical size of an aerosol particle corresponds to the maximum equilibrium
     supersaturation achieved on its Kohler curve. If a particle grows beyond this
@@ -417,8 +414,8 @@ def kohler_crit(T, r_dry, kappa, approx=False):
     """
     if approx:
         A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w)
-        s_crit = np.sqrt((4.0 * (A ** 3)) / (27 * kappa * (r_dry ** 3)))
-        r_crit = np.sqrt((3.0 * kappa * (r_dry ** 3)) / A)
+        s_crit = np.sqrt((4.0 * (A**3)) / (27 * kappa * (r_dry**3)))
+        r_crit = np.sqrt((3.0 * kappa * (r_dry**3)) / A)
 
     else:
         neg_Seq = lambda r: -1.0 * Seq(r, r_dry, T, kappa)
@@ -432,7 +429,7 @@ def kohler_crit(T, r_dry, kappa, approx=False):
 
 
 def critical_curve(T, r_a, r_b, kappa, approx=False):
-    """ Calculates curves of critical radii and supersaturations for aerosol.
+    """Calculates curves of critical radii and supersaturations for aerosol.
 
     Calls :func:`kohler_crit` for values of ``r_dry`` between ``r_a`` and ``r_b``
     to calculate how the critical supersaturation changes with the dry radius for a

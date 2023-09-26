@@ -8,12 +8,12 @@ from scipy.optimize import bisect
 # Parcel model imports
 from . import constants as c
 from . import output
-from .aerosol import AerosolSpecies
-from .thermo import es, Seq, rho_air, kohler_crit
-from .util import ParcelModelError
 
 # Special import of derivative ODE rhs to main namespace
 from ._parcel_aux_numba import parcel_ode_sys
+from .aerosol import AerosolSpecies
+from .thermo import Seq, es, kohler_crit, rho_air
+from .util import ParcelModelError
 
 __all__ = ["ParcelModel"]
 
@@ -102,7 +102,7 @@ class ParcelModel(object):
         accom=c.ac,
         truncate_aerosols=False,
     ):
-        """ Initialize the parcel model.
+        """Initialize the parcel model.
 
         Parameters
         ----------
@@ -142,10 +142,8 @@ class ParcelModel(object):
 
         self._setup_run()
 
-    def set_initial_conditions(
-        self, V=None, T0=None, S0=None, P0=None, aerosols=None
-    ):
-        """ Set the initial conditions and parameters for a new parcel
+    def set_initial_conditions(self, V=None, T0=None, S0=None, P0=None, aerosols=None):
+        """Set the initial conditions and parameters for a new parcel
         model run without having to create a new :class:`ParcelModel` instance.
 
         Based on the aerosol population which has been stored in the model, this
@@ -202,7 +200,7 @@ class ParcelModel(object):
             self._setup_run()
 
     def _replace_aerosol(self, aerosols, smallest_rdry=1e-10):
-        """ Truncates the bins with the smallest particles so that none
+        """Truncates the bins with the smallest particles so that none
         have a dry radius of less than 0.1 nm.
 
         Parameters
@@ -222,9 +220,7 @@ class ParcelModel(object):
 
         for aer in aerosols:
             N_old = np.sum(aer.Nis)
-            bin_count = np.count_nonzero(
-                aer.r_drys[aer.r_drys < smallest_rdry]
-            )
+            bin_count = np.count_nonzero(aer.r_drys[aer.r_drys < smallest_rdry])
             if bin_count > 0:
                 aer_new = AerosolSpecies(
                     aer.species,
@@ -252,7 +248,7 @@ class ParcelModel(object):
         return fixed_aerosols
 
     def _setup_run(self):
-        """ Perform equilibration and initialization calculations for the
+        """Perform equilibration and initialization calculations for the
         parcel model simulation.
 
         .. note:: See `set_initial_conditions` for full details.
@@ -312,9 +308,7 @@ class ParcelModel(object):
             r_b, _ = kohler_crit(T0, r_dry, kappa)
             r_a = r_dry
 
-            r0 = bisect(
-                f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30, maxiter=500
-            )
+            r0 = bisect(f, r_a, r_b, args=(r_dry, kappa), xtol=1e-30, maxiter=500)
             r0s.append(r0)
 
         r0s = np.array(r0s[::-1])
@@ -322,7 +316,7 @@ class ParcelModel(object):
         # Console logging output, if requested, of the equilibrium calcuations. Useful for
         # checking if the computations worked
         raised = False
-        for (r, r_dry, sp, kappa) in zip(r0s, r_drys, species, kappas):
+        for r, r_dry, sp, kappa in zip(r0s, r_drys, species, kappas):
             ss = Seq(r, r_dry, T0, kappa)
             # rc, _ = kohler_crit(T0, r_dry, kappa)
             if r < 0:
@@ -344,13 +338,10 @@ class ParcelModel(object):
             lambda r0, r_dry, Ni: (4.0 * np.pi / 3.0)
             * c.rho_w
             * Ni
-            * (r0 ** 3 - r_dry ** 3)
+            * (r0**3 - r_dry**3)
         )
         wc0 = np.sum(
-            [
-                water_vol(r0, r_dry, Ni)
-                for r0, r_dry, Ni in zip(r0s, r_drys, Nis)
-            ]
+            [water_vol(r0, r_dry, Ni) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)]
         )
         wc0 /= rho_air(T0, P0, 0.0)
 
@@ -406,7 +397,7 @@ class ParcelModel(object):
         terminate_depth=100.0,
         **solver_args
     ):
-        """ Run the parcel model simulation.
+        """Run the parcel model simulation.
 
         Once the model has been instantiated, a simulation can immediately be
         performed by invoking this method. The numerical details underlying the
@@ -536,9 +527,7 @@ class ParcelModel(object):
             terminate_depth = 0.0
         else:
             if terminate_depth <= 0.0:
-                raise ParcelModelError(
-                    "`terminate_depth` must be greater than 0!"
-                )
+                raise ParcelModelError("`terminate_depth` must be greater than 0!")
 
         if self.console:
             print()
@@ -547,9 +536,7 @@ class ParcelModel(object):
             print("        output dt: ", output_dt)
             print("    max solver dt: ", solver_dt)
             print(" solver int steps: ", int(solver_dt / output_dt))
-            print(
-                "      termination: %r (%5dm)" % (terminate, terminate_depth)
-            )
+            print("      termination: %r (%5dm)" % (terminate, terminate_depth))
 
         args = [nr, r_drys, Nis, self.V, kappas, self.accom]
         integrator_type = Integrator.solver(solver)
@@ -573,14 +560,10 @@ class ParcelModel(object):
                 print("\nBEGIN INTEGRATION ->\n")
             x, t, success = integrator.integrate(t_end)
         except ValueError as e:
-            raise ParcelModelError(
-                "Something failed during model integration: %r" % e
-            )
+            raise ParcelModelError("Something failed during model integration: %r" % e)
         finally:
             if not success:
-                raise ParcelModelError(
-                    "Something failed during model integration."
-                )
+                raise ParcelModelError("Something failed during model integration.")
 
             # Success if reached this point!
             if self.console:
@@ -599,7 +582,7 @@ class ParcelModel(object):
                 return S.max()
 
     def write_summary(self, parcel_data, aerosol_data, out_filename):
-        """ Write a quick and dirty summary of given parcel model output to the
+        """Write a quick and dirty summary of given parcel model output to the
         terminal.
         """
         from .activation import lognormal_activation
@@ -625,9 +608,7 @@ class ParcelModel(object):
 
             # Write aerosol details
             for aerosol in self.aerosols:
-                out_file.write(
-                    aerosol.species + " = " + aerosol.summary_str() + "\n"
-                )
+                out_file.write(aerosol.species + " = " + aerosol.summary_str() + "\n")
             out_file.write("--------------------------------------\n")
 
             # Write simulation summary results

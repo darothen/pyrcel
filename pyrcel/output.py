@@ -6,18 +6,17 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from . import constants as c
 from . import __version__ as ver
-from .util import ParcelModelError
+from . import constants as c
 from .thermo import rho_air
-
+from .util import ParcelModelError
 
 #: Acceptable output formats
 OUTPUT_FORMATS = ["nc", "obj", "csv"]
 
 
 def get_timestamp(fmt="%m%d%y_%H%M%S"):
-    """ Get current timestamp in MMDDYY_hhmmss format. """
+    """Get current timestamp in MMDDYY_hhmmss format."""
 
     current_time = ddt.now()
     timestamp = current_time.strftime("%m%d%y_%H%M%S")
@@ -33,16 +32,16 @@ def write_parcel_output(
     aerosol_dfs=None,
     other_dfs=None,
 ):
-    """ Write model output to disk.
+    """Write model output to disk.
 
     Wrapper for methods to write parcel model output to disk.
 
     Parameters
     ----------
-    filename : str 
+    filename : str
         Full filename to write output; if not supplied, will default
         to the current timestamp
-    format : str 
+    format : str
         Format to use from ``OUTPUT_FORMATS``; must be supplied if no
         filename is provided
     parcel : ParcelModel
@@ -51,7 +50,7 @@ def write_parcel_output(
         Model thermodynamic history
     aerosol_dfs : Panel
         Aerosol size history
-    other_dfs : list of DataFrames 
+    other_dfs : list of DataFrames
         Additional DataFrames to include in output; must have the same index
         as the parcel's results when transformed to a DataFrame!
 
@@ -60,16 +59,14 @@ def write_parcel_output(
     if not filename:
         if not format:
             raise ParcelModelError("Must supply either a filename or format.")
-        if not (format in OUTPUT_FORMATS):
-            raise ParcelModelError(
-                "Please supply a format from %r" % OUTPUT_FORMATS
-            )
+        if format not in OUTPUT_FORMATS:
+            raise ParcelModelError("Please supply a format from %r" % OUTPUT_FORMATS)
         basename = get_timestamp()
         extension = format
     else:
         basename, extension = os.path.splitext(filename)
         extension = extension[1:]  # strip '.'
-        if not (extension in OUTPUT_FORMATS):
+        if extension not in OUTPUT_FORMATS:
             extension = format = "obj"
         else:
             format = extension
@@ -77,8 +74,7 @@ def write_parcel_output(
     if parcel.console:
         print()
         print(
-            "Saving output to %s format with base filename %s"
-            % (extension, basename)
+            "Saving output to %s format with base filename %s" % (extension, basename)
         )
         print()
 
@@ -92,13 +88,12 @@ def write_parcel_output(
         else:
             parcel_df, aerosol_dfs = parcel_to_dataframes(parcel)
     # Concatenate on the additional dataframes supplied by the user
-    if not (other_dfs is None):
+    if other_dfs is not None:
         for df in other_dfs:
             parcel_df = pd.concat([parcel_df, df], axis=1)
 
     # 1) csv
     if format == "csv":
-
         # Write parcel data
         parcel_df.to_csv("%s_%s.%s" % (basename, "parcel", extension))
 
@@ -108,11 +103,8 @@ def write_parcel_output(
 
     # 2) nc
     elif format == "nc":
-
         ## Construct xarray datastructure to write to netCDF
-        ds = xr.Dataset(
-            attrs={"Conventions": "CF-1.0", "source": "pyrcel v%s" % ver}
-        )
+        ds = xr.Dataset(attrs={"Conventions": "CF-1.0", "source": "pyrcel v%s" % ver})
 
         ds.coords["time"] = (
             "time",
@@ -222,9 +214,7 @@ def write_parcel_output(
             ds["phi"] = (
                 ("time",),
                 parcel_df["phi"],
-                {
-                    "long_name": "fraction of not-strictly activated drops in Nkn"
-                },
+                {"long_name": "fraction of not-strictly activated drops in Nkn"},
             )
         if "eq" in parcel_df:
             ds["eq"] = (
@@ -251,18 +241,18 @@ def write_parcel_output(
 
 
 def parcel_to_dataframes(parcel):
-    """ Convert model simulation to dataframe. 
+    """Convert model simulation to dataframe.
 
     Parameters
     ----------
     parcel : ParcelModel
 
-    Returns 
+    Returns
     -------
     DataFrame and list of DataFrames
-        The first returned DataFrame will be the parcel model thermo/dynamical 
-        output with keys ``T``, ``wv``, ``wc``, ``S``, ``z``, and indexed by 
-        ``time``. The list of DataFrames shares the same ``time`` index, but 
+        The first returned DataFrame will be the parcel model thermo/dynamical
+        output with keys ``T``, ``wv``, ``wc``, ``S``, ``z``, and indexed by
+        ``time``. The list of DataFrames shares the same ``time`` index, but
         is divided up so that the radii of each aerosol species are tracked in
         different containers.
 
@@ -288,9 +278,7 @@ def parcel_to_dataframes(parcel):
     )
 
     ## Add some thermodynamic output to the parcel model dataframe
-    parcel_out["rho"] = rho_air(
-        parcel_out["T"], parcel_out["P"], parcel_out["S"] + 1.0
-    )
+    parcel_out["rho"] = rho_air(parcel_out["T"], parcel_out["P"], parcel_out["S"] + 1.0)
 
     aerosol_dfs = {}
     species_shift = 0  # increment by nr to select the next aerosol's radii

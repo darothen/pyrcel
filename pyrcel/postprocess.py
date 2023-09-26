@@ -7,7 +7,7 @@ from .activation import binned_activation
 
 
 def simulation_activation(model, parcel_df, aerosols_panel):
-    """ Given the DataFrame output from a parcel model simulation, compute
+    """Given the DataFrame output from a parcel model simulation, compute
     activation kinetic limitation diagnostics.
 
     Parameters
@@ -33,9 +33,7 @@ def simulation_activation(model, parcel_df, aerosols_panel):
 
     initial_aerosols = model.aerosols
     N_all_modes = np.sum([aer.total_N for aer in initial_aerosols])
-    N_fracs = {
-        aer.species: aer.total_N / N_all_modes for aer in initial_aerosols
-    }
+    N_fracs = {aer.species: aer.total_N / N_all_modes for aer in initial_aerosols}
     for i in range(len(parcel_df)):
         row_par = parcel_df.iloc[i]
         rows_aer = {key: aerosols_panel[key].iloc[i] for key in aerosols_panel}
