@@ -9,8 +9,9 @@ on droplet activation.
 """
 
 from importlib.metadata import version as _version
+
 try:
-    __version__ = _version('pyrcel')
+    __version__ = _version("pyrcel")
 except Exception:
     # This is a local copy, or a copy that was not installed via setuptools
     __version__ = "local"

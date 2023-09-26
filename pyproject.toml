@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+description = "pyrcel: 0D adiabatic cloud parcel model"
+name = "pyrcel"
+authors = [
+    { name = "Daniel Rothenberg", email = "daniel@danielrothenberg.com" },
+]
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE.md" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+dependencies = [
+    "numba",
+    "numpy",
+    "pandas",
+    "pyyaml",
+    "scipy",
+    "setuptools",
+    "setuptools-scm",
+    "xarray",
+]
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://pyrcel.readthedocs.io/en/latest/"
+Repository = "https://github.com/darothen/pyrcel"
+
+[tools.setuptools]
+packages = ["pyrcel"]
+
+[tool.setuptools.packages]
+find = {namespaces = false} 
+
+[project.scripts]
+run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
+
+[tool.setuptools_scm]
+version_file = "pyrcel/version.py"
