@@ -3,7 +3,7 @@ jobs:
   build-python39:  # required for runs that don't use workflows
     docker:
       - image: continuumio/miniconda3
-    resource_class: medium
+    resource_class: large
     working_directory: ~/circleci-pyrcel39
     steps:
       - checkout
@@ -19,7 +19,7 @@ jobs:
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            conda activate pyrcel
+            source activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
@@ -27,7 +27,7 @@ jobs:
     docker:
       - image: continuumio/miniconda3
     working_directory: ~/circleci-pyrcel38
-    resource_class: medium
+    resource_class: large
     steps:
       - checkout
       # Download and cache dependencies
@@ -42,7 +42,7 @@ jobs:
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            conda activate pyrcel
+            source activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
@@ -50,7 +50,7 @@ jobs:
     docker:
       - image: continuumio/miniconda3
     working_directory: ~/circleci-pyrcel37
-    resource_class: medium
+    resource_class: large
     steps:
       - checkout
       # Download and cache dependencies
@@ -65,7 +65,7 @@ jobs:
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            conda activate pyrcel
+            source activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
