@@ -4,6 +4,8 @@ jobs:
     docker:
       - image: mambaorg/micromamba
     resource_class: small
+    environment:
+      MAMBA_DOCKERFILE_ACTIVATE: 1 
     working_directory: ~/circleci-pyrcel39
     steps:
       - checkout
@@ -26,6 +28,8 @@ jobs:
   build-python38:  # required for runs that don't use workflows
     docker:
       - image: mambaorg/micromamba
+    environment:
+      MAMBA_DOCKERFILE_ACTIVATE: 1 
     working_directory: ~/circleci-pyrcel38
     resource_class: small
     steps:
@@ -49,6 +53,8 @@ jobs:
   build-python37:  # required for runs that don't use workflows
     docker:
       - image: mambaorg/micromamba
+    environment:
+      MAMBA_DOCKERFILE_ACTIVATE: 1 
     working_directory: ~/circleci-pyrcel37
     resource_class: small
     steps:
