@@ -2,10 +2,8 @@ version: 2
 jobs:
   build-python39:  # required for runs that don't use workflows
     docker:
-      - image: mambaorg/micromamba
+      - image: continuumio/miniconda3
     resource_class: small
-    environment:
-      MAMBA_DOCKERFILE_ACTIVATE: 1 
     working_directory: ~/circleci-pyrcel39
     steps:
       - checkout
@@ -17,19 +15,17 @@ jobs:
       - run:
           name: Create Conda Environment
           command: |
-            mamba env create -f ci/requirements-py39.yml
+            conda env create -f ci/requirements-py39.yml
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            mamba activate pyrcel
+            conda activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
   build-python38:  # required for runs that don't use workflows
     docker:
-      - image: mambaorg/micromamba
-    environment:
-      MAMBA_DOCKERFILE_ACTIVATE: 1 
+      - image: continuumio/miniconda3
     working_directory: ~/circleci-pyrcel38
     resource_class: small
     steps:
@@ -42,19 +38,17 @@ jobs:
       - run:
           name: Create Conda Environment
           command: |
-            mamba env create -f ci/requirements-py38.yml
+            conda env create -f ci/requirements-py38.yml
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            mamba activate pyrcel
+            conda activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
   build-python37:  # required for runs that don't use workflows
     docker:
-      - image: mambaorg/micromamba
-    environment:
-      MAMBA_DOCKERFILE_ACTIVATE: 1 
+      - image: continuumio/miniconda3
     working_directory: ~/circleci-pyrcel37
     resource_class: small
     steps:
@@ -67,11 +61,11 @@ jobs:
       - run:
           name: Create Conda Environment
           command: |
-            mamba env create -f ci/requirements-py37.yml
+            conda env create -f ci/requirements-py37.yml
       - run:
           name: Install and Test Pyrcel Simulation
           command: |
-            mamba activate pyrcel
+            conda activate pyrcel
             pip install -e .
             run_parcel examples/simple.yml
 
