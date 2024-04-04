@@ -42,6 +42,7 @@ Using default pandas functons, you can interpolate to any reference pressure or
 height level.
 
 """
+
 import pandas as pd
 import pkg_resources
 
@@ -67,4 +68,4 @@ STATE_VAR_MAP = {var: i for i, var in enumerate(STATE_VARS)}
 
 # Read the standard atmosphere CSV file
 _std_atm_fn = pkg_resources.resource_filename("pyrcel", "data/std_atm.csv")
-std_atm = pd.read_csv(_std_atm_fn, delim_whitespace=True)
+std_atm = pd.read_csv(_std_atm_fn, sep="\s+")
