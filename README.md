@@ -26,6 +26,36 @@ Updated code can be found the project [github repository](https://github.com/dar
 
 [Detailed documentation is available](http://pyrcel.readthedocs.org/en/latest/index.html), including a [scientific description](http://pyrcel.readthedocs.org/en/latest/sci_descr.html), [installation details](http://pyrcel.readthedocs.org/en/latest/install.html), and a [basic example](http://pyrcel.readthedocs.org/en/latest/examples/basic_run.html) which produces a figure like the plot at the top of this page.
 
+Quick Start / Installation
+--------------------------
+
+To quickly get started with running pyrcel, complete the following steps:
+
+* Set up a new Python environment; we recommend using [mambaforge](https://conda-forge.org/miniforge/):
+  
+``` shell
+  $ mamba create -n pyrcel_quick_start python=3.11
+```
+
+* Activate the new Python environment and install the model and its dependencies. If you install the published version from PyPi (_recommended_), then you also need to install [Assimulo](http://www.jmodelica.org/assimulo) using the Mamba package manager - but no other manual dependency installation is necessary:
+  
+``` shell
+  $ mamba activate pyrcel_quick_start
+  $ pip install pyrcel
+  $ mamba install -c conda-forge assimulo
+```
+
+* Run a test simulation using the CLI tool and a sample YAML file from **pyrcel/examples/\*.yml** (you may want to clone the repository or download them locally):
+  
+``` shell
+  $ run_parcel simple.yml
+```
+
+* Visualize the output NetCDF (should be in the directory you ran the CLI tool, at **output/simple.nc**)
+
+That's it!
+
+
 Requirements
 ------------
 

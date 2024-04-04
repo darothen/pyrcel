@@ -1,12 +1,34 @@
 .. _install:
 
-Installation
-============
+Quick Installation
+==================
 
-From conda
-----------
 
-Coming soon!
+To quickly get started with running pyrcel, complete the following steps:
+
+- Set up a new Python environment; we recommend using `mambaforge <https://conda-forge.org/miniforge/>`_:
+
+.. code-block:: shell
+
+    $ mamba create -n pyrcel_quick_start python=3.11
+
+- Activate the new Python environment and install the model and its dependencies. If you install the published version from PyPi (recommended), then you also need to install `Assimulo <http://www.jmodelica.org/assimulo>`_ using the Mamba package manager - but no other manual dependency installation is necessary:
+
+.. code-block:: shell
+
+    $ mamba activate pyrcel_quick_start
+    $ pip install pyrcel
+    $ mamba install -c conda-forge assimulo
+
+- Run a test simulation using the CLI tool and a sample YAML file from **pyrcel/examples/*.yml** (you may want to clone the repository or download them locally):
+
+.. code-block:: shell
+
+    $ run_parcel simple.yml
+
+
+Detailed Installation Notes
+===========================
 
 
 From PyPI
@@ -60,16 +82,17 @@ Dependencies
 
 This code was originally written for Python 2.7, and then
 `futurized <http://python-future.org/>`_ to Python 3.3+ with hooks for
-backwards compatibility. By far, the simplest way to run this code is to grab a
-scientific python distribution, such as
-`Anaconda <https://store.continuum.io/cshop/anaconda/>`_. This code should work
-out-of-the box with almost all dependencies filled (exception being numerical
-solvers) on a recent version (1.2+) of this distribution. To facilitate this,
-`conda <http://conda.pydata.org/docs/>`_ environments for Python versions 2.7
-and 3.5+ are provided in the ``pyrcel/ci`` directory.
+backwards compatibility. It should work on modern Python versions, and we recommend
+using Python 3.11+ for the greatest compatibility with required dependencies.
+
+The easiest way to manage dependencies is to use a tool like `Mambaforge <https://conda-forge.org/miniforge/>`
+to set up an environment. Suitable environment files can be found in the ``pyrcel/ci``
+directory.
 
 Necessary dependencies
 ^^^^^^^^^^^^^^^^^^^^^^
+
+All of these (except for Assimulo; see the note below) can be installed via `pip`:
 
 - `Assimulo <http://www.jmodelica.org/assimulo_home/index.html>`_
 
@@ -90,7 +113,7 @@ Necessary dependencies
 
     .. code-block:: bash
 
-        $ conda install -c conda-forge assimulo
+        $ mamba install -c conda-forge assimulo
 
     since this will automatically take care of obtaining necessary compiled
     dependencies like sundials. However, for best results you may want to
@@ -110,6 +133,12 @@ Numerical solver dependencies
 
 Recommended additional packages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+    These are not required for the model to run, but are useful for
+    post-processing and visualization of the model output. They should be installed
+    automatically if you install the model from PyPI or the source code repository.
 
 - `matplotlib <http://matplotlib.sourceforge.net/>`_
 
