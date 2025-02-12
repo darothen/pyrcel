@@ -2,6 +2,8 @@ name: pyrcel
 channels:
     - conda-forge
 dependencies:
+    - gcc_linux-64 
+    - gxx_linux-64
     - python==3.10
     - assimulo==3.6
     - pandas
