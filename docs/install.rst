@@ -1,5 +1,8 @@
 .. _install:
 
+Installation
+------------
+
 Quick Start
 ===========
 
@@ -44,7 +47,7 @@ Detailed Installation Notes
 
 
 From PyPI
----------
++++++++++
 
 This package and most of its dependencies can automatically be installed by using
 ``pip``:
@@ -59,7 +62,7 @@ section for more details.
 
 
 From source code
-----------------
+++++++++++++++++
 
 To grab and build the latest bleeding-edge version of the model, you should use
 ``pip`` and point it to the source code `repository`_ on github:
@@ -85,7 +88,7 @@ points directly to the git-monitored code:
 
 
 Dependencies
-------------
+++++++++++++
 
 This code was originally written for Python 2.7, and then
 `futurized <http://python-future.org/>`_ to Python 3.3+ with hooks for
@@ -156,7 +159,7 @@ Recommended additional packages
 - `xarray <http://xarray.pydata.org/en/stable/>`_
 
 Testing
--------
++++++++
 
 A nose test-suite is under construction. To check that your model is configured
 and running correctly, you copy and run the notebook corresponding to the
@@ -170,7 +173,7 @@ version of the model with the pre-packed simple run case:
 
 
 Bugs / Suggestions
-------------------
+++++++++++++++++++
 
 The code has an
 `issue tracker on github <https://github.com/darothen/pyrcel/issues>`_

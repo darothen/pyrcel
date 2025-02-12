@@ -33,8 +33,6 @@ which details the original model formulation:
 
 | Daniel Rothenberg and Chien Wang, 2016: Metamodeling of Droplet Activation for Global Climate Models. *J. Atmos. Sci.*, **73**, 1255–1272. doi: http://dx.doi.org/10.1175/JAS-D-15-0223.1
 
-|
-|
 
 Documentation Outline
 ---------------------
