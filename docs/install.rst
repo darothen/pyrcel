@@ -1,8 +1,20 @@
 .. _install:
 
-Quick Installation
-==================
+Quick Start
+===========
 
+Install `pixi <https://pixi.sh>`_ on your machine. Clone this repository, then
+invoke from a terminal:
+
+.. code-block:: shell
+
+    $ pixi run run_parcel examples/simple.yml
+
+
+An environment should automatically be set up and the model run from it.
+
+Normal Installation
+===================
 
 To quickly get started with running pyrcel, complete the following steps:
 
@@ -34,13 +46,16 @@ Detailed Installation Notes
 From PyPI
 ---------
 
-If you already have all the dependencies satisfied, then you can install the
-latest release from `PyPI <https://badge.fury.io/py/pyrcel>`_ by using
+This package and most of its dependencies can automatically be installed by using
 ``pip``:
 
 .. code-block:: bash
 
     $ pip install pyrcel
+
+However, note that this will not install **Assimulo**; you will separately need
+to install that, using the conda/mamba package manager. See the example in the previous
+section for more details.
 
 
 From source code
@@ -54,17 +69,9 @@ To grab and build the latest bleeding-edge version of the model, you should use
 
     $ pip install git+git://github.com/darothen/pyrcel.git
 
-This should automatically build the necessary Cython modules and export the
-code package to your normal package installation directory. If you wish to
-simply build the code and run it in place, clone the `repository`_, navigate
-to it in a terminal, and invoke the build command by hand:
+The same caveats as in the previous section regarding installing **Assimulo** will
+still apply.
 
-
-.. code-block:: bash
-
-    $ python setup.py build_ext --inplace
-
-This should produce the compiled file `parcel_aux.so` in the model package.
 You can also install the code from the cloned source directory by invoking
 ``pip install`` from within it; this is useful if you're updating or
 modifying the model, since you can install an "editable" package which
@@ -107,7 +114,7 @@ All of these (except for Assimulo; see the note below) can be installed via `pip
 .. note::
 
     As of version 1.2.0, the model integration components are being re-written
-    and only the CVODE interface is exposed. As such, Assimulo is temporarily
+    and only the CVODE interface is exposed. As such, Assimulo is
     a core and required dependency; in the future the other solvers will
     be re-enabled. You should first try to install Assimulo via conda
 
