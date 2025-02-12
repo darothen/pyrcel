@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,7 @@ authors = [
     { name = "Daniel Rothenberg", email = "daniel@danielrothenberg.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.13"
 license = { file = "LICENSE.md" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
@@ -51,3 +52,17 @@ run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
 
 [tool.setuptools_scm]
 version_file = "pyrcel/version.py"
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[tool.pixi.dependencies]
+numpy = "<2.2"
+assimulo = "==3.6"
+
+[tool.pixi.pypi-dependencies]
+pyrcel = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+run_parcel = "run_parcel"

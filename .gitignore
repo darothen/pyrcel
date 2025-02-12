@@ -37,3 +37,6 @@ parcel_model.egg-info
 .idea/*
 *.dat
 *.DS_Store
+# pixi environments
+.pixi
+*.egg-info
