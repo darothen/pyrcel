@@ -2,13 +2,13 @@ name: pyrcel
 channels:
     - conda-forge
 dependencies:
-    - python==3.7
-    - assimulo
+    - python==3.10
+    - assimulo==3.6
     - pandas
     - pyyaml
     - scipy
     - numba
-    - numpy
+    - numpy<2.2
     - xarray
     - numpydoc
     - ipython
