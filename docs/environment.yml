@@ -4,7 +4,7 @@ channels:
 dependencies:
     - gcc_linux-64 
     - gxx_linux-64
-    - python==3.10
+    - python==3.11
     - assimulo==3.6
     - pandas
     - pyyaml

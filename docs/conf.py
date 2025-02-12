@@ -61,8 +61,8 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"pyrcel"
-copyright = u"2019, Daniel Rothenberg"
+project = "pyrcel"
+copyright = "2025, Daniel Rothenberg"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -231,8 +231,8 @@ latex_documents = [
     (
         "index",
         "pyrcel.tex",
-        u"pyrcel documentation",
-        u"Daniel Rothenberg",
+        "pyrcel documentation",
+        "Daniel Rothenberg",
         "manual",
     )
 ]
@@ -262,9 +262,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    ("index", "pyrcel", u"pyrcel Documentation", [u"Daniel Rothenberg"], 1)
-]
+man_pages = [("index", "pyrcel", "pyrcel Documentation", ["Daniel Rothenberg"], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -279,8 +277,8 @@ texinfo_documents = [
     (
         "index",
         "pyrcel",
-        u"pyrcel Documentation",
-        u"Daniel Rothenberg",
+        "pyrcel Documentation",
+        "Daniel Rothenberg",
         "pyrcel",
         "Adiabatic cloud parcel model for aerosol activation studies",
         "Miscellaneous",
