@@ -275,7 +275,7 @@ whitby_distributions = {
     #        mu = micron, N = cm**-3
     "marine": [
         Lognorm(0.01 / 2.0, 1.6, 340.0),
-        Lognorm(0.07 / 2.0, 2.0, 6.0),
+        Lognorm(0.07 / 2.0, 2.0, 60.0),
         Lognorm(0.62 / 2.0, 2.7, 3.1),
     ],
     "continental": [
