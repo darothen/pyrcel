@@ -73,7 +73,7 @@ class Lognorm(BaseDistribution):
     pdflog10(x)
         Evaluate size distribution logarithmic density dN/dlog(x) at a particular radius x
     cdf(x)
-        Evaluate cumulative concentration up to a particular radius.x
+        Evaluate cumulative concentration up to a particular radius x
     moment(k)
         Compute the *k*-th moment of the lognormal distribution.
 
