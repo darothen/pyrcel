@@ -53,7 +53,7 @@ run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
 [tool.setuptools_scm]
 version_file = "pyrcel/version.py"
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 
@@ -61,8 +61,45 @@ platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 numpy = "<2.2"
 assimulo = "==3.6"
 
+[tool.pixi.feature.py39.dependencies]
+python = "3.9.*"
+
+[tool.pixi.feature.py310.dependencies]
+python = "3.10.*"
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+numpy = ">=2.1,<3"
+assimulo = ">=3.7,<4"
+
+[tool.pixi.feature.py314.pypi-dependencies]
+pyrcel = { path = ".", editable = true }
+
+[tool.pixi.feature.py314.tasks]
+run_parcel = "run_parcel"
+ci = "run_parcel examples/simple.yml"
+
+[tool.pixi.environments]
+default = ["py311"]
+py39 = ["py39"]
+py310 = ["py310"]
+py311 = ["py311"]
+py312 = ["py312"]
+py313 = ["py313"]
+py314 = { features = ["py314"], no-default-feature = true }
+
 [tool.pixi.pypi-dependencies]
 pyrcel = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 run_parcel = "run_parcel"
+ci = "run_parcel examples/simple.yml"

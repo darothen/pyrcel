@@ -8,8 +8,8 @@ pyrcel: cloud parcel model
    :target: https://zenodo.org/badge/latestdoi/12927551
 .. |PyPI version| image:: https://badge.fury.io/py/pyrcel.svg
    :target: https://badge.fury.io/py/pyrcel
-.. |Build Status| image:: https://circleci.com/gh/darothen/pyrcel/tree/master.svg?style=svg
-   :target: https://circleci.com/gh/darothen/pyrcel/tree/master
+.. |Build Status| image:: https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/darothen/pyrcel/actions/workflows/ci.yml
 .. |Documentation Status| image:: https://readthedocs.org/projects/pyrcel/badge/?version=stable
    :target: http://pyrcel.readthedocs.org/en/stable/?badge=stable
 .. |Code Style| image:: https://img.shields.io/badge/code%20style-black-000000.svg
