@@ -43,8 +43,9 @@ height level.
 
 """
 
+from importlib.resources import files
+
 import pandas as pd
-import pkg_resources
 
 g = 9.81  #: Gravitational constant, m/s^2
 Cp = 1004.0  #: Specific heat of dry air at constant pressure, J/kg
@@ -67,5 +68,5 @@ STATE_VARS = ["z", "P", "T", "wv", "wc", "wi", "S"]
 STATE_VAR_MAP = {var: i for i, var in enumerate(STATE_VARS)}
 
 # Read the standard atmosphere CSV file
-_std_atm_fn = pkg_resources.resource_filename("pyrcel", "data/std_atm.csv")
-std_atm = pd.read_csv(_std_atm_fn, sep="\s+")
+with files("pyrcel").joinpath("data/std_atm.csv").open("r") as _f:
+    std_atm = pd.read_csv(_f, sep="\s+")
