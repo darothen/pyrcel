@@ -42,12 +42,17 @@ dynamic = ["version"]
 # brings optimistix, equinox, lineax, and jaxtyping; equinox and optimistix are listed
 # explicitly since the v2 code imports them directly. See
 # docs/design/jax-diffrax-migration.md.
+#
+# The JAX backend requires Python >= 3.10 (jax itself dropped 3.9), while the package as a
+# whole still supports 3.9 for the legacy numba backend. The `python_version` markers keep
+# `uv`/pip resolution satisfiable across the full `requires-python` range: on 3.9 the `jax`
+# extra resolves to nothing (use the numba backend); on 3.10+ it pulls the JAX stack.
 [project.optional-dependencies]
 jax = [
-    "jax>=0.4.38",
-    "diffrax>=0.6.2",
-    "equinox>=0.11.10",
-    "optimistix>=0.0.7",
+    "jax>=0.4.38; python_version >= '3.10'",
+    "diffrax>=0.6.2; python_version >= '3.10'",
+    "equinox>=0.11.10; python_version >= '3.10'",
+    "optimistix>=0.0.7; python_version >= '3.10'",
 ]
 test = [
     "pytest>=7",
