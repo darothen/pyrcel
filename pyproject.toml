@@ -37,6 +37,19 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+# v2 migration (numba/Assimulo -> JAX/diffrax) is staged via optional groups so the
+# transition can proceed without disturbing the current runtime. `diffrax` transitively
+# brings optimistix, equinox, lineax, and jaxtyping. See
+# docs/design/jax-diffrax-migration.md.
+[project.optional-dependencies]
+jax = [
+    "jax>=0.4.38",
+    "diffrax>=0.6.2",
+]
+test = [
+    "pytest>=7",
+]
+
 [project.urls]
 Documentation = "https://pyrcel.readthedocs.io/en/latest/"
 Repository = "https://github.com/darothen/pyrcel"
