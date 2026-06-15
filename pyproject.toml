@@ -48,6 +48,7 @@ jax = [
 ]
 test = [
     "pytest>=7",
+    "hypothesis>=6",
 ]
 
 [project.urls]
