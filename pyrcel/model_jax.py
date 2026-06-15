@@ -247,6 +247,98 @@ class ParcelModelJAX:
             offset += nr
         return parcel, aerosol
 
+    def to_dataset(self):
+        """Assemble the run into a CF-flavoured :class:`xarray.Dataset`.
+
+        Mirrors the variable layout of the master NetCDF writer
+        (:func:`pyrcel.output.write_parcel_output`): a ``time`` coordinate, a per-species
+        ``<species>_bins`` coordinate with dry radii / kappa / number concentration, the
+        wet-radius history ``<species>_size``, and the parcel thermodynamic profiles. The
+        post-solve summary (``S_max``, ``t_smax``, per-species activated fractions) is
+        attached as scalar variables / attributes.
+        """
+        if self.x is None:
+            raise RuntimeError("call run() before to_dataset()")
+
+        import xarray as xr
+
+        from . import __version__ as ver
+        from .thermo import rho_air
+
+        parcel_df, aerosol_dfs = self._to_dataframes()
+        ds = xr.Dataset(
+            attrs={"Conventions": "CF-1.0", "source": f"pyrcel v{ver} (JAX/diffrax)"}
+        )
+        ds.coords["time"] = (
+            "time", self.time, {"units": "seconds", "long_name": "simulation time"}
+        )
+
+        offset = c.N_STATE_VARS
+        for aer in self.aerosols:
+            nr = aer.nr
+            sp = aer.species
+            bins = f"{sp}_bins"
+            ds.coords[bins] = (
+                bins, np.arange(1, nr + 1, dtype=np.int32),
+                {"long_name": f"{sp} size bin number"},
+            )
+            ds[f"{sp}_rdry"] = (
+                (bins,), np.asarray(aer.r_drys) * 1e6,
+                {"units": "micron", "long_name": f"{sp} bin dry radii"},
+            )
+            ds[f"{sp}_kappas"] = (
+                (bins,), np.full(nr, aer.kappa),
+                {"long_name": f"{sp} bin kappa-kohler hygroscopicity"},
+            )
+            ds[f"{sp}_Nis"] = (
+                (bins,), np.asarray(aer.Nis) * 1e-6,
+                {"units": "cm-3", "long_name": f"{sp} bin number concentration"},
+            )
+            ds[f"{sp}_size"] = (
+                ("time", bins), self.x[:, offset : offset + nr] * 1e6,
+                {"units": "micron", "long_name": f"{sp} bin wet radii"},
+            )
+            offset += nr
+
+        rho = rho_air(parcel_df["T"], parcel_df["P"], parcel_df["S"] + 1.0)
+        profiles = {
+            "S": (parcel_df["S"] * 100.0, {"units": "%", "long_name": "Supersaturation"}),
+            "T": (parcel_df["T"], {"units": "K", "long_name": "Temperature"}),
+            "P": (parcel_df["P"], {"units": "Pa", "long_name": "Pressure"}),
+            "wv": (parcel_df["wv"], {"units": "kg/kg", "long_name": "Water vapor mixing ratio"}),
+            "wc": (parcel_df["wc"], {"units": "kg/kg", "long_name": "Liquid water mixing ratio"}),
+            "wi": (parcel_df["wi"], {"units": "kg/kg", "long_name": "Ice water mixing ratio"}),
+            "height": (parcel_df["z"], {"units": "meters", "long_name": "Parcel height above start"}),
+            "rho": (rho, {"units": "kg/m3", "long_name": "Air density"}),
+            "wtot": (parcel_df["wv"] + parcel_df["wc"],
+                     {"units": "kg/kg", "long_name": "Total water mixing ratio"}),
+        }
+        for name, (data, attrs) in profiles.items():
+            ds[name] = (("time",), np.asarray(data), attrs)
+
+        s = self._summary
+        ds["S_max"] = ((), s["S_max"] * 100.0, {"units": "%", "long_name": "Maximum supersaturation"})
+        ds["t_smax"] = ((), s["t_smax"], {"units": "seconds", "long_name": "Time of maximum supersaturation"})
+        for p in s["per_species"]:
+            ds[f"{p['species']}_eq_act_frac"] = (
+                (), p["eq_act_frac"],
+                {"long_name": f"{p['species']} equilibrium activated fraction"},
+            )
+        ds.attrs.update(
+            {"V": "V(t)" if isinstance(self.V, AbstractUpdraft) and not isinstance(self.V, ConstantV)
+             else float(self.V.V) if isinstance(self.V, ConstantV) else float(self.V),
+             "T0": self.T0, "S0": self.S0, "P0": self.P0, "accom": self.accom,
+             "total_act_frac": s["total_act_frac"]}
+        )
+        return ds
+
+    def save_netcdf(self, filename):
+        """Write the run to a NetCDF file (see :meth:`to_dataset`)."""
+        self.to_dataset().to_netcdf(filename)
+        if self.console:
+            print(f"Saved output to {filename}")
+        return filename
+
     # --- console output -----------------------------------------------------------
 
     def _print_setup(self):

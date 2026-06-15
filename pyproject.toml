@@ -53,6 +53,9 @@ test = [
     "pytest>=7",
     "hypothesis>=6",
 ]
+examples = [
+    "matplotlib>=3.5",
+]
 
 [project.urls]
 Documentation = "https://pyrcel.readthedocs.io/en/latest/"

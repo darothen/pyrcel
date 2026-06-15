@@ -35,6 +35,9 @@ _LAZY_ATTRS = {
     "iterate_runs": "pyrcel.driver",
     # v2 JAX/diffrax entry points (lazy so importing pyrcel never forces JAX).
     "ParcelModelJAX": "pyrcel.model_jax",
+    "run_updraft_ensemble": "pyrcel.ensemble",
+    "smax_nact_ensemble": "pyrcel.ensemble",
+    "sample_gaussian_updrafts": "pyrcel.ensemble",
 }
 
 
