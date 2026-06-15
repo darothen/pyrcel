@@ -2,7 +2,8 @@
 
 Default UX (``console=True``): single adaptive solve, compile/integrate phase banners,
 rich setup and integration-plan tables, a post-hoc trajectory sample, and the activation
-summary. Live mid-solve updates (``live=True``) are deferred to a follow-up PR.
+summary. ``live=True`` adds a master-style per-chunk z/T/S table during integration
+(interactive-only; kept out of the ``jit``/``grad`` path).
 
 Uses the ``logging`` module for one-line phase messages (``[pyrcel] ...``) and ``print``
 for aligned tables so interactive runs stay readable without extra dependencies.
@@ -201,6 +202,8 @@ def print_integration_plan(
     max_steps,
     rtol,
     progress,
+    live=False,
+    live_chunk_dt=10.0,
 ) -> None:
     print()
     print("  Integration plan")
@@ -209,13 +212,53 @@ def print_integration_plan(
         if terminate
         else "no (integrate to t_end)"
     )
-    prog = "TextProgressMeter" if progress else "none"
+    if live:
+        prog = f"live chunk loop ({live_chunk_dt:g} s chunks)"
+    elif progress:
+        prog = "TextProgressMeter"
+    else:
+        prog = "none"
     print(f"    t_end cap     {t_end:g} s")
     print(f"    output_dt     {output_dt:g} s")
     print(f"    terminate     {term}")
     print(f"    solver        Kvaerno5 + PIDController  rtol={rtol:.0e}  max_steps={max_steps}")
     print(f"    progress      {prog}")
     print(_hline())
+
+
+class LiveStepPrinter:
+    """Master-style integration loop table (``CVODEIntegrator.integrate``)."""
+
+    _HEADER = (
+        "\n  Integration loop\n\n"
+        "    step     time  walltime  Δwalltime |     z       T       S\n"
+        "   ------------------------------------|----------------------"
+    )
+    _ROW = "   {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s | {:5.1f} {:7.2f} {:6.2f}%"
+    _FOOTER = "   ---- end of integration loop ----"
+
+    def __init__(self) -> None:
+        self._started = False
+
+    def __call__(
+        self,
+        step: int,
+        t: float,
+        z: float,
+        T: float,
+        S_pct: float,
+        wall_total: float,
+        wall_delta: float,
+    ) -> None:
+        if not self._started:
+            print(self._HEADER)
+            self._started = True
+        print(self._ROW.format(step, t, wall_total, wall_delta, z, T, S_pct))
+
+    def finish(self) -> None:
+        if self._started:
+            print(self._FOOTER)
+            print()
 
 
 def print_termination_narrative(info: dict) -> None:

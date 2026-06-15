@@ -46,6 +46,18 @@ def test_print_trajectory_table_subsamples(capsys):
     assert out.count("\n") >= 10
 
 
+def test_live_step_printer(capsys):
+    from pyrcel.console_report import LiveStepPrinter
+
+    printer = LiveStepPrinter()
+    printer(1, 0.0, 0.0, 283.15, -2.0, 0.0, 0.0)
+    printer.finish()
+    out = capsys.readouterr().out
+    assert "Integration loop" in out
+    assert "283.15" in out
+    assert "end of integration loop" in out
+
+
 def test_print_summary(capsys):
     print_summary(
         {

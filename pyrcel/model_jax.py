@@ -25,6 +25,7 @@ import numpy as np
 from . import constants as c
 from .activation import binned_activation
 from .console_report import (
+    LiveStepPrinter,
     PhaseTimer,
     equilibration_residual,
     print_integration_plan,
@@ -36,8 +37,11 @@ from .console_report import (
 from .equilibrate_jax import equilibrate_initial_state
 from .integrator_diffrax import (
     STATE_RTOL,
+    find_smax,
     integrate_parcel,
+    integrate_parcel_chunked,
     integrate_parcel_terminated,
+    terminate_cutoff_time,
 )
 from .updraft import AbstractUpdraft, ConstantV
 
@@ -137,6 +141,8 @@ class ParcelModelJAX:
         terminate_depth=10.0,
         max_steps=100_000,
         progress=False,
+        live=False,
+        live_chunk_dt=10.0,
         trajectory_table=None,
         output_fmt="dataframes",
     ):
@@ -157,7 +163,14 @@ class ParcelModelJAX:
             Adaptive-step cap for the solver.
         progress : bool
             Show a live text progress meter during the solve (``False`` by default).
-            Mutually exclusive with ``live`` (reserved for a future chunk-loop mode).
+            Mutually exclusive with ``live``.
+        live : bool
+            Print a master-style z/T/S table after each integration chunk (``False`` by
+            default). Uses an interactive-only Python chunk loop; mutually exclusive
+            with ``progress``.
+        live_chunk_dt : float
+            Simulation-time length of each live-integration chunk (s). Default ``10``,
+            matching ``master``'s typical ``solver_dt``.
         trajectory_table : bool or None
             Print a post-hoc trajectory sample after integration. ``None`` (default)
             follows ``console`` (on when ``console=True``).
@@ -172,13 +185,17 @@ class ParcelModelJAX:
         """
         if output_fmt not in ("dataframes", "arrays", "smax"):
             raise ValueError(f"invalid output_fmt {output_fmt!r}")
+        if live and progress:
+            raise ValueError("live and progress are mutually exclusive")
 
         import diffrax as dfx
 
         if trajectory_table is None:
-            trajectory_table = self.console
+            trajectory_table = self.console and not live
 
-        meter = dfx.TextProgressMeter() if progress else dfx.NoProgressMeter()
+        meter = dfx.NoProgressMeter() if live else (
+            dfx.TextProgressMeter() if progress else dfx.NoProgressMeter()
+        )
 
         if self.console:
             print_integration_plan(
@@ -189,12 +206,71 @@ class ParcelModelJAX:
                 max_steps=max_steps,
                 rtol=STATE_RTOL,
                 progress=progress,
+                live=live,
+                live_chunk_dt=live_chunk_dt,
             )
 
         peak = None
         run_info = None
-        timer = self._phase_timer if self.console else None
-        if terminate:
+        timer = self._phase_timer if self.console and not live else None
+        live_printer = LiveStepPrinter() if live else None
+
+        if live:
+            t_final = float(t_end)
+            activated = True
+            t_smax_f = float("nan")
+            smax = float("nan")
+            y_smax = None
+
+            if terminate:
+                def _find():
+                    return find_smax(
+                        self.y0, self.args, t_end,
+                        max_steps=max_steps,
+                    )
+
+                if timer is not None:
+                    (t_smax, smax, y_smax, activated), _ = timer.run(
+                        ("smax", self._nr), "S_max event solve", _find
+                    )
+                else:
+                    t_smax, smax, y_smax, activated = _find()
+                t_smax_f = float(t_smax)
+                if activated:
+                    peak = (float(smax), t_smax_f)
+                    t_final = terminate_cutoff_time(
+                        self.y0,
+                        self.args,
+                        t_end,
+                        terminate_depth=terminate_depth,
+                        t_smax=t_smax,
+                        y_smax=y_smax,
+                        activated=True,
+                        max_steps=max_steps,
+                    )
+
+            ts, ys, success = integrate_parcel_chunked(
+                self.y0,
+                self.args,
+                t_final,
+                output_dt,
+                chunk_dt=live_chunk_dt,
+                max_steps=max_steps,
+                on_step=live_printer,
+            )
+            if live_printer is not None:
+                live_printer.finish()
+            ts, ys = np.asarray(ts), np.asarray(ys)
+            run_info = {
+                "success": success,
+                "activated": activated,
+                "t_smax": t_smax_f,
+                "smax": smax,
+                "t_cutoff": float(ts[-1]) if len(ts) else t_final,
+                "z_smax": float(y_smax[0]) if y_smax is not None else float("nan"),
+                "z_end": float(ys[-1, c.STATE_VAR_MAP["z"]]) if len(ys) else float("nan"),
+            }
+        elif terminate:
             ts, ys, run_info = integrate_parcel_terminated(
                 self.y0, self.args, t_end, output_dt,
                 terminate_depth=terminate_depth, max_steps=max_steps,
