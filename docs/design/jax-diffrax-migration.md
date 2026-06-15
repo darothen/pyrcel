@@ -314,6 +314,17 @@ integrate an **extra** `terminate_depth` meters and stop.
 **Recommendation:** start with (B) for validation, then implement (A) for production
 parity and performance (early stop).
 
+**Implemented (Phase 4):** option (A) two-phase, in `integrator_diffrax.py`.
+`find_smax` runs a jitted `diffeqsolve` with `dfx.Event(_dS_dt, root_finder=optx.Newton(...),
+direction=False)` (the `direction=False` only triggers on the downward `dS/dt`
+crossing, i.e. the true maximum), `SaveAt(t1=True)` returning the root-found
+`(t_smax, S_max, y_smax)` — `S_max` matches CVode to ~1e-5 and `t_smax` to within one
+output step. `integrate_parcel_terminated` then sets `t_cutoff = t_smax + terminate_depth/V`
+and produces output via a single adaptive solve over `[0, t_cutoff]`. Because `t_cutoff`
+is data-dependent, this interactive/parity wrapper runs eagerly around its two jitted
+solves; the fixed-horizon `integrate_parcel` / `find_smax` remain the `jit`/`vmap`/`grad`
+core. (Time-varying `V(t)` termination is deferred to Phase 5.)
+
 ### 4.6 Output
 
 `diffrax` returns `sol.ts`, `sol.ys`. Adapt to the existing `(x, t, success)` contract
@@ -667,11 +678,11 @@ with numba + Assimulo and is run manually when the oracle needs refreshing.
 
 | Phase | Deliverable                                                                                                       | Exit criterion                                  |
 | ----- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 0     | `v2` feature branch in a private worktree; new `pixi`/deps (`jax`, `diffrax`); enable `x64`; **fixture generator run on `master`** (§7.0). | env builds; `import` works; fixtures committed  |
-| 1     | `thermo_jax.py` + `parcel_aux_jax.py` (vectorized RHS); delete numba module.                                      | §7.1 + §7.2 pass (vs frozen fixtures)           |
-| 2     | `optimistix` equilibration replacing `scipy`.                                                                     | §7.2b passes (`y0` matches `master`)            |
-| 3     | `DiffraxIntegrator` (`Kvaerno5`+`PIDController`), **single adaptive solve** with `SaveAt(ts=...)` (§4.7); rip out Assimulo + `solver_dt` chunking. | §7.3 passes on `examples/*.yml`                 |
-| 4     | Event-based termination (§4.5 A) for `S_max` + `terminate_depth`.                                                 | `S_max`/`t_smax` parity; full §7.4 matrix green |
+| 0 ✅  | `v2` feature branch in a private worktree; new `pixi`/deps (`jax`, `diffrax`); enable `x64`; **fixture generator run on `master`** (§7.0). | env builds; `import` works; fixtures committed  |
+| 1 ✅  | `thermo_jax.py` + `parcel_aux_jax.py` (vectorized RHS); delete numba module.                                      | §7.1 + §7.2 pass (vs frozen fixtures)           |
+| 2 ✅  | `optimistix` equilibration replacing `scipy`.                                                                     | §7.2b passes (`y0` matches `master`)            |
+| 3 ✅  | `DiffraxIntegrator` (`Kvaerno5`+`PIDController`), **single adaptive solve** with `SaveAt(ts=...)` (§4.7); rip out Assimulo + `solver_dt` chunking. | §7.3 passes on `examples/*.yml`                 |
+| 4 ✅  | Event-based termination (§4.5 A) for `S_max` + `terminate_depth` (`find_smax` / `integrate_parcel_terminated`). | `S_max`/`t_smax` parity; full §7.4 matrix green |
 | 5     | `jit`/`vmap`/`grad` ergonomics via Equinox vector field + `V(t)`; differentiability through integration w.r.t. `y0`. | §7.6 + ensemble `vmap` works                    |
 | 6     | CLI/interactive mode (`progress_meter` + post-solve summary table); docs, benchmarks, `README`/`pyproject` updates, v2 release prep. | docs updated; perf documented                   |
 
