@@ -131,7 +131,7 @@ Requirements
 
 **Required**
 
-* Python >= 3.9
+* Python >= 3.11
 * [numba](http://numba.pydata.org)
 * [NumPy](http://www.numpy.org)
 * [SciPy](http://www.scipy.org)
