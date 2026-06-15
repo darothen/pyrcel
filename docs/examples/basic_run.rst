@@ -47,8 +47,8 @@ never need to worry about it.
 Here, let's construct two aerosol modes:
 
 +----------+-----------------------+-----------------+---------+--------------------+
-| Mode     | :math:`\kappa`        | Mean size       | Std dev | Number Conc        |
-|          | (hygroscopicity)      | (micron)        |         | (cm\*\*-3)         |
+| Mode     | :math:`\kappa`        | Median size     | Std dev | Number Conc        |
+|          | (hygroscopicity)      | (μm)            |         | (cm\*\*-3)         |
 +==========+=======================+=================+=========+====================+
 | sulfate  | 0.54                  | 0.015           | 1.6     | 850                |
 +----------+-----------------------+-----------------+---------+--------------------+
