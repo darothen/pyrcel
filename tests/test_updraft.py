@@ -73,6 +73,7 @@ def test_constantv_matches_scalar_rhs(oracle):
     np.testing.assert_array_equal(np.asarray(f_scalar), np.asarray(f_const))
 
 
+@pytest.mark.slow
 def test_constantv_matches_scalar_integration(oracle):
     y0 = jnp.asarray(oracle["y0"])
     ts = jnp.asarray(oracle["traj_t"])
@@ -84,6 +85,7 @@ def test_constantv_matches_scalar_integration(oracle):
 
 # --- Equinox vector field --------------------------------------------------------
 
+@pytest.mark.slow
 def test_vectorfield_roundtrip_and_call(oracle):
     y0 = jnp.asarray(oracle["y0"])
     V = float(oracle["V"])
@@ -105,6 +107,7 @@ def test_vectorfield_roundtrip_and_call(oracle):
 
 # --- time-varying V(t) -----------------------------------------------------------
 
+@pytest.mark.slow
 def test_time_varying_updraft_invariants():
     # Use the simple_sulfate fixture's initial state with a ramped updraft.
     from conftest import load_fixture

@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import scenarios as scn
 from pyrcel.activation import binned_activation
 from pyrcel.integrator_diffrax import integrate_parcel_arrays
+
+pytestmark = pytest.mark.slow
 
 # Agreed acceptance tolerances (design §7, §9).
 S_MAX_RTOL = 1e-3

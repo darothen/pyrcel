@@ -21,6 +21,8 @@ import scenarios as scn
 from pyrcel.model_jax import ParcelModelJAX
 from pyrcel.updraft import InterpolatedUpdraft
 
+pytestmark = pytest.mark.slow
+
 S_MAX_RTOL = 1e-3
 ACT_FRAC_ATOL = 1e-3
 

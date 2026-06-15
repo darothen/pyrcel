@@ -23,6 +23,8 @@ from pyrcel.integrator_diffrax import max_supersaturation
 from pyrcel.parcel_aux_jax import ParcelVectorField
 from pyrcel.updraft import ConstantV
 
+pytestmark = pytest.mark.slow
+
 _TS = jnp.asarray(np.arange(0.0, 80.0, 1.0))  # spans t_smax ~ 52 s for simple_sulfate
 
 

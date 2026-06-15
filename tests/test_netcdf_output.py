@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 import scenarios as scn
 from pyrcel.model_jax import ParcelModelJAX
@@ -19,6 +20,7 @@ def _run_simple():
     return m
 
 
+@pytest.mark.slow
 def test_to_dataset_structure():
     m = _run_simple()
     ds = m.to_dataset()
@@ -49,6 +51,7 @@ def test_to_dataset_requires_run():
     raise AssertionError("expected RuntimeError before run()")
 
 
+@pytest.mark.slow
 def test_save_and_reload_netcdf(tmp_path):
     import xarray as xr
 

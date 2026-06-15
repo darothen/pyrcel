@@ -8,6 +8,7 @@ and that a single-member ensemble reproduces the oracle ``S_max`` for ``simple_s
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 import scenarios as scn
 from pyrcel.ensemble import (
@@ -43,6 +44,7 @@ def test_sample_gaussian_updrafts():
     np.testing.assert_array_equal(v, v2)
 
 
+@pytest.mark.slow
 def test_smax_increases_with_updraft():
     ic, y0, r_drys, Nis, kappas, _ = _simple_arrays()
     Vs = np.array([0.2, 0.5, 1.0, 2.0, 4.0])
@@ -56,6 +58,7 @@ def test_smax_increases_with_updraft():
     assert np.all(res["N_act"] <= np.sum(Nis) + 1.0)
 
 
+@pytest.mark.slow
 def test_single_member_matches_oracle():
     ic, y0, r_drys, Nis, kappas, _ = _simple_arrays()
     d = scn.get_scenario("simple_sulfate")  # noqa: F841 (ensures scenario exists)
@@ -67,6 +70,7 @@ def test_single_member_matches_oracle():
     assert rel <= 1e-3, rel
 
 
+@pytest.mark.slow
 def test_run_updraft_ensemble_endtoend():
     _, _, _, _, _, aers = _simple_arrays()
     res = run_updraft_ensemble(

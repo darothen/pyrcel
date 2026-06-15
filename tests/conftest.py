@@ -8,10 +8,20 @@ Two responsibilities:
 2. **Load the frozen oracle fixtures** baked from ``master`` by
    ``tools/oracle/generate_fixtures.py`` and expose them via pytest fixtures,
    parametrized over the shared scenario matrix in ``tests/scenarios.py``.
+
+Fast local runs::
+
+    pytest -m "not slow"          # thermo, equilibration, RHS, oracle sanity (~30 s)
+    pytest                        # full suite (~4 min)
+
+Optional scenario subset (still runs all non-``slow`` tests)::
+
+    PYRCEL_TEST_SCENARIOS=mono,fast_updraft pytest
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -53,7 +63,22 @@ def load_fixture(name: str) -> dict:
         return {k: data[k] for k in data.files}
 
 
-@pytest.fixture(params=[s["name"] for s in scenarios.SCENARIOS])
+def scenario_names() -> list[str]:
+    """Scenario names for parametrized tests (override via ``PYRCEL_TEST_SCENARIOS``)."""
+    raw = os.environ.get("PYRCEL_TEST_SCENARIOS", "").strip()
+    if not raw:
+        return [s["name"] for s in scenarios.SCENARIOS]
+    names = [part.strip() for part in raw.split(",") if part.strip()]
+    known = {s["name"] for s in scenarios.SCENARIOS}
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        raise pytest.UsageError(
+            f"unknown PYRCEL_TEST_SCENARIOS name(s): {unknown!r}; known: {sorted(known)}"
+        )
+    return names
+
+
+@pytest.fixture(params=scenario_names())
 def scenario_name(request) -> str:
     return request.param
 

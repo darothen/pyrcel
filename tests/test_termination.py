@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import scenarios as scn
 from pyrcel.integrator_diffrax import find_smax, integrate_parcel_terminated
+
+pytestmark = pytest.mark.slow
 
 S_MAX_RTOL = 1e-3
 
