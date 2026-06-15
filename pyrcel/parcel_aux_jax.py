@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 
+import equinox as eqx
 import jax
 
 jax.config.update("jax_enable_x64", True)
@@ -29,6 +30,7 @@ import jax.numpy as jnp  # noqa: E402
 
 from . import constants as c  # noqa: E402
 from .thermo_jax import Seq, dv, es, ka  # noqa: E402
+from .updraft import AbstractUpdraft, as_updraft  # noqa: E402
 
 PI = math.pi
 
@@ -97,3 +99,69 @@ def parcel_ode_sys(t, y, args):
 
 #: JIT-compiled alias for performance-sensitive callers.
 parcel_ode_sys_jit = jax.jit(parcel_ode_sys)
+
+
+class ParcelVectorField(eqx.Module):
+    """The parcel vector field as a typed, differentiable pytree (design doc §5.4).
+
+    **Mental model: state vs. parameters vs. the rule.** An ODE is
+    ``dy/dt = f(t, y, theta)``, with three distinct roles:
+
+    * ``y`` -- the *state* that evolves (``[z, P, T, wv, wc, wi, S, r_0...]``). The
+      *solver* owns it and threads it forward step by step.
+    * ``theta`` -- the *parameters* that configure the dynamics but do not themselves
+      evolve: ``(r_drys, Nis, kappas, accom, V)``.
+    * ``f`` -- the *rule* mapping the current ``(t, y)`` to the tendency ``dy/dt``.
+
+    This class **is** ``f`` (the rule), so it holds ``theta`` as fields -- *not* ``y``.
+    The evolving state is consumed as a call argument, ``__call__(self, t, y)``: every
+    solver step ``diffrax`` calls ``field(t, y_current)`` and gets back ``dy/dt``. Think
+    of it as a physics engine configured once for one experiment (this aerosol
+    population, this updraft); the state ``y`` is the thing the engine acts on, handed to
+    it fresh each tick. Storing ``y`` here would be a category error (and impossible
+    anyway -- ``eqx.Module`` is immutable).
+
+    **Why wrap the fixed parameters in a Module at all** (the plain
+    :func:`parcel_ode_sys` ``(t, y, args)`` function is still the primary path):
+
+    1. *Named fields* instead of a positional 5-tuple, removing the ``args``/``rhs_args``
+       indexing footgun in the master code.
+    2. *It is a JAX pytree*, so its array leaves (``r_drys``, ``Nis``, ``kappas``,
+       ``accom``, and ``V``'s parameters) are visible to ``jit``/``vmap``/``grad``. That
+       is what makes **parameter** sensitivities clean: ``eqx.filter_grad`` over a field
+       gives ``d S_max / d accom`` or ``d S_max / d V`` directly. (Gradients w.r.t. the
+       *state's initial value* ``y0`` need no Module -- just ``jax.grad`` over the plain
+       array.) ``accom`` is stored as an array, not a Python float, precisely so it is a
+       differentiable leaf rather than a compile-time constant.
+
+    The instance is callable as ``field(t, y)`` (diffrax ``ODETerm`` convention, with an
+    optional ignored ``args``) and exposes :pyattr:`args` to feed the tuple-based
+    integrator helpers in :mod:`pyrcel.integrator_diffrax`.
+    """
+
+    r_drys: jax.Array
+    Nis: jax.Array
+    kappas: jax.Array
+    accom: jax.Array
+    V: AbstractUpdraft
+
+    def __init__(self, r_drys, Nis, kappas, accom, V):
+        self.r_drys = jnp.asarray(r_drys, dtype=jnp.float64)
+        self.Nis = jnp.asarray(Nis, dtype=jnp.float64)
+        self.kappas = jnp.asarray(kappas, dtype=jnp.float64)
+        self.accom = jnp.asarray(accom, dtype=jnp.float64)
+        self.V = as_updraft(V)
+
+    @classmethod
+    def from_args(cls, args) -> "ParcelVectorField":
+        """Build from the positional ``(r_drys, Nis, kappas, accom, V)`` tuple."""
+        r_drys, Nis, kappas, accom, V = args
+        return cls(r_drys, Nis, kappas, accom, V)
+
+    @property
+    def args(self) -> tuple:
+        """The ``(r_drys, Nis, kappas, accom, V)`` tuple for the integrator helpers."""
+        return (self.r_drys, self.Nis, self.kappas, self.accom, self.V)
+
+    def __call__(self, t, y, args=None):
+        return parcel_ode_sys(t, y, self.args)

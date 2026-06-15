@@ -29,6 +29,7 @@ import numpy as np  # noqa: E402
 import optimistix as optx  # noqa: E402
 
 from .parcel_aux_jax import N_STATE_VARS, parcel_ode_sys  # noqa: E402
+from .updraft import ConstantV  # noqa: E402
 
 #: CVode-equivalent tolerances (see pyrcel/integrator.py).
 STATE_RTOL = 1e-7
@@ -109,6 +110,27 @@ def integrate_parcel_arrays(y0, args, ts, **kwargs):
     return sol.ts, sol.ys, success
 
 
+# --- Differentiable diagnostics (design §5.3, §7.6) ------------------------------
+
+def max_supersaturation(y0, args, ts, *, rtol=STATE_RTOL, atol=None, max_steps=100_000):
+    """Peak supersaturation ``S_max`` over the output grid, as a differentiable scalar.
+
+    A fixed-horizon solve (no data-dependent event) so the whole computation is a clean
+    pure function for ``jax.grad`` / ``jax.jacfwd`` / ``jax.vmap``. ``diffrax``'s default
+    ``RecursiveCheckpointAdjoint`` provides reverse-mode gradients through the solve, so
+    e.g. ``jax.grad(max_supersaturation)(y0, args, ts)`` gives ``d S_max / d y0`` and
+    ``eqx.filter_grad`` over a :class:`~pyrcel.parcel_aux_jax.ParcelVectorField` gives
+    ``d S_max / d{accom, V, ...}``. ``ts`` must span the peak.
+    """
+    y0 = jnp.asarray(y0)
+    ts = jnp.asarray(ts)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+    sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
+    return jnp.max(sol.ys[:, 6])
+
+
 # --- Event-based S_max termination (design §4.5 option A) -------------------------
 
 def _dS_dt(t, y, args, **kwargs):
@@ -122,6 +144,33 @@ def _solve_to_smax(y0, args, t_end, rtol, atol, max_steps):
     # (the supersaturation maximum), not the (numerically possible) initial rise.
     event = dfx.Event(
         _dS_dt, root_finder=optx.Newton(rtol=1e-8, atol=1e-12), direction=False
+    )
+    controller = dfx.PIDController(rtol=rtol, atol=atol)
+    return dfx.diffeqsolve(
+        _TERM,
+        dfx.Kvaerno5(),
+        t0=0.0,
+        t1=t_end,
+        dt0=None,
+        y0=y0,
+        args=args,
+        stepsize_controller=controller,
+        saveat=dfx.SaveAt(t1=True),
+        event=event,
+        max_steps=max_steps,
+        throw=False,
+    )
+
+
+@functools.partial(jax.jit, static_argnames=("max_steps",))
+def _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps):
+    # Stop when altitude z (= y[0]) first rises through z_target. Works for any updraft
+    # (constant or V(t)); z is strictly increasing since dz/dt = V > 0.
+    def cond_fn(t, y, args, **kwargs):
+        return y[0] - z_target
+
+    event = dfx.Event(
+        cond_fn, root_finder=optx.Newton(rtol=1e-8, atol=1e-10), direction=True
     )
     controller = dfx.PIDController(rtol=rtol, atol=atol)
     return dfx.diffeqsolve(
@@ -178,10 +227,15 @@ def integrate_parcel_terminated(
     (``= terminate_depth / V`` seconds) and stop. Output is produced at ``output_dt``
     cadence over ``[0, t_cutoff]`` from a single adaptive solve.
 
+    The cutoff is altitude-based (stop ``terminate_depth`` metres above ``z_smax``), so
+    it is correct for both a constant updraft and a time-varying ``V(t)``: for constant
+    ``V`` the cutoff time is computed analytically, otherwise it is root-found with a
+    second ``z``-crossing event.
+
     This is the interactive / parity path: ``t_cutoff`` is data-dependent so the output
-    grid length is dynamic (the outer call runs eagerly; both solves are jitted). For
+    grid length is dynamic (the outer call runs eagerly; the solves are jitted). For
     ``jit``/``vmap``/``grad`` use the fixed-horizon :func:`integrate_parcel` /
-    :func:`find_smax` instead.
+    :func:`find_smax` / :func:`max_supersaturation` instead.
 
     Returns ``(ts, ys, info)`` with ``ts``/``ys`` as numpy arrays and ``info`` a dict
     of ``t_smax``, ``smax``, ``t_cutoff``, ``activated``, ``success``.
@@ -192,18 +246,21 @@ def integrate_parcel_terminated(
         atol = atol_vector(nr)
 
     V = args[4]
-    if callable(V):
-        raise NotImplementedError("time-varying V(t) termination is deferred to Phase 5")
-    V = float(V)
 
-    t_smax, smax, _, activated = find_smax(
+    t_smax, smax, y_smax, activated = find_smax(
         y0, args, t_end, rtol=rtol, atol=atol, max_steps=max_steps
     )
     t_smax_f = float(t_smax)
-    if activated:
-        t_cutoff = min(t_smax_f + terminate_depth / V, float(t_end))
-    else:
+    if not activated:
         t_cutoff = float(t_end)
+    elif isinstance(V, ConstantV):
+        t_cutoff = min(t_smax_f + terminate_depth / float(V.V), float(t_end))
+    elif not callable(V):
+        t_cutoff = min(t_smax_f + terminate_depth / float(V), float(t_end))
+    else:
+        z_target = float(y_smax[0]) + terminate_depth
+        sol_d = _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps)
+        t_cutoff = min(float(sol_d.ts[-1]), float(t_end))
 
     ts = np.append(np.arange(0.0, t_cutoff, output_dt), t_cutoff)
     ts = jnp.asarray(ts)

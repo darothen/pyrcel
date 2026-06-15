@@ -323,7 +323,10 @@ output step. `integrate_parcel_terminated` then sets `t_cutoff = t_smax + termin
 and produces output via a single adaptive solve over `[0, t_cutoff]`. Because `t_cutoff`
 is data-dependent, this interactive/parity wrapper runs eagerly around its two jitted
 solves; the fixed-horizon `integrate_parcel` / `find_smax` remain the `jit`/`vmap`/`grad`
-core. (Time-varying `V(t)` termination is deferred to Phase 5.)
+core. As of Phase 5 the cutoff is altitude-based (stop `terminate_depth` metres above
+`z_smax`), so it is correct for a time-varying `V(t)` too: constant `V` uses the analytic
+`t_smax + terminate_depth/V`, otherwise a second `z`-crossing event (`_solve_to_depth`)
+root-finds the cutoff time.
 
 ### 4.6 Output
 
@@ -518,6 +521,17 @@ abstraction only**, and keep `ParcelModel` itself a plain class. The naming/`V(t
 ergonomics are a genuine win for a differentiable rewrite, the dependency is already
 present, and confining it to the functional core avoids paradigm-mixing in the public API.
 
+**Implemented (Phase 5):** `pyrcel/updraft.py` provides `AbstractUpdraft` with
+`ConstantV` and `InterpolatedUpdraft` (tabulated `V(t)` via `jnp.interp` — grad-friendly,
+so no `interpax` dependency for the linear case). `ParcelVectorField` (in
+`parcel_aux_jax.py`) bundles `(r_drys, Nis, kappas, accom, V)` as a typed `eqx.Module`
+pytree, is callable as `field(t, y)` for `dfx.ODETerm`, and exposes `.args` to feed the
+tuple-based integrator helpers. Wrapping a scalar `V` in `ConstantV` is bit-for-bit
+identical to passing the bare scalar (RHS and full integration). `max_supersaturation`
+gives a differentiable `S_max` over a fixed horizon; `jax.grad` w.r.t. `y0` and
+`eqx.filter_grad` w.r.t. `accom`/`V` are finite and match finite differences to
+~1e-4, and a `vmap` ensemble matches a Python loop (§7.6).
+
 ---
 
 ## 6. Risks, gotchas, and numerical-fidelity concerns
@@ -683,7 +697,7 @@ with numba + Assimulo and is run manually when the oracle needs refreshing.
 | 2 ✅  | `optimistix` equilibration replacing `scipy`.                                                                     | §7.2b passes (`y0` matches `master`)            |
 | 3 ✅  | `DiffraxIntegrator` (`Kvaerno5`+`PIDController`), **single adaptive solve** with `SaveAt(ts=...)` (§4.7); rip out Assimulo + `solver_dt` chunking. | §7.3 passes on `examples/*.yml`                 |
 | 4 ✅  | Event-based termination (§4.5 A) for `S_max` + `terminate_depth` (`find_smax` / `integrate_parcel_terminated`). | `S_max`/`t_smax` parity; full §7.4 matrix green |
-| 5     | `jit`/`vmap`/`grad` ergonomics via Equinox vector field + `V(t)`; differentiability through integration w.r.t. `y0`. | §7.6 + ensemble `vmap` works                    |
+| 5 ✅  | `jit`/`vmap`/`grad` ergonomics via Equinox vector field (`ParcelVectorField`) + `V(t)` (`updraft.py`); differentiability through integration w.r.t. `y0`/`accom`/`V` (`max_supersaturation`). | §7.6 + ensemble `vmap` works                    |
 | 6     | CLI/interactive mode (`progress_meter` + post-solve summary table); docs, benchmarks, `README`/`pyproject` updates, v2 release prep. | docs updated; perf documented                   |
 
 The branch/worktree, fixture generation, and harness scaffolding (Phase 0) are the agreed
