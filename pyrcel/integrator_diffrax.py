@@ -228,6 +228,7 @@ def integrate_parcel_terminated(
     atol=None,
     max_steps: int = 100_000,
     progress_meter=None,
+    phase_timer=None,
 ):
     """Integrate, stopping ``terminate_depth`` metres past the supersaturation max.
 
@@ -256,9 +257,15 @@ def integrate_parcel_terminated(
 
     V = args[4]
 
-    t_smax, smax, y_smax, activated = find_smax(
-        y0, args, t_end, rtol=rtol, atol=atol, max_steps=max_steps
-    )
+    def _find():
+        return find_smax(y0, args, t_end, rtol=rtol, atol=atol, max_steps=max_steps)
+
+    if phase_timer is not None:
+        (t_smax, smax, y_smax, activated), _ = phase_timer.run(
+            ("smax", nr), "S_max event solve", _find
+        )
+    else:
+        t_smax, smax, y_smax, activated = _find()
     t_smax_f = float(t_smax)
     if not activated:
         t_cutoff = float(t_end)
@@ -275,12 +282,21 @@ def integrate_parcel_terminated(
     ts = jnp.asarray(ts)
     if progress_meter is None:
         progress_meter = dfx.NoProgressMeter()
-    sol = _solve(y0, args, ts, rtol, atol, None, max_steps, progress_meter)
+
+    def _traj():
+        return _solve(y0, args, ts, rtol, atol, None, max_steps, progress_meter)
+
+    if phase_timer is not None:
+        sol, _ = phase_timer.run(("traj", nr, len(ts)), "trajectory solve", _traj)
+    else:
+        sol = _traj()
     info = {
         "t_smax": t_smax_f,
         "smax": float(smax),
         "t_cutoff": t_cutoff,
         "activated": activated,
         "success": bool(sol.result == dfx.RESULTS.successful),
+        "z_smax": float(y_smax[0]),
+        "z_end": float(np.asarray(sol.ys)[-1, 0]),
     }
     return np.asarray(sol.ts), np.asarray(sol.ys), info

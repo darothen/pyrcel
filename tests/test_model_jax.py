@@ -106,7 +106,10 @@ def test_time_varying_updraft_runs():
     assert np.isfinite(smax) and smax > 0
 
 
-def test_console_output(capsys):
+def test_console_output(capsys, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="pyrcel")
     sc = scn.get_scenario("mono")
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
@@ -116,6 +119,12 @@ def test_console_output(capsys):
     )
     m.run(run["t_end"], run["output_dt"], terminate=True, terminate_depth=run["terminate_depth"])
     out = capsys.readouterr().out
-    assert "initial conditions" in out.lower()
+    assert "Configuration" in out
+    assert "Equilibrated initial state" in out
+    assert "Integration plan" in out
+    assert "Trajectory (post-hoc sample)" in out
+    assert "Simulation summary" in out
     assert "S_max" in out
     assert "total activated fraction" in out
+    assert "Compiling S_max event solve" in caplog.text
+    assert "Termination:" in caplog.text
