@@ -23,10 +23,11 @@ to several different stiff integrators:
 among other details. It also includes a library of droplet activation routines and scripts/notebooks for evaluating those schemes against equivalent calculations done with the parcel model.
 
 > [!WARNING]
-> As of version 1.3, we no longer support any ODE solver backends other than `cvode`.
-> All publications using this model have used this backend, so users shouldn't expect
-> any inconsistencies with historical results. A future version is planned to add a new
-> suite of ODE solvers from the [diffrax][diffrax] toolkit.
+> As of version 1.3, the `cvode` (numba + Assimulo) backend is the one used in all
+> publications, so users shouldn't expect any inconsistencies with historical results.
+> A second, JAX/[diffrax][diffrax]-based backend is now available and validated against
+> `cvode`; see [Experimental: JAX / diffrax backend (v2)](#experimental-jax--diffrax-backend-v2)
+> below.
 
 Updated code can be found the project [github repository](https://github.com/darothen/pyrcel). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities).
 
@@ -58,6 +59,41 @@ used to drive the parcel model simulation.
 > Windows, but we have never tried to run the model on a Windows computer so your mileage
 > may vary. Contact the authors if you have any questions and we can try to support your
 > use case.
+
+Experimental: JAX / diffrax backend (v2)
+----------------------------------------
+
+A second backend reimplements the parcel model on top of [JAX][jax] and
+[diffrax][diffrax], replacing `numba` and Assimulo/CVode. It is numerically validated
+against the original `cvode` model (frozen golden fixtures): peak supersaturation agrees
+to better than 0.1% and activated fraction to within `1e-3`. The migration is documented
+in [`docs/design/jax-diffrax-migration.md`](docs/design/jax-diffrax-migration.md), and
+the two backends are benchmarked in [`tools/bench/`](tools/bench/README.md).
+
+Why a second backend:
+
+* **No SUNDIALS/conda dependency** — installs from PyPI with `pip install "pyrcel[jax]"`.
+* **Autodiff** — exact gradients of, e.g., `S_max` with respect to the initial state,
+  the updraft `V`, or the accommodation coefficient (sensitivity studies, emulator
+  training) — something the numba/CVode stack cannot provide.
+* **Batching/GPU** — `jax.vmap` runs ensembles of parcels in one compiled call.
+
+```python
+import pyrcel as pm
+
+sulfate = pm.AerosolSpecies(
+    "sulfate", pm.Lognorm(mu=0.05, sigma=2.0, N=1000.0), kappa=0.54, bins=50
+)
+model = pm.ParcelModelJAX([sulfate], V=1.0, T0=283.15, S0=-0.02, P0=85000.0, console=True)
+parcel, aerosols = model.run(t_end=200.0, output_dt=1.0, terminate=True, progress=True)
+print(model.summary()["S_max"])
+```
+
+A time-varying updraft is a `pyrcel.InterpolatedUpdraft(ts=..., vs=...)` passed as `V`.
+The differentiable/batchable core (`pyrcel.integrator_diffrax`, `pyrcel.equilibrate_jax`,
+`pyrcel.parcel_aux_jax`) is usable directly for `jit`/`grad`/`vmap`; `ParcelModelJAX` is
+the interactive convenience layer (progress meter + summary table). float64 is required
+and enabled automatically.
 
 Installation
 ------------
@@ -157,3 +193,4 @@ cite our original publication detailing the model, and let the authors know:
 [pk2007]: http://www.atmos-chem-phys.net/7/1961/2007/acp-7-1961-2007.html
 [hplgit]: https://github.com/hplgit/odespy
 [diffrax]: https://docs.kidger.site/diffrax/
+[jax]: https://docs.jax.dev/

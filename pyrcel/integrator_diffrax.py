@@ -44,8 +44,8 @@ def atol_vector(nr: int) -> jnp.ndarray:
     return jnp.asarray(STATE_ATOL + [RADIUS_ATOL] * int(nr))
 
 
-@functools.partial(jax.jit, static_argnames=("max_steps",))
-def _solve(y0, args, ts, rtol, atol, dtmax, max_steps):
+@functools.partial(jax.jit, static_argnames=("max_steps", "progress_meter"))
+def _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter=dfx.NoProgressMeter()):
     controller = dfx.PIDController(rtol=rtol, atol=atol, dtmax=dtmax)
     return dfx.diffeqsolve(
         _TERM,
@@ -58,6 +58,7 @@ def _solve(y0, args, ts, rtol, atol, dtmax, max_steps):
         stepsize_controller=controller,
         saveat=dfx.SaveAt(ts=ts),
         max_steps=max_steps,
+        progress_meter=progress_meter,
         throw=False,
     )
 
@@ -71,6 +72,7 @@ def integrate_parcel(
     atol=None,
     dtmax: float | None = None,
     max_steps: int = 100_000,
+    progress_meter=None,
 ):
     """Integrate the parcel ODE and return the full ``diffrax`` solution.
 
@@ -89,6 +91,10 @@ def integrate_parcel(
         Maximum internal step. ``None`` lets the controller choose freely.
     max_steps : int
         Upper bound on adaptive steps (must be finite under ``jit``).
+    progress_meter : diffrax.AbstractProgressMeter, optional
+        Live progress reporting (e.g. ``diffrax.TextProgressMeter()``) for interactive
+        runs. Defaults to ``NoProgressMeter`` -- keep it that way under ``vmap``/large
+        batches and in the differentiable core to avoid per-element host syncs.
 
     Returns
     -------
@@ -100,7 +106,9 @@ def integrate_parcel(
     nr = int(y0.shape[0] - N_STATE_VARS)
     if atol is None:
         atol = atol_vector(nr)
-    return _solve(y0, args, ts, rtol, atol, dtmax, max_steps)
+    if progress_meter is None:
+        progress_meter = dfx.NoProgressMeter()
+    return _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter)
 
 
 def integrate_parcel_arrays(y0, args, ts, **kwargs):
@@ -219,6 +227,7 @@ def integrate_parcel_terminated(
     rtol: float = STATE_RTOL,
     atol=None,
     max_steps: int = 100_000,
+    progress_meter=None,
 ):
     """Integrate, stopping ``terminate_depth`` metres past the supersaturation max.
 
@@ -264,7 +273,9 @@ def integrate_parcel_terminated(
 
     ts = np.append(np.arange(0.0, t_cutoff, output_dt), t_cutoff)
     ts = jnp.asarray(ts)
-    sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
+    if progress_meter is None:
+        progress_meter = dfx.NoProgressMeter()
+    sol = _solve(y0, args, ts, rtol, atol, None, max_steps, progress_meter)
     info = {
         "t_smax": t_smax_f,
         "smax": float(smax),

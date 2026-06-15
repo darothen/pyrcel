@@ -401,6 +401,16 @@ keep it **out of** the `jit`/`grad`/`vmap` path. In other words, chunking become
 `lax.scan` over splitting steps inside the compiled core. That is a separate concern from
 the *output/feedback* chunking discussed here and does not change this recommendation.
 
+**Implemented (Phase 6).** The two presentation modes are realized exactly as above. The
+core (`pyrcel.integrator_diffrax`, `equilibrate_jax`, `parcel_aux_jax`) is the
+`jit`/`vmap`/`grad` layer with `NoProgressMeter` by default. `pyrcel.model_jax.ParcelModelJAX`
+is the interactive layer over the *same* single solve: an optional
+`diffrax.TextProgressMeter` (`progress=True`) and a post-solve summary table (`S_max`,
+`t_smax`, per-species activated fractions) computed from the dense output, with
+`dataframes`/`arrays`/`smax` output formats. It is a plain mutable class (Equinox is
+confined to the inner vector field / updraft), and it is kept out of the differentiable
+path. No interactive chunk loop was needed.
+
 ---
 
 ## 5. Critical assessment of the JAX tool ecosystem
@@ -698,7 +708,7 @@ with numba + Assimulo and is run manually when the oracle needs refreshing.
 | 3 ✅  | `DiffraxIntegrator` (`Kvaerno5`+`PIDController`), **single adaptive solve** with `SaveAt(ts=...)` (§4.7); rip out Assimulo + `solver_dt` chunking. | §7.3 passes on `examples/*.yml`                 |
 | 4 ✅  | Event-based termination (§4.5 A) for `S_max` + `terminate_depth` (`find_smax` / `integrate_parcel_terminated`). | `S_max`/`t_smax` parity; full §7.4 matrix green |
 | 5 ✅  | `jit`/`vmap`/`grad` ergonomics via Equinox vector field (`ParcelVectorField`) + `V(t)` (`updraft.py`); differentiability through integration w.r.t. `y0`/`accom`/`V` (`max_supersaturation`). | §7.6 + ensemble `vmap` works                    |
-| 6     | CLI/interactive mode (`progress_meter` + post-solve summary table); docs, benchmarks, `README`/`pyproject` updates, v2 release prep. | docs updated; perf documented                   |
+| 6 ✅  | CLI/interactive mode (`ParcelModelJAX`: `progress_meter` + post-solve summary table in `model_jax.py`); docs, benchmarks, `README`/`pyproject` updates, v2 release prep. | docs updated; perf documented                   |
 
 The branch/worktree, fixture generation, and harness scaffolding (Phase 0) are the agreed
 next step once this doc is approved.
