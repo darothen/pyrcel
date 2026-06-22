@@ -122,7 +122,9 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     wc = y[4]
     wi = y[5]
     S = y[6]
-    rs = y[N_STATE_VARS:]
+    # m <- number of bins (make as an argument to this function)
+    rs = y[N_STATE_VARS:N_STATE_VARS+m]
+    Nis = y[N_STATE_VARS+m:N_STATE_VARS+2m]
 
     T_c = T - 273.15  # convert temperature to Celsius
     pv_sat = es(T_c)  # saturation vapor pressure
@@ -140,6 +142,7 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     dwc_dt = 0.0
     # drs_dt = np.empty(shape=(nr), dtype=DTYPE)
     drs_dt = np.empty_like(rs)
+    dNis_dt = np.empty_like(Nis)
 
     for i in nb.prange(nr):
         r = rs[i]
@@ -167,6 +170,9 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
             Ni * r * r * dr_dt
         )  # Contribution to liq. water tendency due to growth
         drs_dt[i] = dr_dt
+
+        # Change in number concentration for a specific bin per integration dt
+        dNis_dt[i] = max(calc_dN_dt(Ni, T, ri, ...), 0)
 
     dwc_dt *= 4.0 * PI * c.rho_w / rho_air_dry  # Hydrated aerosol size -> water mass
     # use rho_air_dry for mixing ratio definition consistency
@@ -219,6 +225,7 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
     x[4] = dwc_dt
     x[5] = dwi_dt
     x[6] = dS_dt
-    x[N_STATE_VARS:] = drs_dt[:]
+    x[N_STATE_VARS:N_STATE_VARS+m] = drs_dt[:]
+    x[N_STATE_VARS+m:N_STATE_VARS+2m] = dNis_dt[:]
 
     return x
