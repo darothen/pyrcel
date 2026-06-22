@@ -35,7 +35,7 @@ First, we indicate the parcel's initial thermodynamic conditions.
 
     P0 = 77500. # Pressure, Pa
     T0 = 274.   # Temperature, K
-    S0 = -0.02  # Supersaturation, 1-RH (98% here)
+    S0 = -0.02  # Supersaturation, RH-1 (with RH = 98% here)"
 
 Next, we define the aerosols present in the parcel. The model itself is
 agnostic to how the aerosol are specified; it simply expects lists of
