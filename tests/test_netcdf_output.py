@@ -1,4 +1,4 @@
-"""NetCDF / xarray output writer for ParcelModelJAX (follow-up)."""
+"""NetCDF / xarray output writer for ParcelModel."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import numpy as np
 import pytest
 import scenarios as scn
 
-from pyrcel.model import ParcelModelJAX
+from pyrcel.model import ParcelModel
 
 
 def _run_simple():
     sc = scn.get_scenario("simple_sulfate")
     ic, run = sc["initial"], sc["run"]
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=ic["V"],
         T0=ic["T0"],
@@ -44,7 +44,7 @@ def test_to_dataset_structure():
 def test_to_dataset_requires_run():
     sc = scn.get_scenario("simple_sulfate")
     ic = sc["initial"]
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=ic["V"],
         T0=ic["T0"],
