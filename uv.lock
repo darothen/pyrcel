@@ -988,7 +988,11 @@ wheels = [
 name = "pyrcel"
 source = { editable = "." }
 dependencies = [
+    { name = "diffrax" },
+    { name = "equinox" },
+    { name = "jax" },
     { name = "numpy" },
+    { name = "optimistix" },
     { name = "pandas" },
     { name = "pyyaml" },
     { name = "scipy" },
@@ -1001,12 +1005,9 @@ examples = [
     { name = "matplotlib" },
 ]
 gpu = [
-    { name = "jax", extra = ["cuda12"] },
-]
-jax = [
     { name = "diffrax" },
     { name = "equinox" },
-    { name = "jax" },
+    { name = "jax", extra = ["cuda12"] },
     { name = "optimistix" },
 ]
 test = [
@@ -1016,14 +1017,17 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "diffrax", marker = "extra == 'jax'", specifier = ">=0.6.2" },
-    { name = "equinox", marker = "extra == 'jax'", specifier = ">=0.11.10" },
+    { name = "diffrax", specifier = ">=0.6.2" },
+    { name = "diffrax", marker = "extra == 'gpu'", specifier = ">=0.6.2" },
+    { name = "equinox", specifier = ">=0.11.10" },
+    { name = "equinox", marker = "extra == 'gpu'", specifier = ">=0.11.10" },
     { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6" },
-    { name = "jax", marker = "extra == 'jax'", specifier = ">=0.4.38" },
+    { name = "jax", specifier = ">=0.4.38" },
     { name = "jax", extras = ["cuda12"], marker = "extra == 'gpu'", specifier = ">=0.4.38" },
     { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.5" },
     { name = "numpy" },
-    { name = "optimistix", marker = "extra == 'jax'", specifier = ">=0.0.7" },
+    { name = "optimistix", specifier = ">=0.0.7" },
+    { name = "optimistix", marker = "extra == 'gpu'", specifier = ">=0.0.7" },
     { name = "pandas" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7" },
     { name = "pyyaml" },
@@ -1031,7 +1035,7 @@ requires-dist = [
     { name = "setuptools" },
     { name = "xarray" },
 ]
-provides-extras = ["jax", "gpu", "test", "examples"]
+provides-extras = ["gpu", "test", "examples"]
 
 [[package]]
 name = "pytest"
