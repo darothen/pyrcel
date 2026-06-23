@@ -40,9 +40,9 @@ jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
 
-from pyrcel.equilibrate_jax import equilibrate_initial_state  # noqa: E402
-from pyrcel.integrator_diffrax import _solve, atol_vector, integrate_parcel  # noqa: E402
-from pyrcel.parcel_aux_jax import N_STATE_VARS  # noqa: E402
+from pyrcel.equilibrate import equilibrate_initial_state  # noqa: E402
+from pyrcel.integrator import _solve, atol_vector, integrate_parcel  # noqa: E402
+from pyrcel.parcel_aux import N_STATE_VARS  # noqa: E402
 
 
 def _median(fn, reps: int) -> float:
