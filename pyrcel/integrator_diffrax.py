@@ -217,6 +217,36 @@ def find_smax(y0, args, t_end, *, rtol=STATE_RTOL, atol=None, max_steps=100_000)
     return t_smax, smax, y_smax, activated
 
 
+def terminate_cutoff_time(
+    y0,
+    args,
+    t_end,
+    *,
+    terminate_depth: float,
+    t_smax,
+    y_smax,
+    activated: bool,
+    rtol: float = STATE_RTOL,
+    atol=None,
+    max_steps: int = 100_000,
+) -> float:
+    """Integration stop time for ``terminate=True`` (altitude past ``S_max``)."""
+    if not activated:
+        return float(t_end)
+    t_smax_f = float(t_smax)
+    V = args[4]
+    if isinstance(V, ConstantV):
+        return min(t_smax_f + terminate_depth / float(V.V), float(t_end))
+    if not callable(V):
+        return min(t_smax_f + terminate_depth / float(V), float(t_end))
+    z_target = float(y_smax[0]) + terminate_depth
+    nr = int(jnp.asarray(y0).shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+    sol_d = _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps)
+    return min(float(sol_d.ts[-1]), float(t_end))
+
+
 def integrate_parcel_terminated(
     y0,
     args,
@@ -228,6 +258,7 @@ def integrate_parcel_terminated(
     atol=None,
     max_steps: int = 100_000,
     progress_meter=None,
+    phase_timer=None,
 ):
     """Integrate, stopping ``terminate_depth`` metres past the supersaturation max.
 
@@ -254,33 +285,153 @@ def integrate_parcel_terminated(
     if atol is None:
         atol = atol_vector(nr)
 
-    V = args[4]
+    def _find():
+        return find_smax(y0, args, t_end, rtol=rtol, atol=atol, max_steps=max_steps)
 
-    t_smax, smax, y_smax, activated = find_smax(
-        y0, args, t_end, rtol=rtol, atol=atol, max_steps=max_steps
-    )
+    if phase_timer is not None:
+        (t_smax, smax, y_smax, activated), _ = phase_timer.run(
+            ("smax", nr), "S_max event solve", _find
+        )
+    else:
+        t_smax, smax, y_smax, activated = _find()
     t_smax_f = float(t_smax)
     if not activated:
         t_cutoff = float(t_end)
-    elif isinstance(V, ConstantV):
-        t_cutoff = min(t_smax_f + terminate_depth / float(V.V), float(t_end))
-    elif not callable(V):
-        t_cutoff = min(t_smax_f + terminate_depth / float(V), float(t_end))
     else:
-        z_target = float(y_smax[0]) + terminate_depth
-        sol_d = _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps)
-        t_cutoff = min(float(sol_d.ts[-1]), float(t_end))
+        t_cutoff = terminate_cutoff_time(
+            y0,
+            args,
+            t_end,
+            terminate_depth=terminate_depth,
+            t_smax=t_smax,
+            y_smax=y_smax,
+            activated=True,
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+        )
 
     ts = np.append(np.arange(0.0, t_cutoff, output_dt), t_cutoff)
     ts = jnp.asarray(ts)
     if progress_meter is None:
         progress_meter = dfx.NoProgressMeter()
-    sol = _solve(y0, args, ts, rtol, atol, None, max_steps, progress_meter)
+
+    def _traj():
+        return _solve(y0, args, ts, rtol, atol, None, max_steps, progress_meter)
+
+    if phase_timer is not None:
+        sol, _ = phase_timer.run(("traj", nr, len(ts)), "trajectory solve", _traj)
+    else:
+        sol = _traj()
     info = {
         "t_smax": t_smax_f,
         "smax": float(smax),
         "t_cutoff": t_cutoff,
         "activated": activated,
         "success": bool(sol.result == dfx.RESULTS.successful),
+        "z_smax": float(y_smax[0]),
+        "z_end": float(np.asarray(sol.ys)[-1, 0]),
     }
     return np.asarray(sol.ts), np.asarray(sol.ys), info
+
+
+def integrate_parcel_chunked(
+    y0,
+    args,
+    t_final,
+    output_dt,
+    *,
+    chunk_dt=10.0,
+    rtol: float = STATE_RTOL,
+    atol=None,
+    max_steps: int = 100_000,
+    on_step=None,
+):
+    """Interactive-only integration in ``chunk_dt`` slices with optional per-chunk callback.
+
+    Unlike :func:`integrate_parcel`, this runs a Python loop over successive
+    ``diffeqsolve`` calls so host code can print live diagnostics between chunks. It is
+    **not** ``jit``/``vmap``/``grad``-safe and must not be used on the differentiable
+    path. Adaptive solver state is re-initialised at each chunk boundary (acceptable for
+    CLI feedback; see design doc §4.7).
+
+    Parameters
+    ----------
+    on_step : callable, optional
+        ``on_step(step, t, z, T, S_pct, wall_total, wall_delta)`` invoked immediately
+        before each chunk integrate (master ``CVODEIntegrator`` semantics).
+
+    Returns
+    -------
+    ts, ys, success
+        Concatenated output grid and whether every chunk reported success.
+    """
+    import time
+
+    y0 = jnp.asarray(y0)
+    t_final = float(t_final)
+    output_dt = float(output_dt)
+    chunk_dt = float(chunk_dt)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+
+    y_curr = y0
+    t_curr = 0.0
+    ts_parts: list[np.ndarray] = []
+    ys_parts: list[np.ndarray] = []
+    step = 0
+    wall_total = 0.0
+    wall_prev = time.perf_counter()
+    success = True
+
+    while t_curr < t_final - 1e-12:
+        step += 1
+        t_next = min(t_curr + chunk_dt, t_final)
+        n_out = max(1, int(round((t_next - t_curr) / output_dt)))
+        chunk_ts = np.linspace(t_curr, t_next, n_out + 1)
+
+        if on_step is not None:
+            state = np.asarray(y_curr)
+            now = time.perf_counter()
+            wall_delta = now - wall_prev
+            wall_total += wall_delta
+            on_step(
+                step,
+                t_curr,
+                float(state[0]),
+                float(state[2]),
+                float(state[6]) * 100.0,
+                wall_total,
+                wall_delta,
+            )
+            wall_prev = now
+
+        sol = integrate_parcel(
+            y_curr,
+            args,
+            jnp.asarray(chunk_ts),
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+        )
+        jax.block_until_ready(sol.ys)
+        if not bool(sol.result == dfx.RESULTS.successful):
+            success = False
+            break
+
+        ts = np.asarray(sol.ts)
+        ys = np.asarray(sol.ys)
+        if ts_parts:
+            ts_parts.append(ts[1:])
+            ys_parts.append(ys[1:])
+        else:
+            ts_parts.append(ts)
+            ys_parts.append(ys)
+
+        y_curr = sol.ys[-1]
+        t_curr = float(ts[-1])
+
+    if not ts_parts:
+        return np.array([0.0]), np.asarray(y0)[None, :], False
+    return np.concatenate(ts_parts), np.concatenate(ys_parts, axis=0), success

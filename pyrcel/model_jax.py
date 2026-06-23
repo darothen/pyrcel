@@ -24,10 +24,24 @@ import numpy as np
 
 from . import constants as c
 from .activation import binned_activation
+from .console_report import (
+    LiveStepPrinter,
+    PhaseTimer,
+    equilibration_residual,
+    print_integration_plan,
+    print_setup,
+    print_summary,
+    print_termination_narrative,
+    print_trajectory_table,
+)
 from .equilibrate_jax import equilibrate_initial_state
 from .integrator_diffrax import (
+    STATE_RTOL,
+    find_smax,
     integrate_parcel,
+    integrate_parcel_chunked,
     integrate_parcel_terminated,
+    terminate_cutoff_time,
 )
 from .updraft import AbstractUpdraft, ConstantV
 
@@ -78,19 +92,39 @@ class ParcelModelJAX:
         self._Nis = np.asarray(Nis)
         self._nr = len(r_drys)
 
+        import time
+
+        t0 = time.perf_counter()
         y0 = equilibrate_initial_state(
             self.T0, self.S0, self.P0, self._r_drys, self._kappas, self._Nis
         )
+        self._equil_elapsed = time.perf_counter() - t0
         self.y0 = np.asarray(y0)
+        self._equil_residual = equilibration_residual(
+            self.T0, self.S0, self._r_drys, self._kappas, self.y0[c.N_STATE_VARS:]
+        )
 
         # Outputs, populated by run().
         self.x = None
         self.time = None
         self.heights = None
         self._summary = None
+        self._phase_timer = PhaseTimer()
+        self._run_info: dict | None = None
 
         if self.console:
-            self._print_setup()
+            print_setup(
+                V=self.V,
+                T0=self.T0,
+                S0=self.S0,
+                P0=self.P0,
+                accom=self.accom,
+                nr=self._nr,
+                aerosols=self.aerosols,
+                y0=self.y0,
+                equil_elapsed=self._equil_elapsed,
+                equil_residual=self._equil_residual,
+            )
 
     @property
     def args(self) -> tuple:
@@ -107,6 +141,9 @@ class ParcelModelJAX:
         terminate_depth=10.0,
         max_steps=100_000,
         progress=False,
+        live=False,
+        live_chunk_dt=10.0,
+        trajectory_table=None,
         output_fmt="dataframes",
     ):
         """Run the simulation.
@@ -125,7 +162,18 @@ class ParcelModelJAX:
         max_steps : int
             Adaptive-step cap for the solver.
         progress : bool
-            Show a live text progress meter during the solve.
+            Show a live text progress meter during the solve (``False`` by default).
+            Mutually exclusive with ``live``.
+        live : bool
+            Print a master-style z/T/S table after each integration chunk (``False`` by
+            default). Uses an interactive-only Python chunk loop; mutually exclusive
+            with ``progress``.
+        live_chunk_dt : float
+            Simulation-time length of each live-integration chunk (s). Default ``10``,
+            matching ``master``'s typical ``solver_dt``.
+        trajectory_table : bool or None
+            Print a post-hoc trajectory sample after integration. ``None`` (default)
+            follows ``console`` (on when ``console=True``).
         output_fmt : {'dataframes', 'arrays', 'smax'}
             * ``'dataframes'`` -- ``(parcel_df, {species: aerosol_df})`` (pandas),
             * ``'arrays'`` -- ``(state_array, heights)``,
@@ -137,30 +185,119 @@ class ParcelModelJAX:
         """
         if output_fmt not in ("dataframes", "arrays", "smax"):
             raise ValueError(f"invalid output_fmt {output_fmt!r}")
+        if live and progress:
+            raise ValueError("live and progress are mutually exclusive")
 
         import diffrax as dfx
 
-        meter = dfx.TextProgressMeter() if progress else None
+        if trajectory_table is None:
+            trajectory_table = self.console and not live
+
+        meter = dfx.NoProgressMeter() if live else (
+            dfx.TextProgressMeter() if progress else dfx.NoProgressMeter()
+        )
+
+        if self.console:
+            print_integration_plan(
+                t_end=t_end,
+                output_dt=output_dt,
+                terminate=terminate,
+                terminate_depth=terminate_depth,
+                max_steps=max_steps,
+                rtol=STATE_RTOL,
+                progress=progress,
+                live=live,
+                live_chunk_dt=live_chunk_dt,
+            )
 
         peak = None
-        if terminate:
-            ts, ys, info = integrate_parcel_terminated(
+        run_info = None
+        timer = self._phase_timer if self.console and not live else None
+        live_printer = LiveStepPrinter() if live else None
+
+        if live:
+            t_final = float(t_end)
+            activated = True
+            t_smax_f = float("nan")
+            smax = float("nan")
+            y_smax = None
+
+            if terminate:
+                def _find():
+                    return find_smax(
+                        self.y0, self.args, t_end,
+                        max_steps=max_steps,
+                    )
+
+                if timer is not None:
+                    (t_smax, smax, y_smax, activated), _ = timer.run(
+                        ("smax", self._nr), "S_max event solve", _find
+                    )
+                else:
+                    t_smax, smax, y_smax, activated = _find()
+                t_smax_f = float(t_smax)
+                if activated:
+                    peak = (float(smax), t_smax_f)
+                    t_final = terminate_cutoff_time(
+                        self.y0,
+                        self.args,
+                        t_end,
+                        terminate_depth=terminate_depth,
+                        t_smax=t_smax,
+                        y_smax=y_smax,
+                        activated=True,
+                        max_steps=max_steps,
+                    )
+
+            ts, ys, success = integrate_parcel_chunked(
+                self.y0,
+                self.args,
+                t_final,
+                output_dt,
+                chunk_dt=live_chunk_dt,
+                max_steps=max_steps,
+                on_step=live_printer,
+            )
+            if live_printer is not None:
+                live_printer.finish()
+            ts, ys = np.asarray(ts), np.asarray(ys)
+            run_info = {
+                "success": success,
+                "activated": activated,
+                "t_smax": t_smax_f,
+                "smax": smax,
+                "t_cutoff": float(ts[-1]) if len(ts) else t_final,
+                "z_smax": float(y_smax[0]) if y_smax is not None else float("nan"),
+                "z_end": float(ys[-1, c.STATE_VAR_MAP["z"]]) if len(ys) else float("nan"),
+            }
+        elif terminate:
+            ts, ys, run_info = integrate_parcel_terminated(
                 self.y0, self.args, t_end, output_dt,
                 terminate_depth=terminate_depth, max_steps=max_steps,
                 progress_meter=meter,
+                phase_timer=timer,
             )
-            success = info["success"]
-            if info["activated"]:
-                # Event-localized peak (precise), not the output-grid argmax.
-                peak = (info["smax"], info["t_smax"])
+            ts, ys = np.asarray(ts), np.asarray(ys)
+            success = run_info["success"]
+            if run_info["activated"]:
+                peak = (run_info["smax"], run_info["t_smax"])
         else:
-            ts = np.append(np.arange(0.0, float(t_end), output_dt), float(t_end))
-            sol = integrate_parcel(
-                self.y0, self.args, ts, max_steps=max_steps, progress_meter=meter
-            )
+            ts_arr = np.append(np.arange(0.0, float(t_end), output_dt), float(t_end))
+
+            def _integrate():
+                return integrate_parcel(
+                    self.y0, self.args, ts_arr, max_steps=max_steps, progress_meter=meter
+                )
+
+            key = ("fixed", self._nr, len(ts_arr))
+            if timer is not None:
+                sol, _ = timer.run(key, "integration (fixed horizon)", _integrate)
+            else:
+                sol = _integrate()
             ys = np.asarray(sol.ys)
             ts = np.asarray(sol.ts)
             success = bool(sol.result == dfx.RESULTS.successful)
+            run_info = {"success": success, "activated": True, "t_cutoff": float(ts[-1])}
 
         if not success:
             from .util import ParcelModelError
@@ -170,10 +307,15 @@ class ParcelModelJAX:
         self.x = np.asarray(ys)
         self.time = np.asarray(ts)
         self.heights = self.x[:, c.STATE_VAR_MAP["z"]]
+        self._run_info = run_info
         self._summary = self._compute_summary(peak)
 
         if self.console:
-            self._print_summary()
+            if run_info is not None:
+                print_termination_narrative(run_info)
+            if trajectory_table:
+                print_trajectory_table(self.time, self.x)
+            print_summary(self._summary)
 
         if output_fmt == "smax":
             return float(self._summary["S_max"])
@@ -217,6 +359,7 @@ class ParcelModelJAX:
             "S_max": S_max,
             "t_smax": t_smax,
             "T_smax": T_smax,
+            "z_smax": float(self.x[si, c.STATE_VAR_MAP["z"]]),
             "per_species": per_species,
             "total_act_frac": (total_act / total_N) if total_N > 0 else float("nan"),
         }
@@ -336,34 +479,9 @@ class ParcelModelJAX:
         """Write the run to a NetCDF file (see :meth:`to_dataset`)."""
         self.to_dataset().to_netcdf(filename)
         if self.console:
-            print(f"Saved output to {filename}")
+            from .console_report import configure_logging
+
+            configure_logging()
+            log = __import__("logging").getLogger("pyrcel")
+            log.info("Saved output to %s", filename)
         return filename
-
-    # --- console output -----------------------------------------------------------
-
-    def _print_setup(self):
-        print("Parcel model (JAX/diffrax) -- initial conditions")
-        print("-" * 52)
-        V_desc = "V(t)" if isinstance(self.V, AbstractUpdraft) and not isinstance(
-            self.V, ConstantV
-        ) else f"{float(self.V.V) if isinstance(self.V, ConstantV) else self.V:.3g} m/s"
-        print(f"  V = {V_desc}   T0 = {self.T0:.2f} K   "
-              f"P0 = {self.P0 / 100.0:.1f} hPa   S0 = {self.S0:+.4f}")
-        print(f"  aerosol bins: {self._nr}   accom = {self.accom:.3g}")
-        z, P, T, wv, wc, wi, S = self.y0[:7]
-        print(f"  y0: P={P / 100:.1f} hPa  T={T:.2f} K  "
-              f"wv={wv * 1e3:.3g} g/kg  wc={wc * 1e3:.2e} g/kg  S={S:+.4f}")
-        print("-" * 52)
-
-    def _print_summary(self):
-        s = self._summary
-        print("\nSimulation summary")
-        print("-" * 52)
-        print(f"  S_max = {s['S_max'] * 100:.4f} %  at t = {s['t_smax']:.2f} s "
-              f"(T = {s['T_smax']:.2f} K)")
-        print(f"  {'species':>12} {'eq_act':>8} {'kn_act':>8} {'N_act':>10} {'N':>10}")
-        for p in s["per_species"]:
-            print(f"  {p['species']:>12} {p['eq_act_frac']:8.3f} "
-                  f"{p['kn_act_frac']:8.3f} {p['N_act']:10.1f} {p['N']:10.1f}")
-        print(f"  total activated fraction = {s['total_act_frac']:.3f}")
-        print("-" * 52)

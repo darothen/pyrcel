@@ -106,7 +106,43 @@ def test_time_varying_updraft_runs():
     assert np.isfinite(smax) and smax > 0
 
 
-def test_console_output(capsys):
+def test_live_and_progress_mutually_exclusive():
+    sc = scn.get_scenario("mono")
+    ic, run = sc["initial"], sc["run"]
+    m = ParcelModelJAX(
+        scn.build_aerosols(sc),
+        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+    )
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        m.run(
+            run["t_end"], run["output_dt"],
+            live=True, progress=True,
+        )
+
+
+def test_live_output(capsys):
+    sc = scn.get_scenario("mono")
+    ic, run = sc["initial"], sc["run"]
+    m = ParcelModelJAX(
+        scn.build_aerosols(sc),
+        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        console=False,
+    )
+    m.run(
+        run["t_end"], run["output_dt"],
+        terminate=True, terminate_depth=run["terminate_depth"],
+        live=True, live_chunk_dt=20.0,
+    )
+    out = capsys.readouterr().out
+    assert "Integration loop" in out
+    assert "end of integration loop" in out
+    assert "|" in out  # z/T/S column divider
+
+
+def test_console_output(capsys, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="pyrcel")
     sc = scn.get_scenario("mono")
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
@@ -116,6 +152,12 @@ def test_console_output(capsys):
     )
     m.run(run["t_end"], run["output_dt"], terminate=True, terminate_depth=run["terminate_depth"])
     out = capsys.readouterr().out
-    assert "initial conditions" in out.lower()
+    assert "Configuration" in out
+    assert "Equilibrated initial state" in out
+    assert "Integration plan" in out
+    assert "Trajectory (post-hoc sample)" in out
+    assert "Simulation summary" in out
     assert "S_max" in out
     assert "total activated fraction" in out
+    assert "Compiling S_max event solve" in caplog.text
+    assert "Termination:" in caplog.text
