@@ -97,7 +97,7 @@ class Lognorm(BaseDistribution):
         Parameters
         ----------
         y : float
-            CDF value, between (0, 1).
+            CDF value, between 0 and ``N`` (cumulative number concentration).
 
         Returns
         -------
@@ -106,8 +106,8 @@ class Lognorm(BaseDistribution):
 
         """
 
-        if np.any(y < 0) or np.any(y > 1):
-            raise ValueError("y must be between (0, 1)")
+        if np.any(y < 0) or np.any(y > self.N):
+            raise ValueError(f"y must be between 0 and N={self.N}")
 
         erfinv_arg = 2.0 * y / self.N - 1.0
         return self.mu * np.exp(np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg))

@@ -147,12 +147,19 @@ def test_invcdf_roundtrip():
     np.testing.assert_allclose(d.invcdf(y), x, rtol=1e-6)
 
 
+def test_invcdf_roundtrip_large_N():
+    """invcdf(cdf(x)) ≈ x when N >> 1 (cdf values not in [0,1])."""
+    d = Lognorm(mu=0.05, sigma=1.5, N=300.0)
+    x = np.array([0.02, 0.05, 0.1])
+    np.testing.assert_allclose(d.invcdf(d.cdf(x)), x, rtol=1e-6)
+
+
 def test_invcdf_validation():
-    d = Lognorm(mu=0.05, sigma=1.5, N=1.0)
+    d = Lognorm(mu=0.05, sigma=1.5, N=100.0)
     with pytest.raises(ValueError):
         d.invcdf(-0.1)
     with pytest.raises(ValueError):
-        d.invcdf(1.5)
+        d.invcdf(105.0)  # > N
 
 
 def test_moment_zeroth():
