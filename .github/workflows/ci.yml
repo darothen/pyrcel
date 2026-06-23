@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [master, main, "feat/**"]
+    branches:
+      - master
+      - main
+      # TODO(#49): feat/** is here only to run CI on PRs targeting
+      # feat/v2-implementation during the v2 development cycle. Remove
+      # once feat/v2-implementation is merged to main.
+      - "feat/**"
   pull_request:
 
 jobs:
@@ -21,7 +27,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --python ${{ matrix.python-version }} --extra jax --extra test
+        run: uv sync --python ${{ matrix.python-version }} --extra test --frozen
 
       - name: Run fast tests
         run: uv run pytest tests/ -m "not slow" -v
