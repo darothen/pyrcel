@@ -1,6 +1,5 @@
-""" Container class for encapsulating data about aerosol size distributions.
+"""Container class for encapsulating data about aerosol size distributions."""
 
-"""
 import numpy as np
 
 from .distributions import BaseDistribution, Lognorm, MultiModeLognorm
@@ -45,14 +44,12 @@ def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
     if rule == "trapezoid":
         return width * 0.5 * (pdf(r_max) + pdf(r_min))
     elif rule == "simpson":
-        return (width / 6.0) * (
-            pdf(r_max) + pdf(r_min) + 4.0 * pdf(0.5 * (r_max + r_min))
-        )
+        return (width / 6.0) * (pdf(r_max) + pdf(r_min) + 4.0 * pdf(0.5 * (r_max + r_min)))
     else:
         return width * pdf(0.5 * (r_max + r_min))
 
 
-class AerosolSpecies(object):
+class AerosolSpecies:
     """Container class for organizing aerosol metadata.
 
     To allow flexibility with how aerosols are defined in the model, this class is
@@ -175,8 +172,7 @@ class AerosolSpecies(object):
             # Check for missing keyword argument
             if bins is None:
                 raise ValueError(
-                    "Need to specify `bins` argument if passing a Lognorm "
-                    "distribution"
+                    "Need to specify `bins` argument if passing a Lognorm distribution"
                 )
 
             if isinstance(bins, (list, np.ndarray)):
@@ -193,9 +189,7 @@ class AerosolSpecies(object):
                 self.rs = np.logspace(lr, rr, num=bins + 1)[:]
 
             nbins = len(self.rs)
-            mids = np.array(
-                [np.sqrt(a * b) for a, b in zip(self.rs[:-1], self.rs[1:])]
-            )[0:nbins]
+            mids = np.array([np.sqrt(a * b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:nbins]
             self.Nis = np.array(
                 [
                     0.5 * (b - a) * (distribution.pdf(a) + distribution.pdf(b))
@@ -207,8 +201,7 @@ class AerosolSpecies(object):
         elif isinstance(distribution, MultiModeLognorm):
             if bins is None:
                 raise ValueError(
-                    "Need to specify `bins` argument if passing a "
-                    "MultiModeLognorm distribution"
+                    "Need to specify `bins` argument if passing a MultiModeLognorm distribution"
                 )
 
             small_mu = distribution.mus[0]
@@ -230,9 +223,7 @@ class AerosolSpecies(object):
 
                 self.rs = np.logspace(lr, rr, num=bins + 1)[:]
             nbins = len(self.rs)
-            mids = np.array(
-                [np.sqrt(a * b) for a, b in zip(self.rs[:-1], self.rs[1:])]
-            )[0:nbins]
+            mids = np.array([np.sqrt(a * b) for a, b in zip(self.rs[:-1], self.rs[1:])])[0:nbins]
             self.Nis = np.array(
                 [
                     0.5 * (b - a) * (distribution.pdf(a) + distribution.pdf(b))
@@ -283,8 +274,7 @@ class AerosolSpecies(object):
 
         else:
             raise ValueError(
-                "Could not work with size distribution of type %r"
-                % type(self.distribution)
+                "Could not work with size distribution of type %r" % type(self.distribution)
             )
 
     def __repr__(self):

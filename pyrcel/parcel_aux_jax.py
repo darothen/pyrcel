@@ -153,7 +153,7 @@ class ParcelVectorField(eqx.Module):
         self.V = as_updraft(V)
 
     @classmethod
-    def from_args(cls, args) -> "ParcelVectorField":
+    def from_args(cls, args) -> ParcelVectorField:
         """Build from the positional ``(r_drys, Nis, kappas, accom, V)`` tuple."""
         r_drys, Nis, kappas, accom, V = args
         return cls(r_drys, Nis, kappas, accom, V)

@@ -29,5 +29,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --python ${{ matrix.python-version }} --extra test --frozen
 
+      - name: Lint (ruff via prek)
+        run: prek run --all-files
+
       - name: Run fast tests
         run: uv run pytest tests/ -m "not slow" -v

@@ -11,4 +11,3 @@
    {% block methods %}
    .. automethod:: __init__
    {% endblock %}
-

@@ -32,6 +32,7 @@ def _args(oracle, V):
 
 # --- updraft callables -----------------------------------------------------------
 
+
 def test_constantv_is_constant():
     V = ConstantV(2.5)
     assert float(V(0.0)) == 2.5
@@ -65,6 +66,7 @@ def test_as_updraft():
 
 # --- zero-cost equivalence with the scalar path ----------------------------------
 
+
 def test_constantv_matches_scalar_rhs(oracle):
     y0 = jnp.asarray(oracle["y0"])
     V = float(oracle["V"])
@@ -84,6 +86,7 @@ def test_constantv_matches_scalar_integration(oracle):
 
 
 # --- Equinox vector field --------------------------------------------------------
+
 
 @pytest.mark.slow
 def test_vectorfield_roundtrip_and_call(oracle):
@@ -106,6 +109,7 @@ def test_vectorfield_roundtrip_and_call(oracle):
 
 
 # --- time-varying V(t) -----------------------------------------------------------
+
 
 @pytest.mark.slow
 def test_time_varying_updraft_invariants():

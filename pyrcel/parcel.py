@@ -1,5 +1,5 @@
-""" Main implementation of parcel model.
-"""
+"""Main implementation of parcel model."""
+
 import os
 
 import numpy as np
@@ -10,7 +10,6 @@ from . import constants as c
 from . import output
 
 # Special import of derivative ODE rhs to main namespace
-from ._parcel_aux_numba import parcel_ode_sys
 from .aerosol import AerosolSpecies
 from .thermo import Seq, es, kohler_crit, rho_air
 from .util import ParcelModelError
@@ -18,7 +17,7 @@ from .util import ParcelModelError
 __all__ = ["ParcelModel"]
 
 
-class ParcelModel(object):
+class ParcelModel:
     """ Wrapper class for instantiating and running the parcel model.
 
     The parcel model has been implemented in an object-oriented format to facilitate
@@ -328,21 +327,12 @@ class ParcelModel(object):
                     print("Found S discrepancy", ss, S0, r_dry)
                 raised = True
         if raised:
-            raise ParcelModelError(
-                "Couldn't calculate initial aerosol population wet sizes."
-            )
+            raise ParcelModelError("Couldn't calculate initial aerosol population wet sizes.")
         out["r0s"] = r0s
 
         # c) compute equilibrium droplet water content
-        water_vol = (
-            lambda r0, r_dry, Ni: (4.0 * np.pi / 3.0)
-            * c.rho_w
-            * Ni
-            * (r0**3 - r_dry**3)
-        )
-        wc0 = np.sum(
-            [water_vol(r0, r_dry, Ni) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)]
-        )
+        water_vol = lambda r0, r_dry, Ni: (4.0 * np.pi / 3.0) * c.rho_w * Ni * (r0**3 - r_dry**3)
+        wc0 = np.sum([water_vol(r0, r_dry, Ni) for r0, r_dry, Ni in zip(r0s, r_drys, Nis)])
         wc0 /= rho_air(T0, P0, 0.0)
 
         # d) compute initial ice water content
@@ -364,9 +354,7 @@ class ParcelModel(object):
             )
             print(
                 "    "
-                + "{:9.1f} {:9.2f} {:9.1e} {:9.1e} {:9.1e} {:9.3f}".format(
-                    P0 / 100.0, T0, wv0 * 1e3, wc0 * 1e3, wi0 * 1e3, S0
-                )
+                + f"{P0 / 100.0:9.1f} {T0:9.2f} {wv0 * 1e3:9.1e} {wc0 * 1e3:9.1e} {wi0 * 1e3:9.1e} {S0:9.3f}"
             )
         y0.extend(r0s)
         y0 = np.array(y0)
@@ -395,7 +383,7 @@ class ParcelModel(object):
         output_fmt="dataframes",
         terminate=False,
         terminate_depth=100.0,
-        **solver_args
+        **solver_args,
     ):
         """Run the parcel model simulation.
 
@@ -481,9 +469,7 @@ class ParcelModel(object):
         from .integrator import Integrator
 
         if output_fmt not in ["dataframes", "arrays", "smax"]:
-            raise ParcelModelError(
-                "Invalid value ('%s') specified for output format." % output
-            )
+            raise ParcelModelError("Invalid value ('%s') specified for output format." % output)
 
         if solver_dt is None:
             solver_dt = 10.0 * output_dt
@@ -549,7 +535,7 @@ class ParcelModel(object):
             terminate=terminate,
             terminate_depth=terminate_depth,
             console=self.console,
-            **solver_args
+            **solver_args,
         )
         success = False
         try:

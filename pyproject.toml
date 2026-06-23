@@ -62,13 +62,45 @@ Repository = "https://github.com/darothen/pyrcel"
 packages = ["pyrcel"]
 
 [tool.setuptools.packages]
-find = {namespaces = false} 
+find = {namespaces = false}
 
 [project.scripts]
 run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
 
 [tool.setuptools_scm]
 version_file = "pyrcel/version.py"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Notebooks in docs/ are legacy and will be rewritten in the docs overhaul (#44).
+exclude = ["docs/examples/*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "NPY"]
+
+[tool.ruff.lint.per-file-ignores]
+# --- legacy files (moving to pyrcel.legacy in #33) ---
+# Violations here will be cleaned up with the module rename; touching them
+# now would bloat this PR with unrelated changes.
+"pyrcel/thermo.py" = ["F403", "F405", "UP031", "E731", "E501"]
+"pyrcel/parcel.py" = ["UP031", "E731", "F841", "E501"]
+"pyrcel/activation.py" = ["UP031", "E731", "F841", "E501"]
+"pyrcel/_parcel_aux_numba.py" = ["UP031", "F841", "E501"]
+"pyrcel/aerosol.py" = ["UP031", "E731", "F841", "E501"]
+"pyrcel/distributions.py" = ["UP031", "E501"]
+"pyrcel/integrator.py" = ["E731", "F841", "UP031", "UP036", "F401", "E501"]
+"pyrcel/driver.py" = ["UP031", "F841", "E501"]
+"pyrcel/output.py" = ["UP031", "E731", "F841", "E501"]
+"pyrcel/vis.py" = ["E731", "F841", "UP031", "E501"]
+"pyrcel/scripts/*.py" = ["UP031", "F841", "E501"]
+"pyrcel/__init__.py" = ["F403", "F405", "F401", "E501"]
+"pyrcel/test/*.py" = ["F403", "F405", "F401", "UP031", "E501"]
+"pyrcel/constants.py" = ["E501"]
+# --- non-package files ---
+# E402: import order is intentional (sys.path setup, warnings filter before imports)
+"docs/conf.py" = ["E402"]
+"tools/**/*.py" = ["E402", "E501"]
 
 [tool.pytest.ini_options]
 markers = [

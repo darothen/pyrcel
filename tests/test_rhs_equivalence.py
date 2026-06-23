@@ -20,11 +20,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from conftest import N_STATE_VARS, load_fixture
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
-from conftest import N_STATE_VARS, load_fixture
 from pyrcel.parcel_aux_jax import parcel_ode_sys, parcel_ode_sys_jit
 
 RTOL = 1e-9
@@ -50,6 +50,7 @@ def _eval_all(oracle):
 
 # --- Equivalence against frozen numba output -------------------------------------
 
+
 def test_rhs_matches_numba(oracle):
     got = _eval_all(oracle)
     np.testing.assert_allclose(got, oracle["rhs_dYdt"], rtol=RTOL, atol=ATOL)
@@ -64,6 +65,7 @@ def test_jit_matches_eager(oracle):
 
 
 # --- Structural identities on the (physical + random) fixture states -------------
+
 
 def test_structural_identities(oracle):
     V = float(oracle["V"])
@@ -92,7 +94,9 @@ _NIS = np.asarray(_F["Nis"])
     S=st.floats(-0.05, 0.02),
     wv=st.floats(1e-3, 3e-2),
     log_growth=hnp.arrays(
-        np.float64, (_NR,), elements=st.floats(0.0, 2.0)  # factor in [2, 101]
+        np.float64,
+        (_NR,),
+        elements=st.floats(0.0, 2.0),  # factor in [2, 101]
     ),
 )
 def test_rhs_finite_and_structural_random(T, P, S, wv, log_growth):

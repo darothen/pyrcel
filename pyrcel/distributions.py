@@ -1,4 +1,4 @@
-""" Collection of classes for representing aerosol size distributions.
+"""Collection of classes for representing aerosol size distributions.
 
 Most commonly, one would use the :class:`Lognorm` distribution. However,
 for the sake of completeness, other canonical distributions will be
@@ -6,6 +6,7 @@ included here, with the notion that this package could be extended to
 describe droplet size distributions or other collections of objects.
 
 """
+
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
@@ -228,7 +229,7 @@ class Lognorm(BaseDistribution):
 
         """
         stats_dict = dict()
-        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * (np.log(self.sigma))**2)
+        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * (np.log(self.sigma)) ** 2)
 
         stats_dict["total_diameter"] = self.N * stats_dict["mean_radius"]
         stats_dict["total_surface_area"] = 4.0 * np.pi * self.moment(2.0)
@@ -244,9 +245,7 @@ class Lognorm(BaseDistribution):
         return stats_dict
 
     def __repr__(self):
-        return "Lognorm | mu = {:2.2e}, sigma = {:2.2e}, Total = {:2.2e} |".format(
-            self.mu, self.sigma, self.N
-        )
+        return f"Lognorm | mu = {self.mu:2.2e}, sigma = {self.sigma:2.2e}, Total = {self.N:2.2e} |"
 
 
 class MultiModeLognorm(BaseDistribution):
@@ -288,9 +287,7 @@ class MultiModeLognorm(BaseDistribution):
         mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"
         sigmas_str = "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
         Ns_str = "(" + ", ".join("%2.2e" % N for N in self.Ns) + ")"
-        return "MultiModeLognorm| mus = {}, sigmas = {}, Totals = {} |".format(
-            mus_str, sigmas_str, Ns_str
-        )
+        return f"MultiModeLognorm| mus = {mus_str}, sigmas = {sigmas_str}, Totals = {Ns_str} |"
 
 
 #: Single mode aerosols

@@ -19,14 +19,10 @@ kappa = 0.54
 N = 1500.0
 
 aerosol_distribution = pm.Lognorm(mu=mu, sigma=sigma, N=N)
-aerosol = pm.AerosolSpecies(
-    "test", aerosol_distribution, kappa=kappa, bins=200
-)
+aerosol = pm.AerosolSpecies("test", aerosol_distribution, kappa=kappa, bins=200)
 
 output_dt = 1.0  # simulation seconds; how frequently should output be saved?
-solver_dt = (
-    10.0
-)  # simulation seconds; how frequently should the solver be re-set?
+solver_dt = 10.0  # simulation seconds; how frequently should the solver be re-set?
 # Why this change? (1) Adding ice is going to introduce a
 # time-splitting operation, so the integration logic will need
 # to change accordingly and be more sequential, step-by-step.
@@ -42,9 +38,7 @@ results = {}
 initial_aerosols = [aerosol]
 
 ## Vanilla parcel model run
-model = pm.ParcelModel(
-    initial_aerosols, V, T0, S0, P0, console=True, accom=accom
-)
+model = pm.ParcelModel(initial_aerosols, V, T0, S0, P0, console=True, accom=accom)
 # raw_input("Continue? ")
 start = time.time()
 parcel, aerosols = model.run(

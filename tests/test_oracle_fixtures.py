@@ -12,9 +12,8 @@ import json
 
 import numpy as np
 import pytest
-
-from conftest import FIXTURE_DIR, N_STATE_VARS, have_jax
 import scenarios
+from conftest import FIXTURE_DIR, N_STATE_VARS, have_jax
 
 
 def test_manifest_matches_scenarios():

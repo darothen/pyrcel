@@ -1,6 +1,5 @@
-""" Collection of activation parameterizations.
+"""Collection of activation parameterizations."""
 
-"""
 import numpy as np
 from scipy.special import erfc
 
@@ -115,9 +114,7 @@ def binned_activation(Smax, T, rs, aerosol, approx=False):
     if hasattr(rs, "values"):
         rs = rs.values
 
-    r_crits, s_crits = list(
-        zip(*[kohler_crit(T, r_dry, kappa, approx) for r_dry in r_drys])
-    )
+    r_crits, s_crits = list(zip(*[kohler_crit(T, r_dry, kappa, approx) for r_dry in r_drys]))
     s_crits = np.array(s_crits)
     r_crits = np.array(r_crits)
 
@@ -383,8 +380,7 @@ def mbn2014(
         * coef
         * (
             np.log(
-                (dv_big + (2 * dv_orig / accom) * coef)
-                / (dv_low + (2 * dv_orig / accom) * coef)
+                (dv_big + (2 * dv_orig / accom) * coef) / (dv_low + (2 * dv_orig / accom) * coef)
             )
         )
     )
@@ -393,9 +389,8 @@ def mbn2014(
     wv_pres_sat = _vpres(T) * (1e5 / 1e3)  # MBN2014: could also use thermo.es()
     alpha = g * Mw * L / Cp / R / T / T - g * Ma / R / T
     beta1 = P * Ma / wv_pres_sat / Mw + Mw * L * L / Cp / R / T / T
-    beta2 = (
-        R * T * Rho_w / wv_pres_sat / dv_ave / Mw / 4.0
-        + L * Rho_w / 4.0 / aka / T * (L * Mw / R / T - 1.0)
+    beta2 = R * T * Rho_w / wv_pres_sat / dv_ave / Mw / 4.0 + L * Rho_w / 4.0 / aka / T * (
+        L * Mw / R / T - 1.0
     )  # this is 1/G
     beta = 0.5 * np.pi * beta1 * Rho_w / beta2 / alpha / V / rho_a
 
@@ -450,16 +445,14 @@ def mbn2014(
             # Subtract off the integrating factor
             log_factor = 3.0 * log_sigma / (2.0 * sqrtwo)
 
-            d_eq = (
-                A * 2.0 / sgis[i] / 3.0 / np.sqrt(3.0)
-            )  # Dpc/sqrt(3) - equilibrium diameter
+            d_eq = A * 2.0 / sgis[i] / 3.0 / np.sqrt(3.0)  # Dpc/sqrt(3) - equilibrium diameter
 
             erf_u_sp2 = _erfp(u_sp2 - log_factor)  # ERF2
             erf_u_smax = _erfp(u_smax - log_factor)  # ERF3
 
-            integ2[i] = (
-                np.exp(9.0 / 8.0 * log_sigma * log_sigma) * Ns[i] / sgis[i]
-            ) * (erf_u_sp2 - erf_u_smax)
+            integ2[i] = (np.exp(9.0 / 8.0 * log_sigma * log_sigma) * Ns[i] / sgis[i]) * (
+                erf_u_sp2 - erf_u_smax
+            )
 
             if critical:
                 u_sp_plus = sqrtwo * log_sgi_sp2 / 3.0 / log_sigma
@@ -479,15 +472,15 @@ def mbn2014(
                 log_sgi_sp1 = np.log(sgis[i] / ssplt1)  # ln(sg_i/sp1)
 
                 int1_partial2 = Ns[i] * smax  # building I1(0, sp2), eq (B4)
-                int1_partial2 *= (1.0 - _erfp(u_sp2)) - 0.5 * (
-                    (sgis[i] / smax) ** 2.0
-                ) * g_i * (1.0 - _erfp(u_sp2 + 3.0 * log_sigma / sqrtwo))
+                int1_partial2 *= (1.0 - _erfp(u_sp2)) - 0.5 * ((sgis[i] / smax) ** 2.0) * g_i * (
+                    1.0 - _erfp(u_sp2 + 3.0 * log_sigma / sqrtwo)
+                )
 
                 u_sp1 = 2.0 * log_sgi_sp1 / (3.0 * sqrtwo * log_sigma)
                 int1_partial1 = Ns[i] * smax  # building I1(0, sp1), eq (B4)
-                int1_partial1 *= (1.0 - _erfp(u_sp1)) - 0.5 * (
-                    (sgis[i] / smax) ** 2.0
-                ) * g_i * (1.0 - _erfp(u_sp1 + 3.0 * log_sigma / sqrtwo))
+                int1_partial1 *= (1.0 - _erfp(u_sp1)) - 0.5 * ((sgis[i] / smax) ** 2.0) * g_i * (
+                    1.0 - _erfp(u_sp1 + 3.0 * log_sigma / sqrtwo)
+                )
 
                 integ1[i] = int1_partial2 - int1_partial1  # I1(sp1, sp2)
 
@@ -546,9 +539,7 @@ def mbn2014(
 
     n_acts, act_fracs = [], []
     for mu, sigma, N, kappa, sgi in zip(mus, sigmas, Ns, kappas, sgis):
-        N_act, act_frac = lognormal_activation(
-            smax, mu * 1e-6, sigma, N * 1e-6, kappa, sgi
-        )
+        N_act, act_frac = lognormal_activation(smax, mu * 1e-6, sigma, N * 1e-6, kappa, sgi)
         n_acts.append(N_act)
         act_fracs.append(act_frac)
 

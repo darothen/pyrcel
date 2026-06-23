@@ -1,5 +1,5 @@
-""" Collection of output post-processing routines.
-"""
+"""Collection of output post-processing routines."""
+
 import numpy as np
 import pandas as pd
 

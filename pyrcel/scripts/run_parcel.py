@@ -3,6 +3,7 @@
 CLI interface to run parcel model simulation.
 
 """
+
 import os
 import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
@@ -12,9 +13,7 @@ import yaml
 import pyrcel as pm
 import pyrcel.util
 
-parser = ArgumentParser(
-    description=__doc__, formatter_class=RawDescriptionHelpFormatter
-)
+parser = ArgumentParser(description=__doc__, formatter_class=RawDescriptionHelpFormatter)
 parser.add_argument(
     "namelist",
     type=str,
@@ -33,11 +32,11 @@ def run_parcel():
 
     # Convert the namelist file into an in-memory dictionary
     try:
-        print("Attempting to read simulation namelist {}".format(args.namelist))
+        print(f"Attempting to read simulation namelist {args.namelist}")
         with open(args.namelist, "rb") as f:
             y = yaml.safe_load(f)
-    except IOError:
-        print("Couldn't read file {}".format(args.namelist))
+    except OSError:
+        print(f"Couldn't read file {args.namelist}")
         sys.exit(0)
 
     # Create the aerosol
@@ -49,7 +48,7 @@ def run_parcel():
         dist = DIST_MAP[ap["distribution"]](**ap["distribution_args"])
 
         aer = pm.AerosolSpecies(ap["name"], dist, kappa=ap["kappa"], bins=ap["bins"])
-        print("   {:2d})".format(i), aer)
+        print(f"   {i:2d})", aer)
 
         aerosol_modes.append(aer)
 
@@ -98,10 +97,10 @@ def run_parcel():
 
     out_file = os.path.join(ec["output_dir"], ec["name"]) + ".nc"
     try:
-        print("Trying to save output to {}".format(out_file))
+        print(f"Trying to save output to {out_file}")
         pm.output.write_parcel_output(out_file, parcel=model)
-    except (IOError, RuntimeError):
-        print("Something went wrong saving to {}".format(out_file))
+    except (OSError, RuntimeError):
+        print(f"Something went wrong saving to {out_file}")
         sys.exit(0)
 
     # Succesful completion

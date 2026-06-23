@@ -19,7 +19,6 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 import numpy as np
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -37,6 +36,7 @@ WC_RTOL = 1e-9
 
 
 # --- §7.2b: equivalence against frozen master y0 ---------------------------------
+
 
 def test_y0_matches_master(oracle):
     T0 = float(oracle["T0"])
@@ -61,7 +61,9 @@ def test_equilibrium_residual_is_zero(oracle):
     T0 = float(oracle["T0"])
     S0 = float(oracle["S0"])
     r0 = equilibrate_radii(T0, S0, oracle["r_drys"], oracle["kappas"])
-    resid = np.asarray(Seq(r0, jnp.asarray(oracle["r_drys"]), T0, jnp.asarray(oracle["kappas"]))) - S0
+    resid = (
+        np.asarray(Seq(r0, jnp.asarray(oracle["r_drys"]), T0, jnp.asarray(oracle["kappas"]))) - S0
+    )
     np.testing.assert_allclose(resid, 0.0, atol=1e-10)
 
 
@@ -71,7 +73,9 @@ def test_radii_in_stable_branch(oracle):
     r_drys = np.asarray(oracle["r_drys"])
     kappas = np.asarray(oracle["kappas"])
     r0 = np.asarray(equilibrate_radii(T0, S0, r_drys, kappas))
-    r_crit = np.asarray(jax.vmap(lambda rd, k: kohler_crit(T0, rd, k))(jnp.asarray(r_drys), jnp.asarray(kappas)))
+    r_crit = np.asarray(
+        jax.vmap(lambda rd, k: kohler_crit(T0, rd, k))(jnp.asarray(r_drys), jnp.asarray(kappas))
+    )
     assert np.all(r0 > r_drys), "equilibrium radius must exceed dry radius"
     assert np.all(r0 < r_crit), "equilibrium radius must be sub-critical (stable branch)"
 

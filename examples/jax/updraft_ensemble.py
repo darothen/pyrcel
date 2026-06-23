@@ -44,7 +44,9 @@ def main() -> int:
     p.add_argument("--T0", type=float, default=283.15)
     p.add_argument("--P0", type=float, default=85000.0)
     p.add_argument("--S0", type=float, default=-0.02)
-    p.add_argument("--z-cap", type=float, default=400.0, help="target height for the t_end heuristic, m")
+    p.add_argument(
+        "--z-cap", type=float, default=400.0, help="target height for the t_end heuristic, m"
+    )
     p.add_argument("--out", type=str, default=None, help="optional NetCDF output path")
     p.add_argument("--plot", type=str, default=None, help="optional PNG histogram path")
     a = p.parse_args()
@@ -53,12 +55,22 @@ def main() -> int:
         "sulfate", pm.Lognorm(mu=a.mu, sigma=a.sigma, N=a.N), kappa=a.kappa, bins=a.bins
     )
 
-    print(f"Running {a.n}-member updraft ensemble: V ~ N({a.mean}, {a.std}^2) m/s "
-          f"(clipped at {a.v_min})")
+    print(
+        f"Running {a.n}-member updraft ensemble: V ~ N({a.mean}, {a.std}^2) m/s "
+        f"(clipped at {a.v_min})"
+    )
     t0 = time.perf_counter()
     res = pm.run_updraft_ensemble(
-        [aerosol], T0=a.T0, S0=a.S0, P0=a.P0,
-        mean=a.mean, std=a.std, n=a.n, seed=a.seed, v_min=a.v_min, z_cap=a.z_cap,
+        [aerosol],
+        T0=a.T0,
+        S0=a.S0,
+        P0=a.P0,
+        mean=a.mean,
+        std=a.std,
+        n=a.n,
+        seed=a.seed,
+        v_min=a.v_min,
+        z_cap=a.z_cap,
     )
     elapsed = time.perf_counter() - t0
 
@@ -68,8 +80,10 @@ def main() -> int:
     activated = res["activated"]
     n_reached = int(np.sum(activated))
 
-    print(f"  done in {elapsed:.1f}s (compile + solve) | t_end={res['t_end']:.0f}s | "
-          f"{n_reached}/{a.n} members reached an interior S_max")
+    print(
+        f"  done in {elapsed:.1f}s (compile + solve) | t_end={res['t_end']:.0f}s | "
+        f"{n_reached}/{a.n} members reached an interior S_max"
+    )
     _print_stats("V [m/s]", V)
     _print_stats("S_max [%]", smax_pct[activated])
     _print_stats("N_act [cm^-3]", nact_cm3[activated])
@@ -87,8 +101,10 @@ def _print_stats(label: str, x: np.ndarray) -> None:
         print(f"  {label:>16}: (no samples)")
         return
     pct = np.percentile(x, [5, 25, 50, 75, 95])
-    print(f"  {label:>16}: mean={x.mean():.4g}  std={x.std():.4g}  "
-          f"p05={pct[0]:.4g}  p50={pct[2]:.4g}  p95={pct[4]:.4g}")
+    print(
+        f"  {label:>16}: mean={x.mean():.4g}  std={x.std():.4g}  "
+        f"p05={pct[0]:.4g}  p50={pct[2]:.4g}  p95={pct[4]:.4g}"
+    )
 
 
 def _save_netcdf(res, a, path: str) -> None:
@@ -97,14 +113,38 @@ def _save_netcdf(res, a, path: str) -> None:
     ds = xr.Dataset(
         {
             "V": (("member",), res["V"], {"units": "m/s", "long_name": "updraft speed"}),
-            "S_max": (("member",), res["S_max"] * 100.0, {"units": "%", "long_name": "peak supersaturation"}),
-            "N_act": (("member",), res["N_act"] * 1e-6, {"units": "cm-3", "long_name": "activated droplet number"}),
-            "T_smax": (("member",), res["T_smax"], {"units": "K", "long_name": "temperature at S_max"}),
-            "activated": (("member",), res["activated"], {"long_name": "reached interior S_max before t_end"}),
+            "S_max": (
+                ("member",),
+                res["S_max"] * 100.0,
+                {"units": "%", "long_name": "peak supersaturation"},
+            ),
+            "N_act": (
+                ("member",),
+                res["N_act"] * 1e-6,
+                {"units": "cm-3", "long_name": "activated droplet number"},
+            ),
+            "T_smax": (
+                ("member",),
+                res["T_smax"],
+                {"units": "K", "long_name": "temperature at S_max"},
+            ),
+            "activated": (
+                ("member",),
+                res["activated"],
+                {"long_name": "reached interior S_max before t_end"},
+            ),
         },
-        attrs={"source": "pyrcel JAX/diffrax updraft ensemble",
-               "V_mean": a.mean, "V_std": a.std, "v_min": a.v_min,
-               "T0": a.T0, "S0": a.S0, "P0": a.P0, "kappa": a.kappa, "t_end": res["t_end"]},
+        attrs={
+            "source": "pyrcel JAX/diffrax updraft ensemble",
+            "V_mean": a.mean,
+            "V_std": a.std,
+            "v_min": a.v_min,
+            "T0": a.T0,
+            "S0": a.S0,
+            "P0": a.P0,
+            "kappa": a.kappa,
+            "t_end": res["t_end"],
+        },
     )
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     ds.to_netcdf(path)

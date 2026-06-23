@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 import scenarios as scn
+
 from pyrcel.model_jax import ParcelModelJAX
 from pyrcel.updraft import InterpolatedUpdraft
 
@@ -36,10 +36,15 @@ def _model(scenario_name: str) -> ParcelModelJAX:
         run = sc["run"]
         m = ParcelModelJAX(
             scn.build_aerosols(sc),
-            V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+            V=ic["V"],
+            T0=ic["T0"],
+            S0=ic["S0"],
+            P0=ic["P0"],
+            accom=ic["accom"],
         )
-        m.run(run["t_end"], run["output_dt"],
-              terminate=True, terminate_depth=run["terminate_depth"])
+        m.run(
+            run["t_end"], run["output_dt"], terminate=True, terminate_depth=run["terminate_depth"]
+        )
         _MODEL_CACHE[scenario_name] = m
     return _MODEL_CACHE[scenario_name]
 
@@ -68,7 +73,11 @@ def test_output_formats():
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
     )
     parcel, aerosol = m.run(run["t_end"], run["output_dt"], output_fmt="dataframes")
     assert list(parcel.columns) == ["z", "P", "T", "wv", "wc", "wi", "S"]
@@ -100,7 +109,11 @@ def test_time_varying_updraft_runs():
     Vt = InterpolatedUpdraft(ts=[0.0, 40.0, 200.0], vs=[0.4, 1.2, 1.2])
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=Vt, T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=Vt,
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
     )
     smax = m.run(150.0, 1.0, terminate=True, terminate_depth=10.0, output_fmt="smax")
     assert np.isfinite(smax) and smax > 0
@@ -111,12 +124,18 @@ def test_live_and_progress_mutually_exclusive():
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
     )
     with pytest.raises(ValueError, match="mutually exclusive"):
         m.run(
-            run["t_end"], run["output_dt"],
-            live=True, progress=True,
+            run["t_end"],
+            run["output_dt"],
+            live=True,
+            progress=True,
         )
 
 
@@ -125,13 +144,20 @@ def test_live_output(capsys):
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
         console=False,
     )
     m.run(
-        run["t_end"], run["output_dt"],
-        terminate=True, terminate_depth=run["terminate_depth"],
-        live=True, live_chunk_dt=20.0,
+        run["t_end"],
+        run["output_dt"],
+        terminate=True,
+        terminate_depth=run["terminate_depth"],
+        live=True,
+        live_chunk_dt=20.0,
     )
     out = capsys.readouterr().out
     assert "Integration loop" in out
@@ -147,7 +173,11 @@ def test_console_output(capsys, caplog):
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
         console=True,
     )
     m.run(run["t_end"], run["output_dt"], terminate=True, terminate_depth=run["terminate_depth"])

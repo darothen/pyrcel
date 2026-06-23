@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-""" Interface to numerical ODE solvers.
-"""
+"""Interface to numerical ODE solvers."""
+
 import sys
 
 # Compatibility - timer functions
@@ -28,8 +27,7 @@ try:
     available_integrators.extend(["lsode", "lsoda", "vode"])
 except ImportError:
     warnings.warn(
-        "Could not import odespy package; "
-        "invoking the 'lsoda' or 'lsode' options will fail!"
+        "Could not import odespy package; invoking the 'lsoda' or 'lsode' options will fail!"
     )
 
 
@@ -41,7 +39,7 @@ try:
 
     available_integrators.extend(["cvode", "lsodar"])
 except ImportError:
-    warnings.warn("Could not import Assimulo; " "invoking the CVode solver will fail!")
+    warnings.warn("Could not import Assimulo; invoking the CVode solver will fail!")
 
 
 __all__ = ["Integrator"]
@@ -181,18 +179,14 @@ class CVODEIntegrator(Integrator):
         console=False,
         terminate=False,
         terminate_depth=100.0,
-        **kwargs
+        **kwargs,
     ):
         self.terminate = terminate
-        super(CVODEIntegrator, self).__init__(
-            rhs, output_dt, solver_dt, y0, args, t0, console
-        )
+        super().__init__(rhs, output_dt, solver_dt, y0, args, t0, console)
 
         # Setup solver
         if terminate:
-            self.prob = ExtendedProblem(
-                self.rhs, self.args, terminate_depth, y0=self.y0
-            )
+            self.prob = ExtendedProblem(self.rhs, self.args, terminate_depth, y0=self.y0)
         else:
             self.prob = Explicit_Problem(self.rhs, self.y0)
 
@@ -272,10 +266,8 @@ class CVODEIntegrator(Integrator):
             print("Integration Loop")
             print()
             print("  step     time  walltime  Δwalltime |     z       T       S")
-            print(" " "------------------------------------|----------------------")
-            step_fmt = (
-                " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |" " {:5.1f} {:7.2f} {:6.2f}%"
-            )
+            print(" ------------------------------------|----------------------")
+            step_fmt = " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s | {:5.1f} {:7.2f} {:6.2f}%"
 
         txs, xxs = [], []
         n_steps = 1

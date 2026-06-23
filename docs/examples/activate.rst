@@ -12,12 +12,12 @@ activation of a lognormal ammonium sulfate accumulation mode aerosol.
 .. code:: python
 
     # Suppress warnings
-    import warnings 
+    import warnings
     warnings.simplefilter('ignore')
-    
+
     import pyrcel as pm
     import numpy as np
-    
+
     %matplotlib inline
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -36,7 +36,7 @@ simulation from `Ghan et al,
 
 .. code:: python
 
-    aer =  pm.AerosolSpecies('ammonium sulfate', 
+    aer =  pm.AerosolSpecies('ammonium sulfate',
                               pm.Lognorm(mu=0.05, sigma=2.0, N=1000.),
                               kappa=0.7, bins=100)
 
@@ -51,10 +51,10 @@ First, the parcel model calculations:
 .. code:: python
 
     from pyrcel import binned_activation
-    
+
     Vs = np.logspace(-1, np.log10(10,), 11.)[::-1] # 0.1 - 5.0 m/s
     accom = 0.1
-    
+
     smaxes, act_fracs = [], []
     for V in Vs:
         # Initialize the model
@@ -62,16 +62,16 @@ First, the parcel model calculations:
         par_out, aer_out = model.run(t_end=2500., dt=1.0, solver='cvode',
                                      output='dataframes', terminate=True)
         print(V, par_out.S.max())
-        
+
         # Extract the supersaturation/activation details from the model
         # output
         S_max = par_out['S'].max()
         time_at_Smax = par_out['S'].argmax()
         wet_sizes_at_Smax = aer_out['ammonium sulfate'].ix[time_at_Smax].iloc[0]
         wet_sizes_at_Smax = np.array(wet_sizes_at_Smax.tolist())
-    
+
         frac_eq, _, _, _ = binned_activation(S_max, T0, wet_sizes_at_Smax, aer)
-        
+
         # Save the output
         smaxes.append(S_max)
         act_fracs.append(frac_eq)
@@ -109,11 +109,11 @@ Now the activation parameterizations:
 
     smaxes_arg, act_fracs_arg = [], []
     smaxes_mbn, act_fracs_mbn = [], []
-    
+
     for V in Vs:
         smax_arg, _, afs_arg = pm.arg2000(V, T0, P0, [aer], accom=accom)
         smax_mbn, _, afs_mbn = pm.mbn2014(V, T0, P0, [aer], accom=accom)
-    
+
         smaxes_arg.append(smax_arg)
         act_fracs_arg.append(afs_arg[0])
         smaxes_mbn.append(smax_mbn)
@@ -126,28 +126,28 @@ Finally, we compile our results into a nice plot for visualization.
     sns.set(context="notebook", style='ticks')
     sns.set_palette("husl", 3)
     fig, [ax_s, ax_a] = plt.subplots(1, 2, sharex=True, figsize=(10,4))
-    
+
     ax_s.plot(Vs, np.array(smaxes)*100., color='k', lw=2, label="Parcel Model")
-    ax_s.plot(Vs, np.array(smaxes_mbn)*100., linestyle='None', 
+    ax_s.plot(Vs, np.array(smaxes_mbn)*100., linestyle='None',
               marker="o", ms=10, label="MBN2014" )
-    ax_s.plot(Vs, np.array(smaxes_arg)*100., linestyle='None', 
+    ax_s.plot(Vs, np.array(smaxes_arg)*100., linestyle='None',
               marker="o", ms=10, label="ARG2000" )
     ax_s.semilogx()
     ax_s.set_ylabel("Superaturation Max, %")
     ax_s.set_ylim(0, 2.)
-    
+
     ax_a.plot(Vs, act_fracs, color='k', lw=2, label="Parcel Model")
-    ax_a.plot(Vs, act_fracs_mbn, linestyle='None', 
+    ax_a.plot(Vs, act_fracs_mbn, linestyle='None',
               marker="o", ms=10, label="MBN2014" )
-    ax_a.plot(Vs, act_fracs_arg, linestyle='None', 
+    ax_a.plot(Vs, act_fracs_arg, linestyle='None',
               marker="o", ms=10, label="ARG2000" )
     ax_a.semilogx()
     ax_a.set_ylabel("Activated Fraction")
     ax_a.set_ylim(0, 1.)
-    
+
     plt.tight_layout()
     sns.despine()
-    
+
     for ax in [ax_s, ax_a]:
         ax.legend(loc='upper left')
         ax.xaxis.set_ticks([0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
@@ -157,4 +157,3 @@ Finally, we compile our results into a nice plot for visualization.
 
 
 .. image:: activate_files/activate_13_0.png
-

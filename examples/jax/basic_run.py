@@ -38,9 +38,7 @@ def main() -> int:
     aerosol = pm.AerosolSpecies(
         "sulfate", pm.Lognorm(mu=a.mu, sigma=a.sigma, N=a.N), kappa=a.kappa, bins=a.bins
     )
-    model = pm.ParcelModelJAX(
-        [aerosol], V=a.V, T0=a.T0, S0=a.S0, P0=a.P0, console=True
-    )
+    model = pm.ParcelModelJAX([aerosol], V=a.V, T0=a.T0, S0=a.S0, P0=a.P0, console=True)
     model.run(a.t_end, output_dt=1.0, terminate=True, terminate_depth=10.0, progress=True)
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)

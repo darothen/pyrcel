@@ -76,8 +76,12 @@ def bench(name: str, batch: int, reps: int) -> None:
     # Equilibration (jitted; warm).
     eq = jax.jit(
         lambda: equilibrate_initial_state(
-            float(d["T0"]), float(d["S0"]), float(d["P0"]),
-            jnp.asarray(d["r_drys"]), jnp.asarray(d["kappas"]), jnp.asarray(d["Nis"]),
+            float(d["T0"]),
+            float(d["S0"]),
+            float(d["P0"]),
+            jnp.asarray(d["r_drys"]),
+            jnp.asarray(d["kappas"]),
+            jnp.asarray(d["Nis"]),
         )
     )
     eq().block_until_ready()

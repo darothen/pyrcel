@@ -31,7 +31,7 @@ import json
 import subprocess
 import sys
 import warnings
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -54,9 +54,7 @@ RANDOM_SEED = 20260614
 def _git_commit() -> str:
     try:
         return (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], cwd=str(REPO_ROOT)
-            )
+            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(REPO_ROOT))
             .decode()
             .strip()
         )
@@ -79,9 +77,7 @@ def _sample_physical_states(X: np.ndarray, smax_idx: int, n: int) -> np.ndarray:
     """Pick ``n`` representative on-trajectory states, always including S_max."""
     m = X.shape[0]
     idx = np.unique(
-        np.concatenate(
-            [np.linspace(0, m - 1, n).round().astype(int), np.array([smax_idx])]
-        )
+        np.concatenate([np.linspace(0, m - 1, n).round().astype(int), np.array([smax_idx])])
     )
     return X[idx]
 
@@ -216,10 +212,7 @@ def generate_one(scenario: dict, rng: np.random.Generator) -> dict:
         smax=smax,
         t_smax=t_smax,
         z_smax=z_smax,
-        activation={
-            sp: {"eq": eq, "kn": kn}
-            for sp, eq, kn in zip(act_species, act_eq, act_kn)
-        },
+        activation={sp: {"eq": eq, "kn": kn} for sp, eq, kn in zip(act_species, act_eq, act_kn)},
     )
     return {"npz": npz, "summary": summary}
 
@@ -240,13 +233,12 @@ def main() -> int:
         summaries.append(result["summary"])
         s = result["summary"]
         print(
-            f"         -> {out_path.name}: nr={s['nr']} steps={s['n_steps']} "
-            f"Smax={s['smax']:.6e}",
+            f"         -> {out_path.name}: nr={s['nr']} steps={s['n_steps']} Smax={s['smax']:.6e}",
             flush=True,
         )
 
     manifest = dict(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         git_commit=_git_commit(),
         versions=_versions(),
         solver=dict(
