@@ -36,18 +36,18 @@ Updated code can be found the project [github repository](https://github.com/dar
 Quick Start
 -----------
 
-The easiest way to run `pyrcel` is with [`uv`](https://docs.astral.sh/uv/), a fast
-Python package manager.
+The easiest way to run `pyrcel` from source is with [`uv`](https://docs.astral.sh/uv/),
+a fast Python package manager.
 
 Clone or download this repo, then **cd** into the top-level folder from a terminal.
 From there, execute:
 
 ``` shell
-$ uv run --extra jax python examples/jax/basic_run.py
+$ uv run python examples/jax/basic_run.py
 ```
 
-This will automatically create an isolated environment with all of `pyrcel`'s dependencies
-and run the example. The first call compiles JAX kernels; subsequent calls are fast.
+`uv` will automatically create an isolated environment and install all dependencies.
+The first call compiles JAX kernels; subsequent calls are fast.
 
 Experimental: JAX / diffrax backend (v2)
 ----------------------------------------
@@ -92,20 +92,23 @@ Install `pyrcel` with [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`.
 **From PyPI (recommended):**
 
 ```shell
-$ uv pip install "pyrcel[jax]"
+$ pip install pyrcel
 ```
+
+JAX (CPU) is included by default. No extras needed for standard use.
 
 **From source:**
 
 ```shell
 $ git clone https://github.com/darothen/pyrcel.git && cd pyrcel
-$ uv sync --extra jax
+$ uv sync
+$ uv run python examples/jax/basic_run.py
 ```
 
-For GPU support (CUDA 12):
+**GPU support (CUDA 12):**
 
 ```shell
-$ uv pip install "pyrcel[gpu]"
+$ pip install "pyrcel[gpu]"
 ```
 
 Requirements
