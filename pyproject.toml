@@ -96,7 +96,7 @@ select = ["E", "F", "I", "UP", "NPY"]
 # F401: explicit `X as X` re-exports are intentional public API; I001: ruff isort
 # rejects grouped re-export blocks — suppress rather than let it split them per-symbol.
 "pyrcel/__init__.py" = ["F401", "I001"]
-"pyrcel/activation.py" = ["F401"]
+"pyrcel/activation/__init__.py" = ["F401"]
 # --- other legacy/non-JAX package files ---
 "pyrcel/aerosol.py" = ["UP031", "E731", "F841", "E501"]
 "pyrcel/distributions.py" = ["UP031", "E501"]
