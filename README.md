@@ -133,7 +133,25 @@ Requirements
 Development
 -----------
 
-[http://github.com/darothen/pyrcel]()
+Clone the repo and install with dev dependencies:
+
+```shell
+$ git clone https://github.com/darothen/pyrcel.git && cd pyrcel
+$ uv sync --extra test
+$ prek install   # installs the git pre-commit hook (requires prek: https://prek.j178.dev)
+```
+
+Run the fast test suite:
+
+```shell
+$ uv run pytest tests/ -m "not slow"
+```
+
+Lint and format are handled automatically by `prek` on commit, or run manually:
+
+```shell
+$ prek run --all-files
+```
 
 Please fork this repository if you intend to develop the model further so that the
 code's provenance can be maintained.
@@ -148,7 +166,7 @@ If you use this for any scientific work resulting in a publication or citation, 
 cite our original publication detailing the model, and let the authors know:
 
 ```
-@article { 
+@article {
       author = "Daniel Rothenberg and Chien Wang",
       title = "Metamodeling of Droplet Activation for Global Climate Models",
       journal = "Journal of the Atmospheric Sciences",

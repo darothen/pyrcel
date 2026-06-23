@@ -29,5 +29,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --python ${{ matrix.python-version }} --extra test --frozen
 
+      - name: Lint (ruff)
+        run: |
+          uvx ruff format --check pyrcel/ tests/ examples/ tools/
+          uvx ruff check pyrcel/ tests/ examples/ tools/
+
       - name: Run fast tests
         run: uv run pytest tests/ -m "not slow" -v

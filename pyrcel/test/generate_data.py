@@ -1,5 +1,5 @@
-""" Generate test case data for future reference.
-"""
+"""Generate test case data for future reference."""
+
 import os
 import pickle
 from itertools import product
@@ -32,9 +32,7 @@ def generate_reference(overwrite=False):
     print("dv", end=", ")
     results["dv"] = [
         thermo.dv(T, r * 1e-6, P * 100)
-        for T, r, P in product(
-            results["temperatures"], results["radii"], results["pressures"]
-        )
+        for T, r, P in product(results["temperatures"], results["radii"], results["pressures"])
     ]
     print("(%d cases)" % len(results["dv"]))
 
@@ -56,9 +54,7 @@ def generate_reference(overwrite=False):
     print("ka", end=", ")
     results["ka"] = [
         thermo.ka(T, rho, r * 1e-6)
-        for T, rho, r in product(
-            results["temperatures"], results["densities"], results["radii"]
-        )
+        for T, rho, r in product(results["temperatures"], results["densities"], results["radii"])
     ]
     print("(%d cases)" % len(results["ka"]))
 
@@ -93,5 +89,4 @@ def generate_reference(overwrite=False):
 
 
 if __name__ == "__main__":
-
     generate_reference(True)

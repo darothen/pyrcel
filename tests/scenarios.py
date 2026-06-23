@@ -198,9 +198,7 @@ def build_aerosols(scenario: dict):
         kind = spec["kind"]
         if kind == "lognorm":
             dist = pm.Lognorm(mu=spec["mu"], sigma=spec["sigma"], N=spec["N"])
-            aer = pm.AerosolSpecies(
-                spec["species"], dist, kappa=spec["kappa"], bins=spec["bins"]
-            )
+            aer = pm.AerosolSpecies(spec["species"], dist, kappa=spec["kappa"], bins=spec["bins"])
         elif kind == "mono":
             dist = {"r_drys": list(spec["r_drys"]), "Nis": list(spec["Nis"])}
             aer = pm.AerosolSpecies(spec["species"], dist, kappa=spec["kappa"])

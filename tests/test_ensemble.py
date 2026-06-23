@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 import scenarios as scn
+
 from pyrcel.ensemble import (
     run_updraft_ensemble,
     sample_gaussian_updrafts,
@@ -74,8 +74,15 @@ def test_single_member_matches_oracle():
 def test_run_updraft_ensemble_endtoend():
     _, _, _, _, _, aers = _simple_arrays()
     res = run_updraft_ensemble(
-        aers, T0=283.15, S0=-0.02, P0=85000.0,
-        mean=0.5, std=0.2, n=16, seed=0, z_cap=300.0,
+        aers,
+        T0=283.15,
+        S0=-0.02,
+        P0=85000.0,
+        mean=0.5,
+        std=0.2,
+        n=16,
+        seed=0,
+        z_cap=300.0,
     )
     for key in ("S_max", "N_act", "T_smax", "activated", "V"):
         assert res[key].shape == (16,)

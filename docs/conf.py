@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # pyrcel documentation build configuration file, created by
 # sphinx-quickstart on Wed Jul  2 15:49:19 2014.

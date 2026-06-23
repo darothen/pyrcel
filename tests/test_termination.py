@@ -16,8 +16,8 @@ from __future__ import annotations
 import jax.numpy as jnp
 import numpy as np
 import pytest
-
 import scenarios as scn
+
 from pyrcel.integrator_diffrax import find_smax, integrate_parcel_terminated
 
 pytestmark = pytest.mark.slow
@@ -39,7 +39,10 @@ def _terminated(oracle, name: str):
             float(oracle["V"]),
         )
         ts, ys, info = integrate_parcel_terminated(
-            y0, args, run["t_end"], run["output_dt"],
+            y0,
+            args,
+            run["t_end"],
+            run["output_dt"],
             terminate_depth=run["terminate_depth"],
         )
         _CACHE[name] = (ts, ys, info, run)

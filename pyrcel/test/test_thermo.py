@@ -1,17 +1,18 @@
-""" Test cases for thermodynamics module.
+"""Test cases for thermodynamics module.
 
 Most of these test cases just compare the current version of the code's results
 for parameter sets versus a reference to serve as basic regression testing.
 
 """
+
 import pickle
 import unittest
 from itertools import product
 
 from numpy.testing import assert_allclose
 
-from .generate_data import REFERENCE_FN
 from ..thermo import *
+from .generate_data import REFERENCE_FN
 
 
 class TestThermoTestCases(unittest.TestCase):
@@ -26,28 +27,20 @@ class TestThermoTestCases(unittest.TestCase):
         self.densities = self.reference["densities"]
 
     def test_dv_cont(self):
-        result = [
-            dv_cont(T, P * 100)
-            for T, P in product(self.temperatures, self.pressures)
-        ]
+        result = [dv_cont(T, P * 100) for T, P in product(self.temperatures, self.pressures)]
 
         assert_allclose(self.reference["dv_cont"], result)
 
     def test_dv(self):
         result = [
             dv(T, r * 1e-6, P * 100)
-            for T, r, P in product(
-                self.temperatures, self.radii, self.pressures
-            )
+            for T, r, P in product(self.temperatures, self.radii, self.pressures)
         ]
 
         assert_allclose(self.reference["dv"], result)
 
     def test_rho_air(self):
-        result = [
-            rho_air(T, P * 100)
-            for T, P in product(self.temperatures, self.pressures)
-        ]
+        result = [rho_air(T, P * 100) for T, P in product(self.temperatures, self.pressures)]
 
         assert_allclose(self.reference["rho_air"], result)
 
@@ -64,9 +57,7 @@ class TestThermoTestCases(unittest.TestCase):
     def test_ka(self):
         result = [
             ka(T, rho, r * 1e-6)
-            for T, rho, r in product(
-                self.temperatures, self.densities, self.radii
-            )
+            for T, rho, r in product(self.temperatures, self.densities, self.radii)
         ]
 
         assert_allclose(self.reference["ka"], result)

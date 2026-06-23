@@ -101,7 +101,7 @@ class ParcelModelJAX:
         self._equil_elapsed = time.perf_counter() - t0
         self.y0 = np.asarray(y0)
         self._equil_residual = equilibration_residual(
-            self.T0, self.S0, self._r_drys, self._kappas, self.y0[c.N_STATE_VARS:]
+            self.T0, self.S0, self._r_drys, self._kappas, self.y0[c.N_STATE_VARS :]
         )
 
         # Outputs, populated by run().
@@ -193,8 +193,10 @@ class ParcelModelJAX:
         if trajectory_table is None:
             trajectory_table = self.console and not live
 
-        meter = dfx.NoProgressMeter() if live else (
-            dfx.TextProgressMeter() if progress else dfx.NoProgressMeter()
+        meter = (
+            dfx.NoProgressMeter()
+            if live
+            else (dfx.TextProgressMeter() if progress else dfx.NoProgressMeter())
         )
 
         if self.console:
@@ -223,9 +225,12 @@ class ParcelModelJAX:
             y_smax = None
 
             if terminate:
+
                 def _find():
                     return find_smax(
-                        self.y0, self.args, t_end,
+                        self.y0,
+                        self.args,
+                        t_end,
                         max_steps=max_steps,
                     )
 
@@ -272,8 +277,12 @@ class ParcelModelJAX:
             }
         elif terminate:
             ts, ys, run_info = integrate_parcel_terminated(
-                self.y0, self.args, t_end, output_dt,
-                terminate_depth=terminate_depth, max_steps=max_steps,
+                self.y0,
+                self.args,
+                t_end,
+                output_dt,
+                terminate_depth=terminate_depth,
+                max_steps=max_steps,
                 progress_meter=meter,
                 phase_timer=timer,
             )
@@ -337,7 +346,7 @@ class ParcelModelJAX:
             S_max = float(S[si])
             t_smax = float(self.time[si])
         T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
-        rs = self.x[si, c.N_STATE_VARS:]
+        rs = self.x[si, c.N_STATE_VARS :]
 
         per_species = []
         total_N = 0.0
@@ -349,8 +358,13 @@ class ParcelModelJAX:
             offset += nr
             N = float(np.sum(aer.Nis))
             per_species.append(
-                {"species": aer.species, "eq_act_frac": float(eq),
-                 "kn_act_frac": float(kn), "N": N, "N_act": float(eq) * N}
+                {
+                    "species": aer.species,
+                    "eq_act_frac": float(eq),
+                    "kn_act_frac": float(kn),
+                    "N": N,
+                    "N_act": float(eq) * N,
+                }
             )
             total_N += N
             total_act += float(eq) * N
@@ -384,9 +398,7 @@ class ParcelModelJAX:
         for aer in self.aerosols:
             nr = aer.nr
             cols = {f"r{j:03d}": self.x[:, offset + j] for j in range(nr)}
-            aerosol[aer.species] = pd.DataFrame(
-                cols, index=pd.Index(self.time, name="time")
-            )
+            aerosol[aer.species] = pd.DataFrame(cols, index=pd.Index(self.time, name="time"))
             offset += nr
         return parcel, aerosol
 
@@ -409,11 +421,11 @@ class ParcelModelJAX:
         from .thermo import rho_air
 
         parcel_df, aerosol_dfs = self._to_dataframes()
-        ds = xr.Dataset(
-            attrs={"Conventions": "CF-1.0", "source": f"pyrcel v{ver} (JAX/diffrax)"}
-        )
+        ds = xr.Dataset(attrs={"Conventions": "CF-1.0", "source": f"pyrcel v{ver} (JAX/diffrax)"})
         ds.coords["time"] = (
-            "time", self.time, {"units": "seconds", "long_name": "simulation time"}
+            "time",
+            self.time,
+            {"units": "seconds", "long_name": "simulation time"},
         )
 
         offset = c.N_STATE_VARS
@@ -422,23 +434,28 @@ class ParcelModelJAX:
             sp = aer.species
             bins = f"{sp}_bins"
             ds.coords[bins] = (
-                bins, np.arange(1, nr + 1, dtype=np.int32),
+                bins,
+                np.arange(1, nr + 1, dtype=np.int32),
                 {"long_name": f"{sp} size bin number"},
             )
             ds[f"{sp}_rdry"] = (
-                (bins,), np.asarray(aer.r_drys) * 1e6,
+                (bins,),
+                np.asarray(aer.r_drys) * 1e6,
                 {"units": "micron", "long_name": f"{sp} bin dry radii"},
             )
             ds[f"{sp}_kappas"] = (
-                (bins,), np.full(nr, aer.kappa),
+                (bins,),
+                np.full(nr, aer.kappa),
                 {"long_name": f"{sp} bin kappa-kohler hygroscopicity"},
             )
             ds[f"{sp}_Nis"] = (
-                (bins,), np.asarray(aer.Nis) * 1e-6,
+                (bins,),
+                np.asarray(aer.Nis) * 1e-6,
                 {"units": "cm-3", "long_name": f"{sp} bin number concentration"},
             )
             ds[f"{sp}_size"] = (
-                ("time", bins), self.x[:, offset : offset + nr] * 1e6,
+                ("time", bins),
+                self.x[:, offset : offset + nr] * 1e6,
                 {"units": "micron", "long_name": f"{sp} bin wet radii"},
             )
             offset += nr
@@ -451,27 +468,49 @@ class ParcelModelJAX:
             "wv": (parcel_df["wv"], {"units": "kg/kg", "long_name": "Water vapor mixing ratio"}),
             "wc": (parcel_df["wc"], {"units": "kg/kg", "long_name": "Liquid water mixing ratio"}),
             "wi": (parcel_df["wi"], {"units": "kg/kg", "long_name": "Ice water mixing ratio"}),
-            "height": (parcel_df["z"], {"units": "meters", "long_name": "Parcel height above start"}),
+            "height": (
+                parcel_df["z"],
+                {"units": "meters", "long_name": "Parcel height above start"},
+            ),
             "rho": (rho, {"units": "kg/m3", "long_name": "Air density"}),
-            "wtot": (parcel_df["wv"] + parcel_df["wc"],
-                     {"units": "kg/kg", "long_name": "Total water mixing ratio"}),
+            "wtot": (
+                parcel_df["wv"] + parcel_df["wc"],
+                {"units": "kg/kg", "long_name": "Total water mixing ratio"},
+            ),
         }
         for name, (data, attrs) in profiles.items():
             ds[name] = (("time",), np.asarray(data), attrs)
 
         s = self._summary
-        ds["S_max"] = ((), s["S_max"] * 100.0, {"units": "%", "long_name": "Maximum supersaturation"})
-        ds["t_smax"] = ((), s["t_smax"], {"units": "seconds", "long_name": "Time of maximum supersaturation"})
+        ds["S_max"] = (
+            (),
+            s["S_max"] * 100.0,
+            {"units": "%", "long_name": "Maximum supersaturation"},
+        )
+        ds["t_smax"] = (
+            (),
+            s["t_smax"],
+            {"units": "seconds", "long_name": "Time of maximum supersaturation"},
+        )
         for p in s["per_species"]:
             ds[f"{p['species']}_eq_act_frac"] = (
-                (), p["eq_act_frac"],
+                (),
+                p["eq_act_frac"],
                 {"long_name": f"{p['species']} equilibrium activated fraction"},
             )
         ds.attrs.update(
-            {"V": "V(t)" if isinstance(self.V, AbstractUpdraft) and not isinstance(self.V, ConstantV)
-             else float(self.V.V) if isinstance(self.V, ConstantV) else float(self.V),
-             "T0": self.T0, "S0": self.S0, "P0": self.P0, "accom": self.accom,
-             "total_act_frac": s["total_act_frac"]}
+            {
+                "V": "V(t)"
+                if isinstance(self.V, AbstractUpdraft) and not isinstance(self.V, ConstantV)
+                else float(self.V.V)
+                if isinstance(self.V, ConstantV)
+                else float(self.V),
+                "T0": self.T0,
+                "S0": self.S0,
+                "P0": self.P0,
+                "accom": self.accom,
+                "total_act_frac": s["total_act_frac"],
+            }
         )
         return ds
 

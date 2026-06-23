@@ -85,9 +85,7 @@ def write_parcel_output(
 
     if parcel.console:
         print()
-        print(
-            "Saving output to %s format with base filename %s" % (extension, basename)
-        )
+        print("Saving output to %s format with base filename %s" % (extension, basename))
         print()
 
     # filename = "%s.%s" % (basename, extension)
@@ -285,9 +283,7 @@ def parcel_to_dataframes(parcel):
     heights = parcel.heights
     time = parcel.time
 
-    parcel_out = pd.DataFrame(
-        {var: x[:, i] for i, var in enumerate(c.STATE_VARS)}, index=time
-    )
+    parcel_out = pd.DataFrame({var: x[:, i] for i, var in enumerate(c.STATE_VARS)}, index=time)
 
     ## Add some thermodynamic output to the parcel model dataframe
     parcel_out["rho"] = rho_air(parcel_out["T"], parcel_out["P"], parcel_out["S"] + 1.0)

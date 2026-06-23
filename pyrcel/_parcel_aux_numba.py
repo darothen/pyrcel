@@ -29,9 +29,7 @@ def sigma_w(T):
 def ka(T, r, rho):
     """See :func:`pyrcel.thermo.ka` for full documentation"""
     ka_cont = 1e-3 * (4.39 + 0.071 * T)
-    denom = 1.0 + (ka_cont / (c.at * r * rho * c.Cp)) * np.sqrt(
-        (2 * PI * c.Ma) / (c.R * T)
-    )
+    denom = 1.0 + (ka_cont / (c.at * r * rho * c.Cp)) * np.sqrt((2 * PI * c.Ma) / (c.R * T))
     return ka_cont / denom
 
 
@@ -163,9 +161,7 @@ def parcel_ode_sys(y, t, nr, r_drys, Nis, V, kappas, accom):
 
         ## Size and liquid water tendencies
         dr_dt = (G / r) * delta_S
-        dwc_dt += (
-            Ni * r * r * dr_dt
-        )  # Contribution to liq. water tendency due to growth
+        dwc_dt += Ni * r * r * dr_dt  # Contribution to liq. water tendency due to growth
         drs_dt[i] = dr_dt
 
     dwc_dt *= 4.0 * PI * c.rho_w / rho_air_dry  # Hydrated aerosol size -> water mass

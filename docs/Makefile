@@ -51,7 +51,7 @@ clean:
 	rm -rf examples/*_files/
 	rm -rf examples/*.rst
 
-notebooks: 
+notebooks:
 
 	make -C examples notebooks
 

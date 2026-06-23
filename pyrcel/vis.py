@@ -21,9 +21,9 @@ def plot_distribution(aer, aer_kwargs={}, ax=None, **kwargs):
         raise ValueError("Must provide axes instance for plotting.")
 
     ## Add some basic aer_kwargs if not provided
-    if not "color" in aer_kwargs:
+    if "color" not in aer_kwargs:
         aer_kwargs["color"] = "g"
-    if not "alpha" in aer_kwargs:
+    if "alpha" not in aer_kwargs:
         aer_kwargs["alpha"] = 0.5
 
     rl, rr = aer.rs[0], aer.rs[-1]

@@ -36,10 +36,9 @@ def test_jax_modules_do_not_import_numba():
         "assert 'numba' not in sys.modules, 'numba was imported'; "
         "assert 'pyrcel._parcel_aux_numba' not in sys.modules, 'legacy numba RHS imported'"
     )
-    proc = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True
-    )
+    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
+
 
 # --- Parameter grids (mirror pyrcel/test/generate_data.py) -----------------------
 T = np.linspace(233.0, 333.0, 10)  # K
@@ -53,8 +52,10 @@ ROVERRD = np.logspace(0.1, 3, 5)  # r / r_dry
 
 def _close(got, expected, rtol=1e-12, atol=0.0):
     np.testing.assert_allclose(
-        np.asarray(got, dtype=float), np.asarray(expected, dtype=float),
-        rtol=rtol, atol=atol,
+        np.asarray(got, dtype=float),
+        np.asarray(expected, dtype=float),
+        rtol=rtol,
+        atol=atol,
     )
 
 
@@ -64,6 +65,7 @@ def _mesh(*arrays):
 
 
 # --- Grid equivalence ------------------------------------------------------------
+
 
 def test_sigma_w_grid():
     _close(tj.sigma_w(jnp.asarray(T)), th.sigma_w(T))
@@ -160,6 +162,7 @@ def test_seq_property_equiv(T, rd, f, kappa):
 
 
 # --- Physical invariants ---------------------------------------------------------
+
 
 @HSET
 @given(T=_T, r=_r, P=_P, accom=_accom)

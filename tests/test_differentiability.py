@@ -17,8 +17,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-
 from conftest import load_fixture
+
 from pyrcel.integrator_diffrax import max_supersaturation
 from pyrcel.parcel_aux_jax import ParcelVectorField
 from pyrcel.updraft import ConstantV
@@ -106,7 +106,9 @@ def test_vmap_ensemble_matches_loop():
         np.asarray(y0)[None, :] * (1.0 + 1e-4 * rng.standard_normal((batch, y0.shape[0])))
     )
 
-    smax_of = lambda yy: max_supersaturation(yy, field.args, _TS)
+    def smax_of(yy):
+        return max_supersaturation(yy, field.args, _TS)
+
     batched = jax.vmap(smax_of)(Y0)
     looped = jnp.asarray([smax_of(Y0[i]) for i in range(batch)])
 

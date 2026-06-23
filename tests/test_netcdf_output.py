@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 import scenarios as scn
+
 from pyrcel.model_jax import ParcelModelJAX
 
 
@@ -14,7 +14,11 @@ def _run_simple():
     ic, run = sc["initial"], sc["run"]
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
     )
     m.run(run["t_end"], run["output_dt"], terminate=True, terminate_depth=run["terminate_depth"])
     return m
@@ -42,7 +46,11 @@ def test_to_dataset_requires_run():
     ic = sc["initial"]
     m = ParcelModelJAX(
         scn.build_aerosols(sc),
-        V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"], accom=ic["accom"],
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
     )
     try:
         m.to_dataset()

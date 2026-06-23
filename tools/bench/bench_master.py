@@ -30,6 +30,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "tests"))
 
 import scenarios as scn  # noqa: E402
+
 import pyrcel as pm  # noqa: E402
 
 
@@ -50,17 +51,26 @@ def bench(name: str, reps: int) -> None:
 
     def construct():
         return pm.ParcelModel(
-            aerosols, V=ic["V"], T0=ic["T0"], S0=ic["S0"], P0=ic["P0"],
-            accom=ic["accom"], console=False,
+            aerosols,
+            V=ic["V"],
+            T0=ic["T0"],
+            S0=ic["S0"],
+            P0=ic["P0"],
+            accom=ic["accom"],
+            console=False,
         )
 
     eq_warm = _median(construct, max(5, reps // 2))
     model = construct()
 
     run_kw = dict(
-        output_dt=run["output_dt"], solver_dt=run["solver_dt"], solver="cvode",
-        output_fmt="arrays", terminate=run["terminate"],
-        terminate_depth=run["terminate_depth"], max_steps=run["max_steps"],
+        output_dt=run["output_dt"],
+        solver_dt=run["solver_dt"],
+        solver="cvode",
+        output_fmt="arrays",
+        terminate=run["terminate"],
+        terminate_depth=run["terminate_depth"],
+        max_steps=run["max_steps"],
     )
 
     t0 = time.perf_counter()

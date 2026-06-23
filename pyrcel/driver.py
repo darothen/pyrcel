@@ -1,4 +1,4 @@
-""" Utilities for driving sets of parcel model integration strategies.
+"""Utilities for driving sets of parcel model integration strategies.
 
 Occasionally, a pathological set of input parameters to the parcel model
 will really muck up the ODE solver's ability to integrate the model.
@@ -10,6 +10,7 @@ serve as an example for more complex integration strategies. Alternatively,
 its output.
 
 """
+
 from numpy import empty, nan
 from pandas import DataFrame
 
@@ -89,7 +90,7 @@ def run_model(
             solver=solver,
             output_fmt=output_fmt,
             terminate=terminate,
-            **solver_kws
+            **solver_kws,
         )
     except ParcelModelError:
         return None

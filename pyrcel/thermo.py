@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
-""" Aerosol/atmospheric thermodynamics functions.
+"""Aerosol/atmospheric thermodynamics functions.
 
 The following sets of functions calculate useful thermodynamic quantities
 that arise in aerosol-cloud studies. Where possible, the source of the
 parameterization for each function is documented.
 
 """
+
 import numpy as np
 from scipy.optimize import fminbound
 
@@ -371,9 +371,7 @@ def Seq_approx(r, r_dry, T, kappa):
 
     """
     A = (2.0 * Mw * sigma_w(T)) / (R * T * rho_w * r)
-    return A - kappa * (r_dry**3) / (
-        r**3
-    )  # the minus 1.0 is built into this  expression
+    return A - kappa * (r_dry**3) / (r**3)  # the minus 1.0 is built into this  expression
 
 
 def kohler_crit(T, r_dry, kappa, approx=False):
@@ -419,9 +417,7 @@ def kohler_crit(T, r_dry, kappa, approx=False):
 
     else:
         neg_Seq = lambda r: -1.0 * Seq(r, r_dry, T, kappa)
-        out = fminbound(
-            neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0
-        )
+        out = fminbound(neg_Seq, r_dry, r_dry * 1e4, xtol=1e-10, full_output=True, disp=0)
         r_crit, s_crit = out[:2]
         s_crit *= -1.0  # multiply by -1 to undo negative flag for Seq
 

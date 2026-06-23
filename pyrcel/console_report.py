@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 
-from . import constants as c
 from .distributions import Lognorm, MultiModeLognorm
 from .updraft import AbstractUpdraft, ConstantV
 
@@ -88,8 +87,6 @@ class PhaseTimer:
 
 def _block_until_ready(result) -> None:
     try:
-        import jax
-
         if hasattr(result, "block_until_ready"):
             result.block_until_ready()
         elif isinstance(result, tuple):
@@ -142,9 +139,7 @@ def _aerosol_rows(aerosols) -> list[tuple[str, float, float, int, str, str]]:
                 )
             )
         elif isinstance(dist, dict):
-            rows.append(
-                (aer.species, aer.kappa, float(aer.total_N), aer.nr, "monodisperse", "")
-            )
+            rows.append((aer.species, aer.kappa, float(aer.total_N), aer.nr, "monodisperse", ""))
         else:
             rows.append((aer.species, aer.kappa, float(aer.total_N), aer.nr, "custom", ""))
     return rows
@@ -250,11 +245,7 @@ def print_integration_plan(
     """
     print()
     print("  Integration plan")
-    term = (
-        f"yes (+{terminate_depth:g} m past S_max)"
-        if terminate
-        else "no (integrate to t_end)"
-    )
+    term = f"yes (+{terminate_depth:g} m past S_max)" if terminate else "no (integrate to t_end)"
     if live:
         prog = f"live chunk loop ({live_chunk_dt:g} s chunks)"
     elif progress:
@@ -350,8 +341,7 @@ def print_trajectory_table(time, x, *, max_rows: int = MAX_TRAJECTORY_ROWS) -> N
     for i in idx:
         row = x[i]
         print(
-            f"  {time[i]:8.2f} {row[0]:8.1f} {row[2]:8.2f} "
-            f"{100 * row[6]:9.4f} {row[4] * 1e3:11.3e}"
+            f"  {time[i]:8.2f} {row[0]:8.1f} {row[2]:8.2f} {100 * row[6]:9.4f} {row[4] * 1e3:11.3e}"
         )
     print(_hline())
 

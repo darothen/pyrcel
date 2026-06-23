@@ -156,6 +156,7 @@ def integrate_parcel_arrays(y0, args, ts, **kwargs):
 
 # --- Differentiable diagnostics (design §5.3, §7.6) ------------------------------
 
+
 def max_supersaturation(y0, args, ts, *, rtol=STATE_RTOL, atol=None, max_steps=100_000):
     """Peak supersaturation over the output grid, as a differentiable scalar.
 
@@ -193,6 +194,7 @@ def max_supersaturation(y0, args, ts, *, rtol=STATE_RTOL, atol=None, max_steps=1
 
 # --- Event-based S_max termination (design §4.5 option A) -------------------------
 
+
 def _dS_dt(t, y, args, **kwargs):
     """Continuous event condition: the supersaturation tendency dS/dt."""
     return parcel_ode_sys(t, y, args)[6]
@@ -202,9 +204,7 @@ def _dS_dt(t, y, args, **kwargs):
 def _solve_to_smax(y0, args, t_end, rtol, atol, max_steps):
     # ``direction=False`` -> trigger only on a downward zero-crossing of dS/dt
     # (the supersaturation maximum), not the (numerically possible) initial rise.
-    event = dfx.Event(
-        _dS_dt, root_finder=optx.Newton(rtol=1e-8, atol=1e-12), direction=False
-    )
+    event = dfx.Event(_dS_dt, root_finder=optx.Newton(rtol=1e-8, atol=1e-12), direction=False)
     controller = dfx.PIDController(rtol=rtol, atol=atol)
     return dfx.diffeqsolve(
         _TERM,
@@ -229,9 +229,7 @@ def _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps):
     def cond_fn(t, y, args, **kwargs):
         return y[0] - z_target
 
-    event = dfx.Event(
-        cond_fn, root_finder=optx.Newton(rtol=1e-8, atol=1e-10), direction=True
-    )
+    event = dfx.Event(cond_fn, root_finder=optx.Newton(rtol=1e-8, atol=1e-10), direction=True)
     controller = dfx.PIDController(rtol=rtol, atol=atol)
     return dfx.diffeqsolve(
         _TERM,

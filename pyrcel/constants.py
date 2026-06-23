@@ -1,4 +1,4 @@
-""" Commonly used constants in microphysics and aerosol thermodynamics equations as
+"""Commonly used constants in microphysics and aerosol thermodynamics equations as
 well as important model parameters.
 
 ================= ============= ========== ==========        ======================

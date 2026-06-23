@@ -161,9 +161,7 @@ def ka(T, rho, r):
     pyrcel.thermo.ka
     """
     ka_t = ka_cont(T)
-    denom = 1.0 + (ka_t / (c.at * r * rho * c.Cp)) * jnp.sqrt(
-        (2.0 * PI * c.Ma) / (c.R * T)
-    )
+    denom = 1.0 + (ka_t / (c.at * r * rho * c.Cp)) * jnp.sqrt((2.0 * PI * c.Ma) / (c.R * T))
     return ka_t / denom
 
 
