@@ -130,8 +130,7 @@ class ModelOutput:
         import polars as pl
 
         parcel = pl.DataFrame(
-            {"time": self.time}
-            | {var: self.state[:, i] for i, var in enumerate(c.STATE_VARS)}
+            {"time": self.time} | {var: self.state[:, i] for i, var in enumerate(c.STATE_VARS)}
         )
         aerosol: dict[str, pl.DataFrame] = {}
         offset = c.N_STATE_VARS
@@ -156,9 +155,7 @@ class ModelOutput:
 
         from . import __version__ as ver
 
-        ds = xr.Dataset(
-            attrs={"Conventions": "CF-1.0", "source": f"pyrcel v{ver} (JAX/diffrax)"}
-        )
+        ds = xr.Dataset(attrs={"Conventions": "CF-1.0", "source": f"pyrcel v{ver} (JAX/diffrax)"})
         ds.coords["time"] = (
             "time",
             self.time,
