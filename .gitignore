@@ -43,7 +43,6 @@ output/
 .pixi
 # local virtualenvs (v2 dev env)
 .venv/
-uv.lock
 .hypothesis/
 .pytest_cache/
 *.egg-info
