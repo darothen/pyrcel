@@ -1,9 +1,9 @@
-"""Equivalence + property tests for :mod:`pyrcel.thermo_jax`.
+"""Equivalence + property tests for :mod:`pyrcel.thermo`.
 
 Two layers:
 
-1. **Grid equivalence** against the NumPy oracle :mod:`pyrcel.thermo`, over the same
-   parameter grids used by the legacy reference generator. Identical formulas, so we
+1. **Grid equivalence** against the NumPy oracle :mod:`pyrcel.legacy.thermo`, over the
+   same parameter grids used by the legacy reference generator. Identical formulas, so we
    demand agreement to float64 round-off.
 2. **Property-based** tests with Hypothesis: equivalence over randomized inputs, plus
    physical invariants (positivity, monotonicity, non-continuum corrections reduce the
@@ -21,8 +21,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from pyrcel import thermo as th
-from pyrcel import thermo_jax as tj
+from pyrcel import thermo as tj
+from pyrcel.legacy import thermo as th
 
 
 def test_jax_modules_do_not_import_numba():
@@ -32,9 +32,9 @@ def test_jax_modules_do_not_import_numba():
     regression.
     """
     code = (
-        "import sys; import pyrcel.parcel_aux_jax, pyrcel.thermo_jax; "
+        "import sys; import pyrcel.parcel_aux, pyrcel.thermo; "
         "assert 'numba' not in sys.modules, 'numba was imported'; "
-        "assert 'pyrcel._parcel_aux_numba' not in sys.modules, 'legacy numba RHS imported'"
+        "assert 'pyrcel.legacy' not in sys.modules, 'legacy module imported'"
     )
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
@@ -91,7 +91,7 @@ def test_ka_cont_grid():
 
 
 def test_ka_grid():
-    # thermo.ka and thermo_jax.ka share the (T, rho, r) signature.
+    # thermo.ka and legacy.thermo.ka share the (T, rho, r) signature.
     TT, DD, RR = _mesh(T, DENS, R)
     _close(tj.ka(jnp.asarray(TT), jnp.asarray(DD), jnp.asarray(RR)), th.ka(TT, DD, RR))
 

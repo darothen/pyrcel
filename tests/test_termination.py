@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import scenarios as scn
 
-from pyrcel.integrator_diffrax import find_smax, integrate_parcel_terminated
+from pyrcel.integrator import find_smax, integrate_parcel_terminated
 
 pytestmark = pytest.mark.slow
 

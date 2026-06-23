@@ -12,7 +12,7 @@ keeping the vector field a pure function of time.
   avoid pulling in ``interpax`` for the linear case).
 
 All updrafts are callables ``V(t) -> speed`` in m/s, which is exactly what
-:func:`pyrcel.parcel_aux_jax.parcel_ode_sys` consumes.
+:func:`pyrcel.parcel_aux.parcel_ode_sys` consumes.
 """
 
 from __future__ import annotations

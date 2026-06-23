@@ -33,7 +33,7 @@ import jax.numpy as jnp  # noqa: E402
 import optimistix as optx  # noqa: E402
 
 from . import constants as c  # noqa: E402
-from .thermo_jax import Seq, es, rho_air, sigma_w  # noqa: E402
+from .thermo import Seq, es, rho_air, sigma_w  # noqa: E402
 
 #: Default root-find tolerances. ``master`` uses ``bisect(xtol=1e-30)`` (machine
 #: precision); these reproduce ``r0`` to ~1e-13 relative, well inside §7.2b's 1e-10.
@@ -45,7 +45,7 @@ _MAX_STEPS = 200
 def kohler_crit_approx(T, r_dry, kappa):
     """Analytic approximate Köhler critical radius and supersaturation.
 
-    Mirrors :func:`pyrcel.thermo.kohler_crit` with ``approx=True``. This
+    Mirrors :func:`pyrcel.legacy.thermo.kohler_crit` with ``approx=True``. This
     approximation can return ``r_crit < r_dry`` for very small, low-κ particles,
     so it is **not** used to bracket the equilibrium root — :func:`kohler_crit`
     is. Kept for reference and the analytic ``s_crit``.
@@ -69,7 +69,7 @@ def kohler_crit_approx(T, r_dry, kappa):
     See Also
     --------
     kohler_crit : Exact numerical Köhler critical radius.
-    pyrcel.thermo.kohler_crit : NumPy equivalent with ``approx=True``.
+    pyrcel.legacy.thermo.kohler_crit : NumPy equivalent with ``approx=True``.
     """
     A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w)
     r_crit = jnp.sqrt((3.0 * kappa * (r_dry**3)) / A)
@@ -80,7 +80,7 @@ def kohler_crit_approx(T, r_dry, kappa):
 def kohler_crit(T, r_dry, kappa, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS):
     """Exact Köhler critical (peak) radius via a root-find on ``dSeq/dr = 0``.
 
-    The JAX analog of ``pyrcel.thermo.kohler_crit`` (which uses
+    The JAX analog of ``pyrcel.legacy.thermo.kohler_crit`` (which uses
     ``scipy.optimize.fminbound`` on ``-Seq``). ``Seq`` is unimodal for ``kappa > 0``,
     so its derivative -- obtained analytically with ``jax.grad`` -- has a single
     zero (the peak) on ``[r_dry, r_dry * 1e4]``. Always returns ``r_crit > r_dry``,
@@ -107,7 +107,7 @@ def kohler_crit(T, r_dry, kappa, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS
     See Also
     --------
     kohler_crit_approx : Analytic approximation.
-    pyrcel.thermo.kohler_crit : NumPy equivalent using ``scipy.optimize.fminbound``.
+    pyrcel.legacy.thermo.kohler_crit : NumPy equivalent using ``scipy.optimize.fminbound``.
     """
     solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)
 

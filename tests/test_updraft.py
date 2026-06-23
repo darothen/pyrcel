@@ -15,8 +15,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from pyrcel.integrator_diffrax import integrate_parcel, integrate_parcel_arrays
-from pyrcel.parcel_aux_jax import ParcelVectorField, parcel_ode_sys
+from pyrcel.integrator import integrate_parcel, integrate_parcel_arrays
+from pyrcel.parcel_aux import ParcelVectorField, parcel_ode_sys
 from pyrcel.updraft import ConstantV, InterpolatedUpdraft, as_updraft
 
 

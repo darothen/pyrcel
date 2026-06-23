@@ -1,6 +1,6 @@
 """Golden-trajectory regression: v2 diffrax vs frozen master/CVode (design §7.3).
 
-Each scenario is integrated with the v2 :mod:`pyrcel.integrator_diffrax` solver,
+Each scenario is integrated with the v2 :mod:`pyrcel.integrator` solver,
 **seeded from master's frozen ``y0``** and sampled at the frozen output times, then
 compared to the CVode reference under the agreed acceptance tolerances:
 
@@ -20,7 +20,7 @@ import pytest
 import scenarios as scn
 
 from pyrcel.activation import binned_activation
-from pyrcel.integrator_diffrax import integrate_parcel_arrays
+from pyrcel.integrator import integrate_parcel_arrays
 
 pytestmark = pytest.mark.slow
 

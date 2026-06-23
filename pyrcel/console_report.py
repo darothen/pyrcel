@@ -301,7 +301,7 @@ def print_termination_narrative(info: dict) -> None:
     Parameters
     ----------
     info : dict
-        Run-info dict returned by :func:`~pyrcel.integrator_diffrax.integrate_parcel_terminated`
+        Run-info dict returned by :func:`~pyrcel.integrator.integrate_parcel_terminated`
         or the ``live`` integration path; expected keys ``activated``, ``smax``,
         ``t_smax``, ``t_cutoff``, and optionally ``z_smax`` / ``z_end``.
     """
@@ -353,7 +353,7 @@ def print_summary(summary: dict) -> None:
     ----------
     summary : dict
         Summary dict as returned by
-        :meth:`~pyrcel.model_jax.ParcelModelJAX._compute_summary`; expected keys
+        :meth:`~pyrcel.model.ParcelModelJAX._compute_summary`; expected keys
         ``S_max``, ``t_smax``, ``T_smax``, ``z_smax``, ``per_species``, and
         ``total_act_frac``.
     """
@@ -397,7 +397,7 @@ def equilibration_residual(T0, S0, r_drys, kappas, r0s) -> float:
     float
         Maximum ``|Seq(r0, r_dry, T0, kappa) - S0|`` across all bins.
     """
-    from .thermo_jax import Seq
+    from .thermo import Seq
 
     r_drys = np.asarray(r_drys)
     kappas = np.asarray(kappas)

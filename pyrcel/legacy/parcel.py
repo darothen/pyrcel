@@ -6,15 +6,15 @@ import numpy as np
 from scipy.optimize import bisect
 
 # Parcel model imports
-from . import constants as c
-from . import output
+from .. import constants as c
+from .. import output
+from ..aerosol import AerosolSpecies
+from ..util import ParcelModelError
 
 # Re-export parcel_ode_sys at module scope so the ImportError fallback inside
 # ParcelModel.run() can do `from .parcel import parcel_ode_sys` if numba fails.
-from ._parcel_aux_numba import parcel_ode_sys  # noqa: F401
-from .aerosol import AerosolSpecies
+from .parcel_aux import parcel_ode_sys  # noqa: F401
 from .thermo import Seq, es, kohler_crit, rho_air
-from .util import ParcelModelError
 
 __all__ = ["ParcelModel"]
 
@@ -490,7 +490,7 @@ class ParcelModel:
             # Cython
             # from .parcel_aux import der as rhs_fcn
             # Numba - JIT
-            from ._parcel_aux_numba import parcel_ode_sys as rhs_fcn
+            from .parcel_aux import parcel_ode_sys as rhs_fcn
 
             # Numba - AOT
             # from .parcel_aux_numba import parcel_ode_sys as rhs_fcn
