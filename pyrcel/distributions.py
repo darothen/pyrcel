@@ -62,8 +62,10 @@ class Lognorm(BaseDistribution):
 
     Attributes
     ----------
-    median, mean : float
-        Pre-computed statistical quantities
+    median : float
+        Geometric mean (= ``mu``).
+    mean : float
+        Arithmetic mean: ``mu * exp(0.5 * ln(sigma)**2)``.
 
     Methods
     -------
@@ -85,12 +87,9 @@ class Lognorm(BaseDistribution):
         self.sigma = sigma
         self.N = N
 
-        self.base = np.e
-        self.log = np.log
-
-        # Compute moments
         self.median = self.mu
-        self.mean = self.mu * np.exp(0.5 * self.sigma**2)
+        # Arithmetic mean of the underlying normal: E[r] = mu * exp(0.5 * ln(sigma)^2)
+        self.mean = self.mu * np.exp(0.5 * np.log(self.sigma) ** 2)
 
     def invcdf(self, y):
         """Inverse of cumulative density function.
@@ -98,7 +97,7 @@ class Lognorm(BaseDistribution):
         Parameters
         ----------
         y : float
-            CDF value, between (0, 1).
+            CDF value, between 0 and ``N`` (cumulative number concentration).
 
         Returns
         -------
@@ -107,8 +106,8 @@ class Lognorm(BaseDistribution):
 
         """
 
-        if (np.any(y) < 0) or (np.any(y) > 1):
-            raise ValueError("y must be between (0, 1)")
+        if np.any(y < 0) or np.any(y > self.N):
+            raise ValueError(f"y must be between 0 and N={self.N}")
 
         erfinv_arg = 2.0 * y / self.N - 1.0
         return self.mu * np.exp(np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg))
