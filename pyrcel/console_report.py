@@ -163,7 +163,27 @@ def print_setup(
     equil_elapsed: float,
     equil_residual: float,
 ) -> None:
-    """Parcel configuration, aerosol modes, and equilibrated initial state."""
+    """Print the parcel configuration, aerosol modes, and equilibrated initial state.
+
+    Parameters
+    ----------
+    V : float or AbstractUpdraft
+        Updraft speed specification.
+    T0, S0, P0 : float
+        Initial temperature (K), supersaturation, and pressure (Pa).
+    accom : float
+        Condensation coefficient.
+    nr : int
+        Total number of aerosol size bins.
+    aerosols : list of AerosolSpecies
+        Aerosol population.
+    y0 : array
+        Equilibrated initial state vector.
+    equil_elapsed : float
+        Wall time for equilibration, s.
+    equil_residual : float
+        Maximum ``|Seq - S0|`` across all bins after equilibration.
+    """
     configure_logging()
     print()
     print("Parcel model (JAX / diffrax)")
@@ -205,6 +225,29 @@ def print_integration_plan(
     live=False,
     live_chunk_dt=10.0,
 ) -> None:
+    """Print a summary of the planned integration settings.
+
+    Parameters
+    ----------
+    t_end : float
+        Maximum integration time cap, s.
+    output_dt : float
+        Output cadence, s.
+    terminate : bool
+        Whether to stop past ``S_max``.
+    terminate_depth : float
+        Extra depth (m) to integrate past ``S_max``.
+    max_steps : int
+        Adaptive-step cap for the solver.
+    rtol : float
+        Relative tolerance for the ODE solver.
+    progress : bool
+        Whether a text progress meter is active.
+    live : bool, optional
+        Whether the live chunk-loop mode is active.
+    live_chunk_dt : float, optional
+        Chunk size for live mode, s.
+    """
     print()
     print("  Integration plan")
     term = (
@@ -262,6 +305,15 @@ class LiveStepPrinter:
 
 
 def print_termination_narrative(info: dict) -> None:
+    """Log a one-line termination summary after the solve completes.
+
+    Parameters
+    ----------
+    info : dict
+        Run-info dict returned by :func:`~pyrcel.integrator_diffrax.integrate_parcel_terminated`
+        or the ``live`` integration path; expected keys ``activated``, ``smax``,
+        ``t_smax``, ``t_cutoff``, and optionally ``z_smax`` / ``z_end``.
+    """
     if not info.get("activated", True):
         log.warning("No interior supersaturation maximum before t_end — ran to horizon.")
         return
@@ -305,6 +357,16 @@ def print_trajectory_table(time, x, *, max_rows: int = MAX_TRAJECTORY_ROWS) -> N
 
 
 def print_summary(summary: dict) -> None:
+    """Print the post-solve activation summary table.
+
+    Parameters
+    ----------
+    summary : dict
+        Summary dict as returned by
+        :meth:`~pyrcel.model_jax.ParcelModelJAX._compute_summary`; expected keys
+        ``S_max``, ``t_smax``, ``T_smax``, ``z_smax``, ``per_species``, and
+        ``total_act_frac``.
+    """
     s = summary
     print()
     print("  Simulation summary")
@@ -325,6 +387,26 @@ def print_summary(summary: dict) -> None:
 
 
 def equilibration_residual(T0, S0, r_drys, kappas, r0s) -> float:
+    """Maximum absolute equilibration residual ``|Seq - S0|`` across all bins.
+
+    Parameters
+    ----------
+    T0 : float
+        Initial temperature, K.
+    S0 : float
+        Initial supersaturation.
+    r_drys : array
+        Dry radii, m.
+    kappas : array
+        Hygroscopicities.
+    r0s : array
+        Equilibrated wet radii, m.
+
+    Returns
+    -------
+    float
+        Maximum ``|Seq(r0, r_dry, T0, kappa) - S0|`` across all bins.
+    """
     from .thermo_jax import Seq
 
     r_drys = np.asarray(r_drys)

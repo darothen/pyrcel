@@ -43,12 +43,33 @@ _MAX_STEPS = 200
 
 
 def kohler_crit_approx(T, r_dry, kappa):
-    """Analytic (approximate) Köhler critical radius/supersaturation.
+    """Analytic approximate Köhler critical radius and supersaturation.
 
-    Mirrors :func:`pyrcel.thermo.kohler_crit` with ``approx=True``. NOTE: this
-    approximation breaks down for very small, low-κ particles (it can return
-    ``r_crit < r_dry``), so it is **not** used to bracket the equilibrium root —
-    :func:`kohler_crit` is. Kept for reference and the analytic ``s_crit``.
+    Mirrors :func:`pyrcel.thermo.kohler_crit` with ``approx=True``. This
+    approximation can return ``r_crit < r_dry`` for very small, low-κ particles,
+    so it is **not** used to bracket the equilibrium root — :func:`kohler_crit`
+    is. Kept for reference and the analytic ``s_crit``.
+
+    Parameters
+    ----------
+    T : float
+        Ambient temperature, K.
+    r_dry : float
+        Dry particle radius, m.
+    kappa : float
+        Particle hygroscopicity parameter.
+
+    Returns
+    -------
+    r_crit : float
+        Approximate critical wet radius, m.
+    s_crit : float
+        Approximate critical supersaturation.
+
+    See Also
+    --------
+    kohler_crit : Exact numerical Köhler critical radius.
+    pyrcel.thermo.kohler_crit : NumPy equivalent with ``approx=True``.
     """
     A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w)
     r_crit = jnp.sqrt((3.0 * kappa * (r_dry**3)) / A)
@@ -64,6 +85,29 @@ def kohler_crit(T, r_dry, kappa, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS
     so its derivative -- obtained analytically with ``jax.grad`` -- has a single
     zero (the peak) on ``[r_dry, r_dry * 1e4]``. Always returns ``r_crit > r_dry``,
     making it a valid upper bracket for the equilibrium solve at any particle size.
+
+    Parameters
+    ----------
+    T : float
+        Ambient temperature, K.
+    r_dry : float
+        Dry particle radius, m.
+    kappa : float
+        Particle hygroscopicity parameter.
+    rtol, atol : float, optional
+        Root-find tolerances.
+    max_steps : int, optional
+        Maximum bisection iterations.
+
+    Returns
+    -------
+    float
+        Critical wet radius, m. Always satisfies ``r_crit > r_dry``.
+
+    See Also
+    --------
+    kohler_crit_approx : Analytic approximation.
+    pyrcel.thermo.kohler_crit : NumPy equivalent using ``scipy.optimize.fminbound``.
     """
     solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)
 
@@ -136,6 +180,23 @@ def equilibrate_initial_state(T0, S0, P0, r_drys, kappas, Nis, **kwargs):
     Faithful to ``ParcelModel._setup_run``: water-vapor mixing ratio from the
     ambient RH, equilibrium wet radii, and the droplet liquid-water content they
     imply (normalized by the dry-air density).
+
+    Parameters
+    ----------
+    T0 : float
+        Initial temperature, K.
+    S0 : float
+        Initial supersaturation (0 == 100% RH); typically sub-critical (< 0).
+    P0 : float
+        Initial pressure, Pa.
+    r_drys : array, shape ``(nr,)``
+        Dry radii, m.
+    kappas : array, shape ``(nr,)``
+        Hygroscopicities.
+    Nis : array, shape ``(nr,)``
+        Number concentrations, m^-3.
+    **kwargs
+        Forwarded to :func:`equilibrate_radii` (``rtol``, ``atol``, ``max_steps``).
 
     Returns
     -------

@@ -75,6 +75,21 @@ def as_updraft(V) -> AbstractUpdraft:
     :class:`ConstantV`). Plain Python callables are *not* accepted here: model an
     arbitrary profile as an :class:`AbstractUpdraft` so the vector field stays a pure,
     ``jit``-able pytree.
+
+    Parameters
+    ----------
+    V : float or AbstractUpdraft
+        Updraft speed (m/s) or an existing :class:`AbstractUpdraft` instance.
+
+    Returns
+    -------
+    AbstractUpdraft
+        The original updraft, or ``V`` wrapped in :class:`ConstantV`.
+
+    Raises
+    ------
+    TypeError
+        If ``V`` is a plain Python callable; use :class:`InterpolatedUpdraft` instead.
     """
     if isinstance(V, AbstractUpdraft):
         return V

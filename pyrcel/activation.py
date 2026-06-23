@@ -13,11 +13,12 @@ def _unpack_aerosols(aerosols):
 
     Parameters
     ----------
-    aerosols : list of :class:`AerosolSpecies`
+    aerosols : list of AerosolSpecies
 
     Returns
     -------
-    dictionary of lists of aerosol properties
+    dict
+        Dictionary with keys ``species``, ``mus``, ``sigmas``, ``Ns``, ``kappas``.
 
     """
 
@@ -229,7 +230,19 @@ def _vpres(T):
 
 
 def _erfp(x):
-    """Polynomial approximation to error function"""
+    """Polynomial approximation to the error function.
+
+    Parameters
+    ----------
+    x : float
+        Argument.
+
+    Returns
+    -------
+    float
+        Approximate erf(x).
+
+    """
     AA = [0.278393, 0.230389, 0.000972, 0.078108]
     y = np.abs(1.0 * x)
     axx = 1.0 + y * (AA[0] + y * (AA[1] + y * (AA[2] + y * AA[3])))
@@ -279,7 +292,7 @@ def mbn2014(
     mus, sigmas, Ns, kappas : lists of floats
         Lists of aerosol population parameters; must be present if ``aerosols``
         is not passed, but ``aerosols`` overrides if both are present
-    xmin, xmax : floats, opional
+    xmin, xmax : floats, optional
         Minimum and maximum supersaturation for bisection
     tol : float, optional
         Convergence tolerance threshold for supersaturation, in decimal units
@@ -290,8 +303,10 @@ def mbn2014(
     -------
     smax, N_acts, act_fracs : lists of floats
         Maximum parcel supersaturation and the number concentration/activated
-        fractions for each mode
+        fractions for each mode.
 
+    References
+    ----------
     .. [MBN2014] Morales Betancourt, R. and Nenes, A.: Droplet activation
        parameterization: the population splitting concept revisited, Geosci.
        Model Dev. Discuss., 7, 2903-2932, doi:10.5194/gmdd-7-2903-2014, 2014.
@@ -552,9 +567,9 @@ def arg2000(
     kappas=[],
     min_smax=False,
 ):
-    """Computes droplet activation using a psuedo-analytical scheme.
+    """Computes droplet activation using a pseudo-analytical scheme.
 
-    This method implements the psuedo-analytical scheme of [ARG2000] to
+    This method implements the pseudo-analytical scheme of [ARG2000] to
     calculate droplet activation an an adiabatically ascending parcel. It
     includes the extension to multiple lognormal modes, and the correction
     for non-unity condensation coefficient [GHAN2011].
@@ -592,15 +607,17 @@ def arg2000(
     -------
     smax, N_acts, act_fracs : lists of floats
         Maximum parcel supersaturation and the number concentration/activated
-        fractions for each mode
+        fractions for each mode.
 
+    References
+    ----------
     .. [ARG2000] Abdul-Razzak, H., and S. J. Ghan (2000), A parameterization of
        aerosol activation: 2. Multiple aerosol types, J. Geophys. Res., 105(D5),
        6837-6844, doi:10.1029/1999JD901161.
 
     .. [GHAN2011] Ghan, S. J. et al (2011) Droplet Nucleation: Physically-based
        Parameterization and Comparative Evaluation, J. Adv. Model. Earth Syst.,
-       3, doi:10.1029/2011MS000074
+       3, doi:10.1029/2011MS000074.
 
     """
 

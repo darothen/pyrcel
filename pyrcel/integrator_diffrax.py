@@ -40,7 +40,19 @@ _TERM = dfx.ODETerm(parcel_ode_sys)
 
 
 def atol_vector(nr: int) -> jnp.ndarray:
-    """Per-component absolute tolerance: bulk states + one entry per radius."""
+    """Build the per-component absolute tolerance vector for the ODE solver.
+
+    Parameters
+    ----------
+    nr : int
+        Number of aerosol radius bins.
+
+    Returns
+    -------
+    jnp.ndarray, shape ``(7 + nr,)``
+        Absolute tolerance vector: CVode-equivalent values for bulk state
+        variables followed by ``RADIUS_ATOL`` for each radius bin.
+    """
     return jnp.asarray(STATE_ATOL + [RADIUS_ATOL] * int(nr))
 
 
@@ -112,7 +124,31 @@ def integrate_parcel(
 
 
 def integrate_parcel_arrays(y0, args, ts, **kwargs):
-    """Convenience wrapper returning ``(ts, ys, success)`` as plain arrays."""
+    """Integrate the parcel ODE and return raw arrays.
+
+    Convenience wrapper around :func:`integrate_parcel` that unpacks the
+    ``diffrax`` solution object into plain arrays.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+    ts : array, shape ``(n_out,)``
+        Output times (monotonic); see :func:`integrate_parcel`.
+    **kwargs
+        Forwarded to :func:`integrate_parcel`.
+
+    Returns
+    -------
+    ts : array
+        Output times.
+    ys : array, shape ``(n_out, 7 + nr)``
+        State trajectory.
+    success : bool
+        Whether the solve completed successfully.
+    """
     sol = integrate_parcel(y0, args, ts, **kwargs)
     success = bool(sol.result == dfx.RESULTS.successful)
     return sol.ts, sol.ys, success
@@ -121,14 +157,30 @@ def integrate_parcel_arrays(y0, args, ts, **kwargs):
 # --- Differentiable diagnostics (design §5.3, §7.6) ------------------------------
 
 def max_supersaturation(y0, args, ts, *, rtol=STATE_RTOL, atol=None, max_steps=100_000):
-    """Peak supersaturation ``S_max`` over the output grid, as a differentiable scalar.
+    """Peak supersaturation over the output grid, as a differentiable scalar.
 
-    A fixed-horizon solve (no data-dependent event) so the whole computation is a clean
-    pure function for ``jax.grad`` / ``jax.jacfwd`` / ``jax.vmap``. ``diffrax``'s default
-    ``RecursiveCheckpointAdjoint`` provides reverse-mode gradients through the solve, so
-    e.g. ``jax.grad(max_supersaturation)(y0, args, ts)`` gives ``d S_max / d y0`` and
-    ``eqx.filter_grad`` over a :class:`~pyrcel.parcel_aux_jax.ParcelVectorField` gives
-    ``d S_max / d{accom, V, ...}``. ``ts`` must span the peak.
+    A fixed-horizon solve (no data-dependent event) so the whole computation is a
+    pure function compatible with ``jax.grad`` / ``jax.jacfwd`` / ``jax.vmap``.
+    ``diffrax``'s default ``RecursiveCheckpointAdjoint`` provides reverse-mode
+    gradients through the solve; ``ts`` must span the supersaturation peak.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+    ts : array, shape ``(n_out,)``
+        Output times (monotonic). Must span the supersaturation peak.
+    rtol, atol : float or array, optional
+        Solver tolerances.
+    max_steps : int, optional
+        Upper bound on adaptive steps.
+
+    Returns
+    -------
+    float
+        Maximum supersaturation ``S_max`` over ``ts``.
     """
     y0 = jnp.asarray(y0)
     ts = jnp.asarray(ts)
@@ -200,10 +252,33 @@ def _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps):
 def find_smax(y0, args, t_end, *, rtol=STATE_RTOL, atol=None, max_steps=100_000):
     """Precisely localize the supersaturation maximum via a ``dS/dt = 0`` event.
 
-    Returns ``(t_smax, smax, y_smax, activated)`` where ``activated`` is False if no
-    downward crossing occurred before ``t_end`` (the parcel never reached a maximum).
-    Unlike sampling a saved trajectory, ``t_smax`` here is root-found, not quantized to
-    the output cadence.
+    Unlike sampling a saved trajectory, ``t_smax`` is root-found rather than
+    quantized to the output cadence.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+    t_end : float
+        Upper bound on integration time, s.
+    rtol, atol : float or array, optional
+        Solver tolerances.
+    max_steps : int, optional
+        Upper bound on adaptive steps.
+
+    Returns
+    -------
+    t_smax : float
+        Time of the supersaturation maximum, s.
+    smax : float
+        Peak supersaturation value.
+    y_smax : array, shape ``(7 + nr,)``
+        State vector at ``t_smax``.
+    activated : bool
+        ``False`` if no downward zero-crossing of ``dS/dt`` occurred before
+        ``t_end`` (the parcel never reached a maximum in the integration window).
     """
     y0 = jnp.asarray(y0)
     nr = int(y0.shape[0] - N_STATE_VARS)
@@ -230,7 +305,34 @@ def terminate_cutoff_time(
     atol=None,
     max_steps: int = 100_000,
 ) -> float:
-    """Integration stop time for ``terminate=True`` (altitude past ``S_max``)."""
+    """Compute the integration stop time for altitude-based cutoff past ``S_max``.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+    t_end : float
+        Upper bound on integration time, s.
+    terminate_depth : float
+        Extra vertical distance (m) past ``z_smax`` before stopping.
+    t_smax : float
+        Time of the supersaturation maximum, s.
+    y_smax : array
+        State vector at ``t_smax``.
+    activated : bool
+        If ``False``, returns ``t_end`` without any further integration.
+    rtol, atol : float or array, optional
+        Solver tolerances.
+    max_steps : int, optional
+        Upper bound on adaptive steps.
+
+    Returns
+    -------
+    float
+        Cutoff time, s. Always ``<= t_end``.
+    """
     if not activated:
         return float(t_end)
     t_smax_f = float(t_smax)
