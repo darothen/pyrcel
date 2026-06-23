@@ -11,7 +11,9 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import yaml
 
 import pyrcel as pm
+import pyrcel.output as _output
 import pyrcel.util
+from pyrcel.legacy.parcel import ParcelModel as _LegacyParcelModel
 
 parser = ArgumentParser(description=__doc__, formatter_class=RawDescriptionHelpFormatter)
 parser.add_argument(
@@ -56,7 +58,7 @@ def run_parcel():
     ic = y["initial_conditions"]
     print("Initializing model")
     try:
-        model = pm.ParcelModel(
+        model = _LegacyParcelModel(
             aerosol_modes,
             V=ic["updraft_speed"],
             T0=ic["temperature"],
@@ -98,7 +100,7 @@ def run_parcel():
     out_file = os.path.join(ec["output_dir"], ec["name"]) + ".nc"
     try:
         print(f"Trying to save output to {out_file}")
-        pm.output.write_parcel_output(out_file, parcel=model)
+        _output.write_parcel_output(out_file, parcel=model)
     except (OSError, RuntimeError):
         print(f"Something went wrong saving to {out_file}")
         sys.exit(0)
