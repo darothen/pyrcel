@@ -106,15 +106,10 @@ def test_iterate_runs_not_in_top_level():
         _ = pyrcel.iterate_runs
 
 
-def test_legacy_parcel_model_still_accessible():
-    """Legacy class stays importable from its canonical location."""
-    from pyrcel.legacy.parcel import ParcelModel as LegacyParcelModel
+def test_legacy_numerical_oracles_accessible():
+    """thermo and activation remain importable as cross-check references."""
+    import pyrcel.legacy.activation
+    import pyrcel.legacy.thermo
 
-    assert LegacyParcelModel is not None
-
-
-def test_legacy_driver_still_accessible():
-    from pyrcel.legacy.driver import iterate_runs, run_model
-
-    assert callable(run_model)
-    assert callable(iterate_runs)
+    assert hasattr(pyrcel.legacy.thermo, "Seq")
+    assert hasattr(pyrcel.legacy.activation, "arg2000")

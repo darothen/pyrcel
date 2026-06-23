@@ -5,7 +5,7 @@ A single adaptive ``diffeqsolve`` with a stiff ESDIRK solver (``Kvaerno5``) and 
 cadence comes from ``SaveAt(ts=...)`` via dense interpolation -- no manual
 ``solver_dt`` chunking.
 
-Tolerances mirror the CVode setup in ``pyrcel/legacy/integrator.py``
+Tolerances match the CVode setup from the legacy model
 (``rtol=1e-7`` and a per-component ``atol`` vector). ``Kvaerno5`` is A-/L-stable and
 stiffly accurate, the diffrax analog of CVode's BDF; its default ``VeryChord`` Newton
 root finder inherits these tolerances automatically.

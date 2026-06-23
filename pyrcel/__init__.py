@@ -13,12 +13,10 @@ The stable v2 entry points are:
 * :func:`~pyrcel.ensemble.run_updraft_ensemble`,
   :func:`~pyrcel.ensemble.smax_nact_ensemble`
 
-Legacy (NumPy/numba) implementations are preserved in :mod:`pyrcel.legacy` as a
-cross-check oracle and for callers that have not yet migrated. They are no longer
-exported from this top-level namespace:
-
-* :class:`pyrcel.legacy.parcel.ParcelModel` — legacy CVode/Assimulo model
-* :func:`pyrcel.legacy.driver.run_model`, :func:`pyrcel.legacy.driver.iterate_runs`
+The legacy numerical oracles (NumPy/SciPy) are preserved in :mod:`pyrcel.legacy` for
+cross-checking only — :mod:`pyrcel.legacy.thermo` and :mod:`pyrcel.legacy.activation`
+are the primary reference implementations. The legacy parcel model (CVode/Assimulo)
+has been removed; a v2 CLI is tracked in issue #60.
 """
 
 from importlib.metadata import version as _version
