@@ -194,8 +194,15 @@ def rho_air(T, P, RH=1.0):
 def Seq(r, r_dry, T, kappa):
     """κ-Köhler equilibrium supersaturation over an aerosol particle.
 
-    Faithful to the numba derivative's :func:`Seq`, including the ``kappa > 0``
-    guard (for ``kappa <= 0`` the curvature/solute term ``B`` collapses to 1).
+    Two numerical stability improvements over the naïve formulation:
+
+    1. **Difference-of-cubes**: ``r³ - r_dry³`` is rewritten as
+       ``(r - r_dry)(r² + r·r_dry + r_dry²)`` to avoid catastrophic
+       cancellation when ``r ≈ r_dry`` (near the dry particle limit).
+    2. **Compensated final step**: ``exp(A)·B - 1`` is replaced by
+       ``B·expm1(A) + (B - 1)`` where ``B - 1 = -κ·r_dry³ / denom`` is
+       computed without cancellation, so the result is accurate even when
+       ``A ≪ 1`` (large droplets) and ``B ≈ 1`` (dilute solution).
 
     Parameters
     ----------
@@ -218,11 +225,21 @@ def Seq(r, r_dry, T, kappa):
     pyrcel.legacy.thermo.Seq
     """
     A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r)
-    r3 = r**3
-    rd3 = r_dry**3
-    B_full = (r3 - rd3) / (r3 - rd3 * (1.0 - kappa))
+
+    # r³ - r_dry³ = (r - r_dry)(r² + r·r_dry + r_dry²); accurate near r ≈ r_dry.
+    delta = r - r_dry
+    sum_sq = r**2 + r * r_dry + r_dry**2
+    num = delta * sum_sq  # r³ - r_dry³
+    krd3 = kappa * r_dry**3
+    denom = num + krd3  # r³ - r_dry³·(1 - κ)
+    B_full = num / denom
+    Bm1_full = -krd3 / denom  # B - 1, avoids cancellation when B ≈ 1
+
     B = jnp.where(kappa > 0.0, B_full, 1.0)
-    return jnp.exp(A) * B - 1.0
+    Bm1 = jnp.where(kappa > 0.0, Bm1_full, 0.0)
+
+    # exp(A)·B - 1 = B·expm1(A) + (B - 1); accurate when A ≪ 1.
+    return B * jnp.expm1(A) + Bm1
 
 
 def Seq_approx(r, r_dry, T, kappa):
