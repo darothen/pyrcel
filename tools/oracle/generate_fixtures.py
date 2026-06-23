@@ -107,8 +107,8 @@ def _randomized_states(
 def generate_one(scenario: dict, rng: np.random.Generator) -> dict:
     import pyrcel as pm  # noqa: F401  (ensures package import)
     import pyrcel.constants as c
-    from pyrcel._parcel_aux_numba import parcel_ode_sys
     from pyrcel.activation import binned_activation
+    from pyrcel.legacy.parcel_aux import parcel_ode_sys
 
     name = scenario["name"]
     ic = scenario["initial"]

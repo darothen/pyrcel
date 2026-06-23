@@ -19,8 +19,8 @@ import numpy as np
 import pytest
 from conftest import load_fixture
 
-from pyrcel.integrator_diffrax import max_supersaturation
-from pyrcel.parcel_aux_jax import ParcelVectorField
+from pyrcel.integrator import max_supersaturation
+from pyrcel.parcel_aux import ParcelVectorField
 from pyrcel.updraft import ConstantV
 
 pytestmark = pytest.mark.slow

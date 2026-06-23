@@ -1,6 +1,6 @@
 """Cornerstone test: the JAX RHS must reproduce the frozen numba ``parcel_ode_sys``.
 
-For every scenario we evaluate :func:`pyrcel.parcel_aux_jax.parcel_ode_sys` at the
+For every scenario we evaluate :func:`pyrcel.parcel_aux.parcel_ode_sys` at the
 exact ``(y, args)`` inputs the oracle used and compare against the frozen numba
 ``dy/dt``. This isolates the right-hand side from the ODE solver and catches any
 transcription error immediately — and it runs with **no numba/Assimulo** present.
@@ -25,7 +25,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
-from pyrcel.parcel_aux_jax import parcel_ode_sys, parcel_ode_sys_jit
+from pyrcel.parcel_aux import parcel_ode_sys, parcel_ode_sys_jit
 
 RTOL = 1e-9
 ATOL = 1e-12

@@ -1,7 +1,7 @@
 """JAX implementation of the parcel-model right-hand side (vector field).
 
 This is the v2 counterpart to the numba ``parcel_ode_sys`` in
-``pyrcel/_parcel_aux_numba.py``. The per-bin growth loop (a ``numba.prange`` in the
+``pyrcel/legacy/parcel_aux.py``. The per-bin growth loop (a ``numba.prange`` in the
 original) is expressed here as vectorized array operations, which is both cleaner and
 naturally differentiable/``vmap``-able.
 
@@ -29,7 +29,7 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp  # noqa: E402
 
 from . import constants as c  # noqa: E402
-from .thermo_jax import Seq, dv, es, ka  # noqa: E402
+from .thermo import Seq, dv, es, ka  # noqa: E402
 from .updraft import AbstractUpdraft, as_updraft  # noqa: E402
 
 PI = math.pi
@@ -136,7 +136,7 @@ class ParcelVectorField(eqx.Module):
 
     The instance is callable as ``field(t, y)`` (diffrax ``ODETerm`` convention, with an
     optional ignored ``args``) and exposes :pyattr:`args` to feed the tuple-based
-    integrator helpers in :mod:`pyrcel.integrator_diffrax`.
+    integrator helpers in :mod:`pyrcel.integrator`.
     """
 
     r_drys: jax.Array

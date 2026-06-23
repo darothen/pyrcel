@@ -1,4 +1,4 @@
-"""Equilibration equivalence + property tests for :mod:`pyrcel.equilibrate_jax`.
+"""Equilibration equivalence + property tests for :mod:`pyrcel.equilibrate`.
 
 Design doc §7.2b: the v2 ``optimistix`` equilibration must reproduce ``master``'s
 frozen initial state ``y0`` (the ``scipy.bisect`` result) to a tight tolerance.
@@ -22,12 +22,12 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from pyrcel.equilibrate_jax import (
+from pyrcel.equilibrate import (
     equilibrate_initial_state,
     equilibrate_radii,
     kohler_crit,
 )
-from pyrcel.thermo_jax import Seq
+from pyrcel.thermo import Seq
 
 # Evidence-based tolerances: worst observed radius/wc rel-diff vs master ~1e-14.
 R_RTOL = 1e-10

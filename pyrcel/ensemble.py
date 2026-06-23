@@ -22,8 +22,8 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp  # noqa: E402
 
 from . import constants as c  # noqa: E402
-from .equilibrate_jax import equilibrate_initial_state, kohler_crit_approx  # noqa: E402
-from .integrator_diffrax import STATE_RTOL, _solve_to_smax, atol_vector  # noqa: E402
+from .equilibrate import equilibrate_initial_state, kohler_crit_approx  # noqa: E402
+from .integrator import STATE_RTOL, _solve_to_smax, atol_vector  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
 
 __all__ = ["sample_gaussian_updrafts", "smax_nact_ensemble", "run_updraft_ensemble"]

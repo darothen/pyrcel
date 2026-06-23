@@ -1,11 +1,16 @@
-"""
-Adiabatic Cloud Parcel Model
-----------------------------
+"""pyrcel: 0-D adiabatic cloud parcel model (v2, JAX/diffrax backend).
 
-This module implements a zero-dimensional, constant updraft
-adiabatic cloud parcel model, suitable for studying aerosol effects
-on droplet activation.
+Public API
+----------
+The primary entry points are:
 
+* :class:`~pyrcel.model.ParcelModelJAX` — the v2 parcel model
+* :class:`~pyrcel.aerosol.AerosolSpecies` — aerosol population container
+* :class:`~pyrcel.distributions.Lognorm` — log-normal size distribution
+* :class:`~pyrcel.updraft.ConstantV`, :class:`~pyrcel.updraft.InterpolatedUpdraft`
+
+Legacy (NumPy/numba) implementations are preserved in :mod:`pyrcel.legacy`
+for reference and cross-checking — not for production use.
 """
 
 from importlib.metadata import version as _version
@@ -13,31 +18,23 @@ from importlib.metadata import version as _version
 try:
     __version__ = _version("pyrcel")
 except Exception:
-    # This is a local copy, or a copy that was not installed via setuptools
     __version__ = "local"
 
 __author__ = "Daniel Rothenberg <daniel@danielrothenberg.com>"
 
-# Lightweight modules (NumPy/SciPy only) are imported eagerly.
-from .activation import *
-from .aerosol import *
-from .distributions import *
-from .thermo import *
+from .aerosol import AerosolSpecies
+from .distributions import Lognorm, MultiModeLognorm
+from .updraft import AbstractUpdraft, ConstantV, InterpolatedUpdraft, as_updraft
 
-# The legacy numba/Assimulo-backed entry points (``ParcelModel`` and the driver
-# helpers) are imported lazily. This lets the v2 JAX modules
-# (``pyrcel.thermo_jax``, ``pyrcel.parcel_aux_jax``) and the lightweight utilities
-# above be used without importing numba — a prerequisite for the JAX/diffrax
-# migration, where these legacy backends are being removed entirely.
 _LAZY_ATTRS = {
-    "ParcelModel": "pyrcel.parcel",
-    "run_model": "pyrcel.driver",
-    "iterate_runs": "pyrcel.driver",
-    # v2 JAX/diffrax entry points (lazy so importing pyrcel never forces JAX).
-    "ParcelModelJAX": "pyrcel.model_jax",
+    "ParcelModelJAX": "pyrcel.model",
     "run_updraft_ensemble": "pyrcel.ensemble",
     "smax_nact_ensemble": "pyrcel.ensemble",
     "sample_gaussian_updrafts": "pyrcel.ensemble",
+    # Legacy class kept for the run_parcel CLI and any callers using the old API.
+    "ParcelModel": "pyrcel.legacy.parcel",
+    "run_model": "pyrcel.legacy.driver",
+    "iterate_runs": "pyrcel.legacy.driver",
 }
 
 

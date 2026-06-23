@@ -1,7 +1,7 @@
 """End-to-end high-level model tests (design §7.3 full pipeline; Phase 6).
 
 Unlike ``test_trajectory`` (which seeds the v2 integrator with master's frozen ``y0``),
-these run the *whole* v2 pipeline -- :class:`pyrcel.model_jax.ParcelModelJAX` does its own
+these run the *whole* v2 pipeline -- :class:`pyrcel.model.ParcelModelJAX` does its own
 ``optimistix`` equilibration, the diffrax solve with event termination, and the activation
 diagnostics -- and check the headline numbers against the CVode oracle:
 
@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import scenarios as scn
 
-from pyrcel.model_jax import ParcelModelJAX
+from pyrcel.model import ParcelModelJAX
 from pyrcel.updraft import InterpolatedUpdraft
 
 pytestmark = pytest.mark.slow

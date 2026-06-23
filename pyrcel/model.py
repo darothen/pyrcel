@@ -4,13 +4,13 @@ A thin, user-facing wrapper over the differentiable JAX/diffrax core that mirror
 spirit of the master :class:`pyrcel.parcel.ParcelModel` without numba or Assimulo. It
 ties together the three v2 pieces:
 
-* equilibration of the initial wet radii (:mod:`pyrcel.equilibrate_jax`),
+* equilibration of the initial wet radii (:mod:`pyrcel.equilibrate`),
 * a single adaptive ``diffrax`` solve, with optional event-based ``S_max`` termination
-  (:mod:`pyrcel.integrator_diffrax`), and
+  (:mod:`pyrcel.integrator`), and
 * post-solve activation diagnostics (:func:`pyrcel.activation.binned_activation`).
 
 There are deliberately *two* presentation modes over the same numerical core (design
-§4.7): the functions in :mod:`pyrcel.integrator_diffrax` are the ``jit``/``vmap``/``grad``
+§4.7): the functions in :mod:`pyrcel.integrator` are the ``jit``/``vmap``/``grad``
 core, while this class is the **interactive** layer -- an optional live progress meter and
 a post-solve summary table -- and is intentionally kept out of the differentiable path.
 
@@ -34,8 +34,8 @@ from .console_report import (
     print_termination_narrative,
     print_trajectory_table,
 )
-from .equilibrate_jax import equilibrate_initial_state
-from .integrator_diffrax import (
+from .equilibrate import equilibrate_initial_state
+from .integrator import (
     STATE_RTOL,
     find_smax,
     integrate_parcel,

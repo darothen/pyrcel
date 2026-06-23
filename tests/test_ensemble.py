@@ -16,7 +16,7 @@ from pyrcel.ensemble import (
     sample_gaussian_updrafts,
     smax_nact_ensemble,
 )
-from pyrcel.equilibrate_jax import equilibrate_initial_state
+from pyrcel.equilibrate import equilibrate_initial_state
 
 
 def _simple_arrays():

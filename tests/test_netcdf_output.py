@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import scenarios as scn
 
-from pyrcel.model_jax import ParcelModelJAX
+from pyrcel.model import ParcelModelJAX
 
 
 def _run_simple():
