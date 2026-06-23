@@ -81,8 +81,8 @@ select = ["E", "F", "I", "UP", "NPY"]
 
 [tool.ruff.lint.per-file-ignores]
 # --- legacy files (moving to pyrcel.legacy in #33) ---
-# Violations here will be cleaned up with the module rename; touching them
-# now would bloat this PR with unrelated changes.
+# Violations here will be resolved after the module rename. Any suppression
+# that survives #33 must be explicitly audited and documented — tracked in #51.
 "pyrcel/thermo.py" = ["F403", "F405", "UP031", "E731", "E501"]
 "pyrcel/parcel.py" = ["UP031", "E731", "F841", "E501"]
 "pyrcel/activation.py" = ["UP031", "E731", "F841", "E501"]
