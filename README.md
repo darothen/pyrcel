@@ -36,29 +36,18 @@ Updated code can be found the project [github repository](https://github.com/dar
 Quick Start
 -----------
 
-As of February, 2025, we provide an ultra simple way to run `pyrcel` without any installation
-or setup using [`pixi`](https://pixi.sh/latest/).
-`pixi` is an all-in-one package management tool that makes handling complex environment
-setup and dependencies extremely easy.
+The easiest way to run `pyrcel` is with [`uv`](https://docs.astral.sh/uv/), a fast
+Python package manager.
 
 Clone or download this repo, then **cd** into the top-level folder from a terminal.
 From there, execute:
 
 ``` shell
-$ pixi run run_parcel examples/simple.yml
+$ uv run --extra jax python examples/jax/basic_run.py
 ```
 
-This will automatically prepare an environment with all of `pyrcel`'s dependencies installed,
-and then run an example model setup.
-The first time the model runs, it may take a few second after invoking the script; this is
-normal, and is just a side-effect of `numba` caching and pre-compiling some of the functions
-used to drive the parcel model simulation.
-
-> [!NOTE]
-> We provide `pixi` environments for Linux, MacOS (both Intel and Apple Silicon) and
-> Windows, but we have never tried to run the model on a Windows computer so your mileage
-> may vary. Contact the authors if you have any questions and we can try to support your
-> use case.
+This will automatically create an isolated environment with all of `pyrcel`'s dependencies
+and run the example. The first call compiles JAX kernels; subsequent calls are fast.
 
 Experimental: JAX / diffrax backend (v2)
 ----------------------------------------
@@ -98,33 +87,26 @@ and enabled automatically.
 Installation
 ------------
 
-To get started with using `pyrcel`, complete the following steps:
+Install `pyrcel` with [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`.
 
-1. Set up a new Python environment; we recommend using [mambaforge](https://conda-forge.org/miniforge/):
-  
-``` shell
-  $ mamba create -n pyrcel_quick_start python=3.11
+**From PyPI (recommended):**
+
+```shell
+$ uv pip install "pyrcel[jax]"
 ```
 
-2. Activate the new Python environment and install the model and its dependencies. If you install the published version from PyPi (_recommended_), then you also need to install [Assimulo](http://www.jmodelica.org/assimulo) using the Mamba package manager - but no other manual dependency installation is necessary:
-  
-``` shell
-  $ mamba activate pyrcel_quick_start
-  $ pip install pyrcel
-  $ mamba install -c conda-forge assimulo
+**From source:**
+
+```shell
+$ git clone https://github.com/darothen/pyrcel.git && cd pyrcel
+$ uv sync --extra jax
 ```
 
-3. Run a test simulation using the CLI tool and a sample YAML file from **pyrcel/examples/\*.yml** (you may want to clone the repository or download them locally):
-  
-``` shell
-  $ run_parcel simple.yml
+For GPU support (CUDA 12):
+
+```shell
+$ uv pip install "pyrcel[gpu]"
 ```
-
-* Visualize the output NetCDF (should be in the directory you ran the CLI tool, at **output/simple.nc**)
-
-That's it! You should be able to import `pyrcel` into any script or program running in the
-environment you created.
-
 
 Requirements
 ------------
@@ -132,27 +114,18 @@ Requirements
 **Required**
 
 * Python >= 3.11
-* [numba](http://numba.pydata.org)
 * [NumPy](http://www.numpy.org)
 * [SciPy](http://www.scipy.org)
 * [pandas](http://pandas.pydata.org)
 * [xarray](http://xarray.pydata.org/en/stable/)
 * [PyYAML](http://pyyaml.org/)
 
-Additionally, the following packages are used for better numerics (ODE solving)
+**JAX backend (v2, recommended):**
 
-* [Assimulo](http://www.jmodelica.org/assimulo)
-
-The easiest way to satisfy the basic requirements for building and running the
-model is to use the [Anaconda](http://continuum.io/downloads) scientific Python
-distribution. Alternatively, a
-[miniconda environment](http://conda.pydata.org/docs/using/envs.html) is
-provided to quickly set-up and get running the model. Assimulo's dependency on
-the SUNDIALS library makes it a little bit tougher to install in an automated
-fashion, so it has not been included in the automatic setup provided here; you
-should refer to [Assimulo's documentation](http://www.jmodelica.org/assimulo_home/installation.html)
-for more information on its installation process. Note that many components of
-the model and package can be used without Assimulo.
+* [JAX](https://docs.jax.dev/) >= 0.4.38
+* [diffrax](https://docs.kidger.site/diffrax/) >= 0.6.2
+* [equinox](https://docs.kidger.site/equinox/) >= 0.11.10
+* [optimistix](https://docs.kidger.site/optimistix/) >= 0.0.7
 
 Development
 -----------
