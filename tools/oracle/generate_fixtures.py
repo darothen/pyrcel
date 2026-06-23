@@ -1,9 +1,21 @@
-"""Generate golden reference fixtures from the ``master`` parcel model.
+"""Generate golden reference fixtures from the legacy (CVode) parcel model.
+
+.. warning::
+
+    **This script is a historical artifact and is no longer runnable in the
+    standard v2 development environment.**
+
+    It requires a pre-v2 pyrcel installation with ``numba``, Assimulo/SUNDIALS
+    CVode, *and* ``pyrcel.legacy.parcel`` / ``pyrcel.legacy.parcel_aux`` — all of
+    which were removed in PR #59. The generated ``.npz`` fixtures are already
+    committed to ``tests/fixtures/oracle/`` and the v2 test suite consumes them
+    directly without re-running this script.
+
+    To regenerate fixtures (e.g. for new scenarios), a v2-native oracle script
+    is needed — tracked in issue #60.
 
 This script is the *oracle* half of the v2 validation harness (design doc §7.0).
-It must be run in an environment where the **current** (``master``) model works,
-i.e. with ``numba`` and Assimulo/SUNDIALS ``CVode`` available. For this repo that
-is the ``py311`` pixi environment:
+It was originally run in the ``py311`` pixi environment:
 
     .pixi/envs/py311/bin/python tools/oracle/generate_fixtures.py
 
@@ -20,9 +32,6 @@ For each scenario in ``tests/scenarios.py`` it writes one ``.npz`` into
 
 plus a ``manifest.json`` recording provenance (git commit, package versions,
 solver tolerances) so the fixtures are reproducible and auditable.
-
-The v2 (JAX/diffrax) test suite consumes these frozen fixtures and never needs
-``numba`` or Assimulo at test time.
 """
 
 from __future__ import annotations
@@ -105,17 +114,25 @@ def _randomized_states(
 
 
 def generate_one(scenario: dict, rng: np.random.Generator) -> dict:
-    import pyrcel as pm  # noqa: F401  (ensures package import)
     import pyrcel.constants as c
     from pyrcel.activation import binned_activation
-    from pyrcel.legacy.parcel_aux import parcel_ode_sys
+    from pyrcel.legacy import parcel as _legacy_parcel  # requires pre-v2 env
+
+    # pyrcel.legacy.parcel_aux was removed in PR #59; requires pre-v2 env with numba.
+    try:
+        from pyrcel.legacy.parcel_aux import parcel_ode_sys
+    except ImportError as exc:
+        raise RuntimeError(
+            "pyrcel.legacy.parcel_aux is not available in the v2 environment. "
+            "This oracle script requires a pre-v2 pyrcel installation with numba."
+        ) from exc
 
     name = scenario["name"]
     ic = scenario["initial"]
     run_kw = scenario["run"]
 
     aerosols = scn.build_aerosols(scenario)
-    model = pm.ParcelModel(
+    model = _legacy_parcel.ParcelModel(
         aerosols,
         V=ic["V"],
         T0=ic["T0"],

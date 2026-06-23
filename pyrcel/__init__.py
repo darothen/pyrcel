@@ -2,15 +2,21 @@
 
 Public API
 ----------
-The primary entry points are:
+The stable v2 entry points are:
 
-* :class:`~pyrcel.model.ParcelModelJAX` — the v2 parcel model
+* :class:`~pyrcel.model.ParcelModel` — v2 parcel model (JAX/diffrax, differentiable)
 * :class:`~pyrcel.aerosol.AerosolSpecies` — aerosol population container
-* :class:`~pyrcel.distributions.Lognorm` — log-normal size distribution
-* :class:`~pyrcel.updraft.ConstantV`, :class:`~pyrcel.updraft.InterpolatedUpdraft`
+* :class:`~pyrcel.distributions.Lognorm`, :class:`~pyrcel.distributions.MultiModeLognorm`
+* :class:`~pyrcel.updraft.ConstantV`, :class:`~pyrcel.updraft.InterpolatedUpdraft`,
+  :func:`~pyrcel.updraft.as_updraft`
+* :class:`~pyrcel.activation.ARG2000`, :class:`~pyrcel.activation.ActivationScheme`
+* :func:`~pyrcel.ensemble.run_updraft_ensemble`,
+  :func:`~pyrcel.ensemble.smax_nact_ensemble`
 
-Legacy (NumPy/numba) implementations are preserved in :mod:`pyrcel.legacy`
-for reference and cross-checking — not for production use.
+The legacy numerical oracles (NumPy/SciPy) are preserved in :mod:`pyrcel.legacy` for
+cross-checking only — :mod:`pyrcel.legacy.thermo` and :mod:`pyrcel.legacy.activation`
+are the primary reference implementations. The legacy parcel model (CVode/Assimulo)
+has been removed; a v2 CLI is tracked in issue #60.
 """
 
 from importlib.metadata import version as _version
@@ -27,14 +33,17 @@ from .distributions import Lognorm, MultiModeLognorm
 from .updraft import AbstractUpdraft, ConstantV, InterpolatedUpdraft, as_updraft
 
 _LAZY_ATTRS = {
+    # v2 primary
+    "ParcelModel": "pyrcel.model",
+    # backward-compat alias for ParcelModel
     "ParcelModelJAX": "pyrcel.model",
+    # activation (JAX-heavy; imported lazily)
+    "ARG2000": "pyrcel.activation",
+    "ActivationScheme": "pyrcel.activation",
+    # ensemble utilities
     "run_updraft_ensemble": "pyrcel.ensemble",
     "smax_nact_ensemble": "pyrcel.ensemble",
     "sample_gaussian_updrafts": "pyrcel.ensemble",
-    # Legacy class kept for the run_parcel CLI and any callers using the old API.
-    "ParcelModel": "pyrcel.legacy.parcel",
-    "run_model": "pyrcel.legacy.driver",
-    "iterate_runs": "pyrcel.legacy.driver",
 }
 
 

@@ -64,9 +64,6 @@ packages = ["pyrcel"]
 [tool.setuptools.packages]
 find = {namespaces = false}
 
-[project.scripts]
-run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
-
 [tool.setuptools_scm]
 version_file = "pyrcel/version.py"
 
@@ -85,11 +82,7 @@ select = ["E", "F", "I", "UP", "NPY"]
 # tracked for future cleanup in #51. Any suppression that survives that audit must be
 # explicitly documented.
 "pyrcel/legacy/thermo.py" = ["F403", "F405", "UP031", "E731", "E501"]
-"pyrcel/legacy/parcel.py" = ["UP031", "E731", "F841", "E501"]
 "pyrcel/legacy/activation.py" = ["UP031", "E731", "F841", "E501"]
-"pyrcel/legacy/parcel_aux.py" = ["UP031", "F841", "E501"]
-"pyrcel/legacy/integrator.py" = ["E731", "F841", "UP031", "UP036", "F401", "E501"]
-"pyrcel/legacy/driver.py" = ["UP031", "F841", "E501"]
 "pyrcel/legacy/postprocess.py" = ["UP031", "E731", "F841", "E501"]
 "pyrcel/legacy/vis.py" = ["E731", "F841", "UP031", "E501"]
 # --- public API shims ---
@@ -101,7 +94,6 @@ select = ["E", "F", "I", "UP", "NPY"]
 "pyrcel/aerosol.py" = ["UP031", "E731", "F841", "E501"]
 "pyrcel/distributions.py" = ["UP031", "E501"]
 "pyrcel/output.py" = ["UP031", "E731", "F841", "E501"]
-"pyrcel/scripts/*.py" = ["UP031", "F841", "E501"]
 "pyrcel/test/*.py" = ["F403", "F405", "F401", "UP031", "E501"]
 "pyrcel/constants.py" = ["E501"]
 # --- non-package files ---

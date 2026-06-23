@@ -1,8 +1,7 @@
 """High-level v2 parcel-model interface (design doc §4.7 mode 2, Phase 6).
 
 A thin, user-facing wrapper over the differentiable JAX/diffrax core that mirrors the
-spirit of the legacy :class:`pyrcel.legacy.parcel.ParcelModel` without numba or
-Assimulo. It ties together the three v2 pieces:
+spirit of the legacy parcel model without numba or Assimulo. It ties together the three v2 pieces:
 
 * equilibration of the initial wet radii (:mod:`pyrcel.equilibrate`),
 * a single adaptive ``diffrax`` solve, with optional event-based ``S_max`` termination
