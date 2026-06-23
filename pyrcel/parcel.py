@@ -9,7 +9,9 @@ from scipy.optimize import bisect
 from . import constants as c
 from . import output
 
-# Special import of derivative ODE rhs to main namespace
+# Re-export parcel_ode_sys at module scope so the ImportError fallback inside
+# ParcelModel.run() can do `from .parcel import parcel_ode_sys` if numba fails.
+from ._parcel_aux_numba import parcel_ode_sys  # noqa: F401
 from .aerosol import AerosolSpecies
 from .thermo import Seq, es, kohler_crit, rho_air
 from .util import ParcelModelError
