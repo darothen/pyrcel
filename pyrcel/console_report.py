@@ -1,4 +1,4 @@
-"""Formatted console output for the interactive ``ParcelModelJAX`` layer.
+"""Formatted console output for the interactive :class:`~pyrcel.model.ParcelModel` layer.
 
 Default UX (``console=True``): single adaptive solve, compile/integrate phase banners,
 rich setup and integration-plan tables, a post-hoc trajectory sample, and the activation
@@ -353,7 +353,7 @@ def print_summary(summary: dict) -> None:
     ----------
     summary : dict
         Summary dict as returned by
-        :meth:`~pyrcel.model.ParcelModelJAX._compute_summary`; expected keys
+        :meth:`~pyrcel.model.ParcelModel._compute_summary`; expected keys
         ``S_max``, ``t_smax``, ``T_smax``, ``z_smax``, ``per_species``, and
         ``total_act_frac``.
     """

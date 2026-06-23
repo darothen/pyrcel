@@ -1,8 +1,8 @@
 """High-level v2 parcel-model interface (design doc §4.7 mode 2, Phase 6).
 
 A thin, user-facing wrapper over the differentiable JAX/diffrax core that mirrors the
-spirit of the master :class:`pyrcel.parcel.ParcelModel` without numba or Assimulo. It
-ties together the three v2 pieces:
+spirit of the legacy :class:`pyrcel.legacy.parcel.ParcelModel` without numba or
+Assimulo. It ties together the three v2 pieces:
 
 * equilibration of the initial wet radii (:mod:`pyrcel.equilibrate`),
 * a single adaptive ``diffrax`` solve, with optional event-based ``S_max`` termination
@@ -14,7 +14,7 @@ There are deliberately *two* presentation modes over the same numerical core (de
 core, while this class is the **interactive** layer -- an optional live progress meter and
 a post-solve summary table -- and is intentionally kept out of the differentiable path.
 
-``ParcelModel`` itself is a plain mutable Python class (per the locked decision); only the
+:class:`ParcelModel` is a plain mutable Python class (per the locked decision); only the
 inner vector field / updraft are Equinox modules.
 """
 
@@ -45,10 +45,10 @@ from .integrator import (
 )
 from .updraft import AbstractUpdraft, ConstantV
 
-__all__ = ["ParcelModelJAX"]
+__all__ = ["ParcelModel"]
 
 
-class ParcelModelJAX:
+class ParcelModel:
     """Set up and run a parcel-model simulation on the JAX/diffrax backend.
 
     Parameters
@@ -67,8 +67,8 @@ class ParcelModelJAX:
 
     Notes
     -----
-    Equilibration runs at construction (like ``master``'s ``_setup_run``), so ``y0`` is
-    available immediately as :pyattr:`y0`.
+    Equilibration runs at construction (like the legacy ``_setup_run``), so ``y0`` is
+    available immediately as :attr:`y0`.
     """
 
     def __init__(self, aerosols, V, T0, S0, P0, accom=c.ac, console=False):
@@ -144,7 +144,7 @@ class ParcelModelJAX:
         live=False,
         live_chunk_dt=10.0,
         trajectory_table=None,
-        output_fmt="dataframes",
+        mode="full",
     ):
         """Run the simulation.
 
@@ -156,7 +156,7 @@ class ParcelModelJAX:
         output_dt : float
             Output cadence (s); the trajectory is dense-interpolated to this grid.
         terminate : bool
-            Stop shortly after ``S_max`` (event-based; reproduces ``master``'s behaviour).
+            Stop shortly after ``S_max`` (event-based; reproduces legacy behaviour).
         terminate_depth : float
             Extra depth (m) to integrate past ``S_max`` before stopping.
         max_steps : int
@@ -165,26 +165,28 @@ class ParcelModelJAX:
             Show a live text progress meter during the solve (``False`` by default).
             Mutually exclusive with ``live``.
         live : bool
-            Print a master-style z/T/S table after each integration chunk (``False`` by
+            Print a legacy-style z/T/S table after each integration chunk (``False`` by
             default). Uses an interactive-only Python chunk loop; mutually exclusive
             with ``progress``.
         live_chunk_dt : float
-            Simulation-time length of each live-integration chunk (s). Default ``10``,
-            matching ``master``'s typical ``solver_dt``.
+            Simulation-time length of each live-integration chunk (s). Default ``10``.
         trajectory_table : bool or None
             Print a post-hoc trajectory sample after integration. ``None`` (default)
             follows ``console`` (on when ``console=True``).
-        output_fmt : {'dataframes', 'arrays', 'smax'}
-            * ``'dataframes'`` -- ``(parcel_df, {species: aerosol_df})`` (pandas),
+        mode : {'full', 'arrays', 'smax'}
+            * ``'full'`` -- ``(parcel_df, {species: aerosol_df})`` (pandas DataFrames),
             * ``'arrays'`` -- ``(state_array, heights)``,
-            * ``'smax'`` -- the scalar peak supersaturation.
+            * ``'smax'`` -- the scalar peak supersaturation (primary differentiable path).
+
+            ``'nd'`` (activated droplet number via kinetic-limitation diagnosis) is
+            deferred to a future release.
 
         Returns
         -------
-        Depends on ``output_fmt``; see above.
+        Depends on ``mode``; see above.
         """
-        if output_fmt not in ("dataframes", "arrays", "smax"):
-            raise ValueError(f"invalid output_fmt {output_fmt!r}")
+        if mode not in ("full", "arrays", "smax"):
+            raise ValueError(f"invalid mode {mode!r}")
         if live and progress:
             raise ValueError("live and progress are mutually exclusive")
 
@@ -326,9 +328,9 @@ class ParcelModelJAX:
                 print_trajectory_table(self.time, self.x)
             print_summary(self._summary)
 
-        if output_fmt == "smax":
+        if mode == "smax":
             return float(self._summary["S_max"])
-        if output_fmt == "arrays":
+        if mode == "arrays":
             return self.x, self.heights
         return self._to_dataframes()
 
@@ -524,3 +526,7 @@ class ParcelModelJAX:
             log = __import__("logging").getLogger("pyrcel")
             log.info("Saved output to %s", filename)
         return filename
+
+
+# Backward-compatible alias — prefer ParcelModel.
+ParcelModelJAX = ParcelModel

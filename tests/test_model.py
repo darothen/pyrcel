@@ -1,7 +1,7 @@
 """End-to-end high-level model tests (design §7.3 full pipeline; Phase 6).
 
-Unlike ``test_trajectory`` (which seeds the v2 integrator with master's frozen ``y0``),
-these run the *whole* v2 pipeline -- :class:`pyrcel.model.ParcelModelJAX` does its own
+Unlike ``test_trajectory`` (which seeds the v2 integrator with a frozen ``y0``),
+these run the *whole* v2 pipeline -- :class:`pyrcel.model.ParcelModel` does its own
 ``optimistix`` equilibration, the diffrax solve with event termination, and the activation
 diagnostics -- and check the headline numbers against the CVode oracle:
 
@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import scenarios as scn
 
-from pyrcel.model import ParcelModelJAX
+from pyrcel.model import ParcelModel
 from pyrcel.updraft import InterpolatedUpdraft
 
 pytestmark = pytest.mark.slow
@@ -26,15 +26,15 @@ pytestmark = pytest.mark.slow
 S_MAX_RTOL = 1e-3
 ACT_FRAC_ATOL = 1e-3
 
-_MODEL_CACHE: dict[str, ParcelModelJAX] = {}
+_MODEL_CACHE: dict[str, ParcelModel] = {}
 
 
-def _model(scenario_name: str) -> ParcelModelJAX:
+def _model(scenario_name: str) -> ParcelModel:
     if scenario_name not in _MODEL_CACHE:
         sc = scn.get_scenario(scenario_name)
         ic = sc["initial"]
         run = sc["run"]
-        m = ParcelModelJAX(
+        m = ParcelModel(
             scn.build_aerosols(sc),
             V=ic["V"],
             T0=ic["T0"],
@@ -71,7 +71,7 @@ def test_activated_fraction_matches_oracle(oracle, scenario_name):
 def test_output_formats():
     sc = scn.get_scenario("simple_sulfate")
     ic, run = sc["initial"], sc["run"]
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=ic["V"],
         T0=ic["T0"],
@@ -79,20 +79,20 @@ def test_output_formats():
         P0=ic["P0"],
         accom=ic["accom"],
     )
-    parcel, aerosol = m.run(run["t_end"], run["output_dt"], output_fmt="dataframes")
+    parcel, aerosol = m.run(run["t_end"], run["output_dt"], mode="full")
     assert list(parcel.columns) == ["z", "P", "T", "wv", "wc", "wi", "S"]
     assert set(aerosol) == {"sulfate"}
     assert aerosol["sulfate"].shape[1] == m._nr
 
-    x, heights = m.run(run["t_end"], run["output_dt"], output_fmt="arrays")
+    x, heights = m.run(run["t_end"], run["output_dt"], mode="arrays")
     assert x.shape[0] == heights.shape[0]
     assert x.shape[1] == 7 + m._nr
 
-    smax = m.run(run["t_end"], run["output_dt"], output_fmt="smax")
+    smax = m.run(run["t_end"], run["output_dt"], mode="smax")
     assert isinstance(smax, float) and smax > 0
 
     with pytest.raises(ValueError):
-        m.run(run["t_end"], output_fmt="nonsense")
+        m.run(run["t_end"], mode="nonsense")
 
 
 def test_summary_structure():
@@ -107,7 +107,7 @@ def test_time_varying_updraft_runs():
     sc = scn.get_scenario("simple_sulfate")
     ic = sc["initial"]
     Vt = InterpolatedUpdraft(ts=[0.0, 40.0, 200.0], vs=[0.4, 1.2, 1.2])
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=Vt,
         T0=ic["T0"],
@@ -115,14 +115,14 @@ def test_time_varying_updraft_runs():
         P0=ic["P0"],
         accom=ic["accom"],
     )
-    smax = m.run(150.0, 1.0, terminate=True, terminate_depth=10.0, output_fmt="smax")
+    smax = m.run(150.0, 1.0, terminate=True, terminate_depth=10.0, mode="smax")
     assert np.isfinite(smax) and smax > 0
 
 
 def test_live_and_progress_mutually_exclusive():
     sc = scn.get_scenario("mono")
     ic, run = sc["initial"], sc["run"]
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=ic["V"],
         T0=ic["T0"],
@@ -142,7 +142,7 @@ def test_live_and_progress_mutually_exclusive():
 def test_live_output(capsys):
     sc = scn.get_scenario("mono")
     ic, run = sc["initial"], sc["run"]
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=ic["V"],
         T0=ic["T0"],
@@ -171,7 +171,7 @@ def test_console_output(capsys, caplog):
     caplog.set_level(logging.INFO, logger="pyrcel")
     sc = scn.get_scenario("mono")
     ic, run = sc["initial"], sc["run"]
-    m = ParcelModelJAX(
+    m = ParcelModel(
         scn.build_aerosols(sc),
         V=ic["V"],
         T0=ic["T0"],
@@ -191,3 +191,10 @@ def test_console_output(capsys, caplog):
     assert "total activated fraction" in out
     assert "Compiling S_max event solve" in caplog.text
     assert "Termination:" in caplog.text
+
+
+def test_backward_compat_alias():
+    """ParcelModelJAX must remain importable and be identical to ParcelModel."""
+    from pyrcel.model import ParcelModel, ParcelModelJAX
+
+    assert ParcelModelJAX is ParcelModel
