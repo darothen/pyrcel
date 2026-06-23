@@ -1,0 +1,193 @@
+"""JAX-native Abdul-Razzak & Ghan (2000) activation parameterization.
+
+Reference
+---------
+Abdul-Razzak, H., and S. J. Ghan (2000), A parameterization of aerosol
+activation: 2. Multiple aerosol types, J. Geophys. Res., 105(D5), 6837-6844,
+doi:10.1029/1999JD901161.
+
+Ghan, S. J. et al (2011) Droplet Nucleation: Physically-based Parameterization
+and Comparative Evaluation, J. Adv. Model. Earth Syst., 3,
+doi:10.1029/2011MS000074.
+"""
+
+from __future__ import annotations
+
+import jax
+
+jax.config.update("jax_enable_x64", True)
+
+import jax.numpy as jnp  # noqa: E402
+from jax.scipy.special import erfc  # noqa: E402
+
+from .. import constants as c  # noqa: E402
+from ..thermo import dv, dv_cont, es, ka_cont, sigma_w  # noqa: E402
+
+
+def _kohler_crit_approx(T, r_dry, kappa):
+    """Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
+
+    Returns
+    -------
+    r_crit : float
+        Critical wet radius (m).
+    s_crit : float
+        Critical supersaturation (decimal).
+    """
+    A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
+    r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
+    s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kappa * r_dry**3))
+    return r_crit, s_crit
+
+
+def _lognormal_act(smax, sigma, N, sgi):
+    """Activated fraction of one lognormal mode.
+
+    Parameters
+    ----------
+    smax : float
+        Maximum parcel supersaturation (decimal).
+    sigma : float
+        Geometric standard deviation.
+    N : float
+        Total number concentration (any unit; returned N_act is in the same unit).
+    sgi : float
+        Modal critical supersaturation (decimal).
+
+    Returns
+    -------
+    N_act : float
+        Activated number concentration.
+    act_frac : float
+        Activated fraction (0–1).
+    """
+    ui = 2.0 * jnp.log(sgi / smax) / (3.0 * jnp.sqrt(2.0) * jnp.log(sigma))
+    N_act = 0.5 * N * erfc(ui)
+    return N_act, N_act / N
+
+
+def arg2000(V, T, P, mus, sigmas, Ns, kappas, accom=c.ac):
+    """JAX-native Abdul-Razzak & Ghan (2000) activation parameterization.
+
+    A faithful JAX re-implementation of :func:`pyrcel.legacy.activation.arg2000`.
+    All floating-point operations use :mod:`jax.numpy` so the computation is
+    fully traceable and differentiable via :func:`jax.grad`.
+
+    The non-unity accommodation correction follows Ghan et al. (2011), eq. (40).
+
+    Parameters
+    ----------
+    V : float
+        Updraft speed (m/s).
+    T : float
+        Parcel temperature (K).
+    P : float
+        Parcel pressure (Pa).
+    mus : array-like, shape (n_modes,)
+        Median dry radii of each lognormal mode (μm).
+    sigmas : array-like, shape (n_modes,)
+        Geometric standard deviations (> 1).
+    Ns : array-like, shape (n_modes,)
+        Total number concentrations (cm⁻³).
+    kappas : array-like, shape (n_modes,)
+        Hygroscopicity parameters.
+    accom : float, optional
+        Condensation accommodation coefficient (default :data:`pyrcel.constants.ac`).
+
+    Returns
+    -------
+    smax : float
+        Maximum parcel supersaturation (decimal).
+    N_acts : jnp.ndarray, shape (n_modes,)
+        Activated number concentration per mode (cm⁻³).
+    act_fracs : jnp.ndarray, shape (n_modes,)
+        Activated number fraction per mode.
+
+    See Also
+    --------
+    pyrcel.legacy.activation.arg2000 : NumPy reference implementation.
+    """
+    mus = jnp.asarray(mus, dtype=float)
+    sigmas = jnp.asarray(sigmas, dtype=float)
+    Ns = jnp.asarray(Ns, dtype=float)
+    kappas = jnp.asarray(kappas, dtype=float)
+
+    # Thermodynamic coefficients
+    wv_sat = es(T - 273.15)
+    alpha = (c.g * c.Mw * c.L) / (c.Cp * c.R * T**2) - (c.g * c.Ma) / (c.R * T)
+    gamma = (c.R * T) / (wv_sat * c.Mw) + (c.Mw * c.L**2) / (c.Cp * c.Ma * T * P)
+
+    # Reference condensation growth coefficient G (accom = 1)
+    G_a0 = (c.rho_w * c.R * T) / (wv_sat * dv_cont(T, P) * c.Mw)
+    G_b = (c.L * c.rho_w * (c.L * c.Mw / (c.R * T) - 1.0)) / (ka_cont(T) * T)
+    G_0 = 1.0 / (G_a0 + G_b)
+
+    # Kelvin coefficient (Köhler A)
+    A_koh = (2.0 * sigma_w(T) * c.Mw) / (c.rho_w * c.R * T)
+
+    n_modes = len(mus)
+    Smis = []
+    Sparts = []
+
+    for i in range(n_modes):
+        am = mus[i] * 1e-6  # μm → m
+        sig = sigmas[i]
+        N_si = Ns[i] * 1e6  # cm⁻³ → m⁻³
+        kap = kappas[i]
+
+        r_crit, Smi = _kohler_crit_approx(T, am, kap)
+
+        # Scale G for non-unity accommodation (Ghan et al. 2011, eq. 40)
+        if accom == 1.0:
+            G = G_0
+        else:
+            G_a_ac = (c.rho_w * c.R * T) / (wv_sat * dv(T, r_crit, P, accom) * c.Mw)
+            G_ac = 1.0 / (G_a_ac + G_b)
+            G_a_ac1 = (c.rho_w * c.R * T) / (wv_sat * dv(T, r_crit, P, 1.0) * c.Mw)
+            G_ac1 = 1.0 / (G_a_ac1 + G_b)
+            G = G_0 * G_ac / G_ac1
+
+        fi = 0.5 * jnp.exp(2.5 * jnp.log(sig) ** 2)
+        gi = 1.0 + 0.25 * jnp.log(sig)
+
+        zeta = (2.0 / 3.0) * A_koh * jnp.sqrt(alpha * V / G)
+        etai = (alpha * V / G) ** 1.5 / (N_si * gamma * c.rho_w * 2.0 * jnp.pi)
+
+        Spa = fi * (zeta / etai) ** 1.5
+        Spb = gi * ((Smi**2 / (etai + 3.0 * zeta)) ** 0.75)
+        Sparts.append((1.0 / Smi**2) * (Spa + Spb))
+        Smis.append(Smi)
+
+    smax = 1.0 / jnp.sqrt(jnp.sum(jnp.stack(Sparts)))
+
+    N_acts = []
+    act_fracs = []
+    for i in range(n_modes):
+        N_act, act_frac = _lognormal_act(smax, sigmas[i], Ns[i], Smis[i])
+        N_acts.append(N_act)
+        act_fracs.append(act_frac)
+
+    return smax, jnp.stack(N_acts), jnp.stack(act_fracs)
+
+
+class ARG2000:
+    """Abdul-Razzak & Ghan (2000) activation scheme.
+
+    A thin callable wrapper around :func:`arg2000` that satisfies the
+    :class:`~pyrcel.activation.ActivationScheme` interface.  Instantiate
+    once; call repeatedly.
+
+    Parameters
+    ----------
+    accom : float, optional
+        Condensation accommodation coefficient (forwarded to every call).
+    """
+
+    def __init__(self, accom=c.ac):
+        self.accom = accom
+
+    def __call__(self, V, T, P, mus, sigmas, Ns, kappas, accom=None):
+        return arg2000(V, T, P, mus, sigmas, Ns, kappas, accom=accom or self.accom)
+
+    def __repr__(self):
+        return f"ARG2000(accom={self.accom})"
