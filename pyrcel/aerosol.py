@@ -82,9 +82,7 @@ def _discretize_dist(dist, bins, r_min, r_max, mu_lo, sigma_lo, mu_hi, sigma_hi)
         rs = np.logspace(log_r_min, log_r_max, num=bins + 1)
 
     mids = np.sqrt(rs[:-1] * rs[1:])
-    Nis = np.array(
-        [0.5 * (b - a) * (dist.pdf(a) + dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])]
-    )
+    Nis = np.array([0.5 * (b - a) * (dist.pdf(a) + dist.pdf(b)) for a, b in zip(rs[:-1], rs[1:])])
     r_drys = mids * 1e-6
     return rs, r_drys, Nis
 
@@ -194,9 +192,7 @@ class AerosolSpecies:
 
         elif isinstance(distribution, Lognorm):
             if bins is None:
-                raise ValueError(
-                    "Need to specify `bins` when passing a Lognorm distribution"
-                )
+                raise ValueError("Need to specify `bins` when passing a Lognorm distribution")
             self.rs, self.r_drys, self.Nis = _discretize_dist(
                 distribution,
                 bins,
@@ -225,9 +221,7 @@ class AerosolSpecies:
             )
 
         else:
-            raise ValueError(
-                f"Unsupported distribution type {type(distribution)!r}"
-            )
+            raise ValueError(f"Unsupported distribution type {type(distribution)!r}")
 
         # total_N in cm⁻³ (before unit conversion); Nis converted to m⁻³
         self.total_N = float(np.sum(self.Nis))
@@ -273,7 +267,4 @@ class AerosolSpecies:
         )
 
     def __str__(self):
-        return (
-            f"{self.species}: kappa={self.kappa:.3f}, "
-            f"N={self.total_N:.1f} cm⁻³, nr={self.nr}"
-        )
+        return f"{self.species}: kappa={self.kappa:.3f}, N={self.total_N:.1f} cm⁻³, nr={self.nr}"
