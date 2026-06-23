@@ -9,7 +9,7 @@ authors = [
     { name = "Daniel Rothenberg", email = "daniel@danielrothenberg.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -18,8 +18,6 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: Unix",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -37,6 +35,26 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+# v2 migration (numba/Assimulo -> JAX/diffrax) is staged via optional groups so the
+# transition can proceed without disturbing the current runtime. `diffrax` transitively
+# brings optimistix, equinox, lineax, and jaxtyping; equinox and optimistix are listed
+# explicitly since the v2 code imports them directly. See
+# docs/design/jax-diffrax-migration.md.
+[project.optional-dependencies]
+jax = [
+    "jax>=0.4.38",
+    "diffrax>=0.6.2",
+    "equinox>=0.11.10",
+    "optimistix>=0.0.7",
+]
+test = [
+    "pytest>=7",
+    "hypothesis>=6",
+]
+examples = [
+    "matplotlib>=3.5",
+]
+
 [project.urls]
 Documentation = "https://pyrcel.readthedocs.io/en/latest/"
 Repository = "https://github.com/darothen/pyrcel"
@@ -53,6 +71,14 @@ run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
 [tool.setuptools_scm]
 version_file = "pyrcel/version.py"
 
+[tool.pytest.ini_options]
+markers = [
+    "slow: full JAX/diffrax integration, autodiff, or ensemble solve (skip locally with -m 'not slow')",
+]
+filterwarnings = [
+    "ignore:invalid value encountered in scalar divide:RuntimeWarning:pyrcel.activation",
+]
+
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
@@ -60,12 +86,6 @@ platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 [tool.pixi.dependencies]
 numpy = "<2.2"
 assimulo = "==3.6"
-
-[tool.pixi.feature.py39.dependencies]
-python = "3.9.*"
-
-[tool.pixi.feature.py310.dependencies]
-python = "3.10.*"
 
 [tool.pixi.feature.py311.dependencies]
 python = "3.11.*"
@@ -90,8 +110,6 @@ ci = "run_parcel examples/simple.yml"
 
 [tool.pixi.environments]
 default = ["py311"]
-py39 = ["py39"]
-py310 = ["py310"]
 py311 = ["py311"]
 py312 = ["py312"]
 py313 = ["py313"]
@@ -99,7 +117,15 @@ py314 = { features = ["py314"], no-default-feature = true }
 
 [tool.pixi.pypi-dependencies]
 pyrcel = { path = ".", editable = true }
+pytest = ">=7"
+hypothesis = ">=6"
+jax = ">=0.4.38"
+diffrax = ">=0.6.2"
+equinox = ">=0.11.10"
+optimistix = ">=0.0.7"
 
 [tool.pixi.tasks]
 run_parcel = "run_parcel"
 ci = "run_parcel examples/simple.yml"
+test = "pytest tests"
+test-fast = "pytest tests -m 'not slow'"

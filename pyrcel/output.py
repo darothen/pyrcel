@@ -1,3 +1,5 @@
+"""Utilities for writing parcel model output to disk."""
+
 import os.path
 import pickle
 from datetime import datetime as ddt
@@ -16,8 +18,18 @@ OUTPUT_FORMATS = ["nc", "obj", "csv"]
 
 
 def get_timestamp(fmt="%m%d%y_%H%M%S"):
-    """Get current timestamp in MMDDYY_hhmmss format."""
+    """Return the current timestamp as a formatted string.
 
+    Parameters
+    ----------
+    fmt : str, optional
+        ``strftime`` format string (default ``'%m%d%y_%H%M%S'``).
+
+    Returns
+    -------
+    str
+        Current timestamp formatted according to ``fmt``.
+    """
     current_time = ddt.now()
     timestamp = current_time.strftime("%m%d%y_%H%M%S")
 

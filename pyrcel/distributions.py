@@ -97,11 +97,12 @@ class Lognorm(BaseDistribution):
         Parameters
         ----------
         y : float
-            CDF value, between (0, 1)
+            CDF value, between (0, 1).
 
         Returns
         -------
-        radius (same unit as mu) corresponding to given CDF value
+        float
+            Radius (same unit as ``mu``) corresponding to the given CDF value.
 
         """
 
@@ -115,35 +116,37 @@ class Lognorm(BaseDistribution):
         """Cumulative density function
 
         .. math::
-            \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}(\\frac{\ln(x/\mu)}{\sqrt{2}\ln{\sigma}}) \\right)
+            \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}\\left(\\frac{\\ln(x/\\mu)}{\\sqrt{2}\\ln{\\sigma}}\\right) \\right)
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        cumulative concentration up to radius x
+        float
+            Cumulative concentration up to radius ``x``.
 
         """
         erf_arg = (np.log(x / self.mu)) / (np.sqrt(2.0) * np.log(self.sigma))
         return (self.N / 2.0) * (1.0 + erf(erf_arg))
 
     def pdf(self, x):
-        """Distribution density function dN/dx (not logarithmic)
+        """Distribution density function dN/dx (not logarithmic).
 
         .. math::
-            \\text{pdf} = \\frac{N}{\sqrt{2\pi}\ln(\sigma) x}\exp\\left( -\\frac{\ln^2(x/\mu)}{2\ln^2\sigma} \\right)
+            \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln(\\sigma) x}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        distribution density value at radius x
+        float
+            Distribution density value at radius ``x``.
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * np.log(self.sigma))
@@ -151,19 +154,20 @@ class Lognorm(BaseDistribution):
         return (scaling / x) * np.exp(-exponent)
 
     def pdfloge(self, x):
-        """Distribution density function dN/dln(x) (natural logarithm)
+        """Distribution density function dN/dln(x) (natural logarithm).
 
         .. math::
-            \\text{pdf} = \\frac{N}{\sqrt{2\pi}\ln\sigma}\exp\\left( -\\frac{\ln^2(x/\mu)}{2\ln^2\sigma} \\right)
+            \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        distribution logarithmic density value at radius x
+        float
+            Logarithmic distribution density value at radius ``x``.
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * np.log(self.sigma))
@@ -171,19 +175,20 @@ class Lognorm(BaseDistribution):
         return scaling * np.exp(-exponent)
 
     def pdflog10(self, x):
-        """Distribution density function dN/dlog(x) (base 10 logarithm)
+        """Distribution density function dN/dlog(x) (base 10 logarithm).
 
         .. math::
-            \\text{pdf} = \\frac{N\ln 10}{\sqrt{2\pi}\ln\sigma}\exp\\left( -\\frac{\ln^2(x/\mu)}{2\ln^2\sigma} \\right)
+            \\text{pdf} = \\frac{N\\ln 10}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        distribution logarithmic density value at radius x
+        float
+            Base-10 logarithmic distribution density value at radius ``x``.
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * np.log(self.sigma))
@@ -191,19 +196,20 @@ class Lognorm(BaseDistribution):
         return np.log(10) * scaling * np.exp(-exponent)
 
     def moment(self, k):
-        """Compute the k-th moment of the lognormal distribution
+        """Compute the k-th moment of the lognormal distribution.
 
         .. math::
-            F(k) = N\mu^k\exp\\left( \\frac{k^2}{2} \ln^2 \sigma \\right)
+            F(k) = N\\mu^k\\exp\\left( \\frac{k^2}{2} \\ln^2 \\sigma \\right)
 
         Parameters
         ----------
         k : int
-            Moment to evaluate
+            Moment to evaluate.
 
         Returns
         -------
-        moment of distribution
+        float
+            The k-th moment of the distribution.
 
         """
         scaling = (self.mu**k) * self.N

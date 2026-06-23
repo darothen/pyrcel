@@ -180,8 +180,8 @@ def ka_cont(T):
 
     Parameters
     ----------
-    T :
-        ambient air temperature surrounding droplet, K
+    T : float
+        Ambient air temperature surrounding droplet, K.
 
     Returns
     -------
@@ -495,7 +495,8 @@ def r_eff(rho, wc, Ni):
 
     Returns
     -------
-    Cloud droplet effective radius, m
+    float
+        Cloud droplet effective radius, m.
 
     .. warning::
 

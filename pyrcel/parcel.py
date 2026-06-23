@@ -658,12 +658,15 @@ class ParcelModel(object):
         parcel model output can be saved to disk in batch, even after its
         associated model has been destroyed.
 
-        **Args:
-            * *parcel_data* -- Pandas DataFrame of the parcel thermodynamic profile
-            * *aerosol_data* -- dictionary of pandas DataFrames with the aerosol radii \
-                at each model step
-            * *output_dir* -- String to location where output should be saved; if not \
-                provided then the model will save to the current path.
+        Parameters
+        ----------
+        parcel_data : DataFrame
+            Parcel thermodynamic profile.
+        aerosol_data : dict of DataFrames
+            Aerosol radii histories at each model step, keyed by species name.
+        output_dir : str, optional
+            Directory where output should be saved. Defaults to the current
+            working directory.
 
         """
         if not output_dir:
