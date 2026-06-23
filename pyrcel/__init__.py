@@ -31,6 +31,10 @@ _LAZY_ATTRS = {
     "run_updraft_ensemble": "pyrcel.ensemble",
     "smax_nact_ensemble": "pyrcel.ensemble",
     "sample_gaussian_updrafts": "pyrcel.ensemble",
+    # Legacy class kept for the run_parcel CLI and any callers using the old API.
+    "ParcelModel": "pyrcel.legacy.parcel",
+    "run_model": "pyrcel.legacy.driver",
+    "iterate_runs": "pyrcel.legacy.driver",
 }
 
 
