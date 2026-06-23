@@ -196,6 +196,38 @@ def test_es_positive(T):
 # --- Seq numerical stability tests -----------------------------------------------
 
 
+def test_seq_near_dry_sweep():
+    """Broad r/r_dry sweep from 1.0001 to 1e4, including the near-dry regime.
+
+    Verifies that the refactored Seq agrees with the legacy NumPy form for
+    r/r_dry >= 1.1 (where both implementations are accurate) and that the
+    refactored form stays finite and physically bounded for 1.0001 <= r/r_dry < 1.1
+    (where the naïve r³-r_dry³ loses precision but the factored form does not).
+    """
+    RD_vals = np.array([1e-9, 1e-8, 1e-7])  # 1 nm, 10 nm, 100 nm
+    T_val = 300.0
+    kappa_val = 0.6
+    # Include ratios well inside the near-dry regime (1.0001) through large droplet
+    ratios = np.array([1.0001, 1.001, 1.01, 1.05, 1.1, 1.5, 2.0, 5.0, 10.0, 100.0, 1e4])
+
+    for rd in RD_vals:
+        for f in ratios:
+            r = rd * f
+            seq_jax = float(tj.Seq(jnp.array(r), jnp.array(rd), T_val, kappa_val))
+            assert np.isfinite(seq_jax), f"NaN/Inf at r/r_dry={f}, r_dry={rd}"
+            assert seq_jax > -1.0, f"Seq < -1 at r/r_dry={f}, r_dry={rd}"
+
+            if f >= 1.1:
+                # Far enough from dry: refactored and legacy agree within ~5e-10.
+                seq_legacy = th.Seq(r, rd, T_val, kappa_val)
+                np.testing.assert_allclose(
+                    seq_jax,
+                    seq_legacy,
+                    rtol=5e-10,
+                    err_msg=f"r/r_dry={f}, r_dry={rd}",
+                )
+
+
 def test_seq_kappa_zero():
     """With kappa=0 the solute term vanishes: Seq = exp(A) - 1 = expm1(A)."""
     r = jnp.array(0.1e-6)

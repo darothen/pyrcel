@@ -204,6 +204,10 @@ def Seq(r, r_dry, T, kappa):
        computed without cancellation, so the result is accurate even when
        ``A ≪ 1`` (large droplets) and ``B ≈ 1`` (dilute solution).
 
+    For ``kappa <= 0`` the solute term is suppressed (``B = 1``,
+    ``B - 1 = 0``), so the result reduces to the pure-curvature Kelvin
+    term ``expm1(A)``.
+
     Parameters
     ----------
     r : array or float
@@ -213,7 +217,8 @@ def Seq(r, r_dry, T, kappa):
     T : float
         Ambient temperature, K.
     kappa : array or float
-        Particle hygroscopicity parameter.
+        Particle hygroscopicity parameter.  For ``kappa <= 0`` the solute
+        term is zeroed out and only the Kelvin curvature term remains.
 
     Returns
     -------
