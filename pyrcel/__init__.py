@@ -9,6 +9,9 @@ The stable v2 entry points are:
 * :class:`~pyrcel.distributions.Lognorm`, :class:`~pyrcel.distributions.MultiModeLognorm`
 * :class:`~pyrcel.updraft.ConstantV`, :class:`~pyrcel.updraft.InterpolatedUpdraft`,
   :func:`~pyrcel.updraft.as_updraft`
+* :class:`~pyrcel.model_output.ModelOutput` — structured output returned by
+  ``ParcelModel.run(mode='full')``; exposes ``.to_pandas()``, ``.to_polars()``,
+  ``.to_xarray()``, ``.to_netcdf()``, ``.to_csv()``, ``.to_parquet()``
 * :class:`~pyrcel.activation.ARG2000`, :class:`~pyrcel.activation.ActivationScheme`
 * :func:`~pyrcel.ensemble.run_updraft_ensemble`,
   :func:`~pyrcel.ensemble.smax_nact_ensemble`
@@ -35,6 +38,7 @@ from .updraft import AbstractUpdraft, ConstantV, InterpolatedUpdraft, as_updraft
 _LAZY_ATTRS = {
     # v2 primary
     "ParcelModel": "pyrcel.model",
+    "ModelOutput": "pyrcel.model_output",
     # backward-compat alias for ParcelModel
     "ParcelModelJAX": "pyrcel.model",
     # activation (JAX-heavy; imported lazily)

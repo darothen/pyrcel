@@ -69,6 +69,8 @@ def test_activated_fraction_matches_oracle(oracle, scenario_name):
 
 
 def test_output_formats():
+    from pyrcel.model_output import ModelOutput
+
     sc = scn.get_scenario("simple_sulfate")
     ic, run = sc["initial"], sc["run"]
     m = ParcelModel(
@@ -79,14 +81,15 @@ def test_output_formats():
         P0=ic["P0"],
         accom=ic["accom"],
     )
-    parcel, aerosol = m.run(run["t_end"], run["output_dt"], mode="full")
+    out = m.run(run["t_end"], run["output_dt"], mode="full")
+    assert isinstance(out, ModelOutput)
+    assert out.state.shape == (len(out.time), 7 + m._nr)
+
+    # pandas round-trip
+    parcel, aerosol = out.to_pandas()
     assert list(parcel.columns) == ["z", "P", "T", "wv", "wc", "wi", "S"]
     assert set(aerosol) == {"sulfate"}
     assert aerosol["sulfate"].shape[1] == m._nr
-
-    x, heights = m.run(run["t_end"], run["output_dt"], mode="arrays")
-    assert x.shape[0] == heights.shape[0]
-    assert x.shape[1] == 7 + m._nr
 
     smax = m.run(run["t_end"], run["output_dt"], mode="smax")
     assert isinstance(smax, float) and smax > 0

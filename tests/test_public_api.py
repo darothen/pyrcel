@@ -63,6 +63,13 @@ def test_updraft_classes():
     assert as_updraft is _au
 
 
+def test_model_output_export():
+    import pyrcel
+    from pyrcel.model_output import ModelOutput
+
+    assert pyrcel.ModelOutput is ModelOutput
+
+
 def test_activation_exports():
     import pyrcel
     from pyrcel.activation import ARG2000 as _ARG
