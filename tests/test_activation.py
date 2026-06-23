@@ -220,6 +220,18 @@ def test_arg2000_class_matches_function():
     assert float(smax_cls) == pytest.approx(float(smax_fn), rel=1e-12)
 
 
+def test_arg2000_class_call_time_accom_overrides_instance():
+    """Explicit accom=0.0 at call time must not be swallowed by falsy check."""
+    from pyrcel.activation import ARG2000
+
+    scheme = ARG2000(accom=1.0)
+    V, T, P = 0.5, 283.15, 85000.0
+    smax_default, _, _ = scheme(V, T, P, **SINGLE)
+    smax_override, _, _ = scheme(V, T, P, **SINGLE, accom=0.042)
+    # accom=0.042 reduces effective diffusivity → higher smax
+    assert float(smax_override) != pytest.approx(float(smax_default), rel=1e-4)
+
+
 def test_arg2000_class_repr():
     from pyrcel.activation import ARG2000
 

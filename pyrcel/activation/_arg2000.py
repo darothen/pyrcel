@@ -187,7 +187,9 @@ class ARG2000:
         self.accom = accom
 
     def __call__(self, V, T, P, mus, sigmas, Ns, kappas, accom=None):
-        return arg2000(V, T, P, mus, sigmas, Ns, kappas, accom=accom or self.accom)
+        return arg2000(
+            V, T, P, mus, sigmas, Ns, kappas, accom=self.accom if accom is None else accom
+        )
 
     def __repr__(self):
         return f"ARG2000(accom={self.accom})"
