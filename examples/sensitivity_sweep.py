@@ -1,31 +1,27 @@
 #!/usr/bin/env python
-"""Smax sensitivity sweep: parcel model vs ARG2000 vs MBN2014.
+"""Exact vs numerical ∂Smax/∂V: parcel model, ARG2000, MBN2014.
 
-Computes Smax and its sensitivities ∂Smax/∂V and ∂Smax/∂μ on a dense 2D
-grid of updraft speed V and lognormal median radius μ. Three methods are
-compared:
+For each of three methods, computes ∂Smax/∂V two ways on a 10×10 grid of
+updraft speed V and lognormal median radius μ:
 
-  * Parcel model — exact ODE integration (JAX/diffrax), differentiable via
-    automatic differentiation.
-  * ARG2000 — Abdul-Razzak & Ghan (2000) closed-form parameterization.
-  * MBN2014 — Morales Betancourt & Nenes (2014) parameterization.
+  * Exact adjoint  — jax.grad propagated through the full computation.
+  * Numerical      — central finite differences via numpy.gradient on the
+                     pre-computed Smax grid.
 
-∂Smax/∂V is computed via jax.grad for all three methods.
-∂Smax/∂μ is computed via jax.grad for ARG2000 and MBN2014 (analytical);
-for the parcel model it is approximated by numerical differentiation on
-the grid using numpy.gradient.
+For the parameterizations (ARG2000, MBN2014) both paths are cheap; for the
+parcel model the adjoint is obtained by calling jax.grad at each grid point
+serially, reusing a single JIT-compiled gradient function across all 100
+evaluations.
 
-Results are cached in a compressed .npz file so the expensive parcel
-integrations are not repeated on subsequent calls. Use --recompute to
-force a fresh sweep.
+Results are cached to a compressed .npz file; use --recompute to force a
+fresh sweep.
 
 Usage
 -----
     python examples/sensitivity_sweep.py            # compute, cache, plot
-    python examples/sensitivity_sweep.py --recompute  # force fresh run
-    python examples/sensitivity_sweep.py --no-plot    # skip figure
-    python examples/sensitivity_sweep.py --cache PATH # custom cache
-    python examples/sensitivity_sweep.py --plot PATH  # custom figure path
+    python examples/sensitivity_sweep.py --recompute
+    python examples/sensitivity_sweep.py --no-plot
+    python examples/sensitivity_sweep.py --cache PATH --plot PATH
 """
 
 from __future__ import annotations
@@ -46,8 +42,8 @@ from pyrcel.updraft import ConstantV
 jax.config.update("jax_enable_x64", True)
 
 # ── Grid extents ──────────────────────────────────────────────────────────────
-_V_MIN,  _V_MAX  = 0.1, 3.0    # updraft speed (m/s)
-_MU_MIN, _MU_MAX = 0.02, 0.30  # median dry radius (µm)
+_V_MIN,  _V_MAX  = 0.1, 3.0     # updraft speed (m/s)
+_MU_MIN, _MU_MAX = 0.02, 0.30   # median dry radius (µm)
 
 # ── Fixed aerosol / parcel parameters ────────────────────────────────────────
 _SIGMA = 2.0
@@ -60,21 +56,28 @@ _BINS  = 50
 
 _DEFAULT_CACHE = "output/sensitivity_sweep_cache.npz"
 
+_REQUIRED_KEYS = {
+    "smax_parcel", "dsmax_dV_parcel_exact", "dsmax_dV_parcel_num",
+    "smax_arg",    "dsmax_dV_arg_exact",    "dsmax_dV_arg_num",
+    "smax_mbn",    "dsmax_dV_mbn_exact",    "dsmax_dV_mbn_num",
+    "V_grid", "mu_grid",
+}
+_SCALAR_PARAMS = ("sigma", "N", "kappa", "T0", "P0")
+
 
 def sensitivity_sweep() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--n-V",  type=int,   default=25,                help="grid points along V")
-    p.add_argument("--n-mu", type=int,   default=25,                help="grid points along μ")
+    p.add_argument("--n-V",  type=int,   default=10)
+    p.add_argument("--n-mu", type=int,   default=10)
     p.add_argument("--sigma",  type=float, default=_SIGMA)
-    p.add_argument("--N",      type=float, default=_N,              help="aerosol number (cm⁻³)")
+    p.add_argument("--N",      type=float, default=_N,      help="aerosol number (cm⁻³)")
     p.add_argument("--kappa",  type=float, default=_KAPPA)
     p.add_argument("--T0",     type=float, default=_T0)
     p.add_argument("--P0",     type=float, default=_P0)
-    p.add_argument("--cache",  type=str,   default=_DEFAULT_CACHE,  metavar="PATH")
-    p.add_argument("--recompute", action="store_true",              help="ignore existing cache")
-    p.add_argument("--no-plot",   action="store_true",              help="skip figure generation")
-    p.add_argument("--plot",   type=str,   default=None,            metavar="PATH",
-                   help="figure output path (default: cache stem + .png)")
+    p.add_argument("--cache",  type=str,   default=_DEFAULT_CACHE, metavar="PATH")
+    p.add_argument("--recompute", action="store_true")
+    p.add_argument("--no-plot",   action="store_true")
+    p.add_argument("--plot",   type=str,   default=None, metavar="PATH")
     a = p.parse_args()
 
     V_grid  = np.logspace(np.log10(_V_MIN),  np.log10(_V_MAX),  a.n_V)
@@ -89,7 +92,7 @@ def sensitivity_sweep() -> int:
             print(f"Loaded from cache: {cache_path}")
             data = dict(cached)
         else:
-            print("Cache exists but parameters differ — recomputing.")
+            print("Cache parameters differ — recomputing.")
 
     if data is None:
         data = _compute(V_grid, mu_grid, a)
@@ -104,18 +107,7 @@ def sensitivity_sweep() -> int:
     return 0
 
 
-# ── Cache validation ──────────────────────────────────────────────────────────
-
-_REQUIRED_KEYS = {
-    "smax_parcel", "dsmax_dV_parcel", "dsmax_dmu_parcel",
-    "smax_arg",    "dsmax_dV_arg",    "dsmax_dmu_arg",
-    "smax_mbn",    "dsmax_dV_mbn",    "dsmax_dmu_mbn",
-    "V_grid", "mu_grid",
-}
-_SCALAR_PARAMS = ("sigma", "N", "kappa", "T0", "P0")
-
-
-def _cache_valid(cached: np.lib.npyio.NpzFile, V_grid, mu_grid, a) -> bool:
+def _cache_valid(cached, V_grid, mu_grid, a) -> bool:
     try:
         return (
             _REQUIRED_KEYS.issubset(set(cached.files))
@@ -127,94 +119,76 @@ def _cache_valid(cached: np.lib.npyio.NpzFile, V_grid, mu_grid, a) -> bool:
         return False
 
 
-# ── Computation ───────────────────────────────────────────────────────────────
-
 def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     n_V, n_mu = len(V_grid), len(mu_grid)
     V_jax  = jnp.asarray(V_grid,  dtype=jnp.float64)
     mu_jax = jnp.asarray(mu_grid, dtype=jnp.float64)
 
-    print(f"\nSweep:  {n_V} × {n_mu} grid  "
+    print(f"\nGrid: {n_V} × {n_mu}  "
           f"(V ∈ [{_V_MIN}, {_V_MAX}] m/s,  μ ∈ [{_MU_MIN}, {_MU_MAX}] µm)")
     print(f"Aerosol: N = {a.N:.0f} cm⁻³, σ = {a.sigma}, κ = {a.kappa}\n")
 
-    # ── Analytical parameterizations — vectorised over full grid ──────────────
-    # Helper: double-vmap fn(V_scalar, mu_scalar) → scalar over (n_V, n_mu)
+    # ── ARG2000 and MBN2014 — vectorised over full grid ───────────────────────
+    def _smax_arg(V, mu):
+        s, _, _ = arg2000(V, a.T0, a.P0,
+                          jnp.array([mu]), jnp.array([a.sigma]),
+                          jnp.array([a.N]), jnp.array([a.kappa]))
+        return s
+
+    def _smax_mbn(V, mu):
+        s, _, _ = mbn2014(V, a.T0, a.P0,
+                          jnp.array([mu]), jnp.array([a.sigma]),
+                          jnp.array([a.N]), jnp.array([a.kappa]))
+        return s
+
     def _grid2(fn):
         return jax.jit(
             jax.vmap(jax.vmap(fn, in_axes=(None, 0)), in_axes=(0, None))
         )
 
-    def _grads2(fn):
-        """Grid of (∂fn/∂V, ∂fn/∂μ)."""
-        return _grid2(lambda V, mu: jax.grad(fn, argnums=(0, 1))(V, mu))
+    def _dV_grid2(fn):
+        return _grid2(lambda V, mu: jax.grad(fn, argnums=0)(V, mu))
 
-    def _smax_arg(V, mu):
-        s, _, _ = arg2000(
-            V, a.T0, a.P0,
-            jnp.array([mu]), jnp.array([a.sigma]),
-            jnp.array([a.N]), jnp.array([a.kappa]),
-        )
-        return s
-
-    def _smax_mbn(V, mu):
-        s, _, _ = mbn2014(
-            V, a.T0, a.P0,
-            jnp.array([mu]), jnp.array([a.sigma]),
-            jnp.array([a.N]), jnp.array([a.kappa]),
-        )
-        return s
-
-    print("ARG2000: forward pass … ", end="", flush=True)
+    print("ARG2000 … ", end="", flush=True)
     t0 = time.perf_counter()
-    smax_arg = np.array(_grid2(_smax_arg)(V_jax, mu_jax))
-    print(f"{time.perf_counter()-t0:.1f}s", end="   |   ", flush=True)
-    print("gradients … ", end="", flush=True)
-    t0 = time.perf_counter()
-    dV_a, dmu_a = _grads2(_smax_arg)(V_jax, mu_jax)
-    dsmax_dV_arg, dsmax_dmu_arg = np.array(dV_a), np.array(dmu_a)
+    smax_arg        = np.array(_grid2(_smax_arg)(V_jax, mu_jax))
+    dsmax_dV_arg_ex = np.array(_dV_grid2(_smax_arg)(V_jax, mu_jax))
     print(f"{time.perf_counter()-t0:.1f}s")
 
-    print("MBN2014: forward pass … ", end="", flush=True)
+    print("MBN2014 … ", end="", flush=True)
     t0 = time.perf_counter()
-    smax_mbn = np.array(_grid2(_smax_mbn)(V_jax, mu_jax))
-    print(f"{time.perf_counter()-t0:.1f}s", end="   |   ", flush=True)
-    print("gradients … ", end="", flush=True)
-    t0 = time.perf_counter()
-    dV_m, dmu_m = _grads2(_smax_mbn)(V_jax, mu_jax)
-    dsmax_dV_mbn, dsmax_dmu_mbn = np.array(dV_m), np.array(dmu_m)
+    smax_mbn        = np.array(_grid2(_smax_mbn)(V_jax, mu_jax))
+    dsmax_dV_mbn_ex = np.array(_dV_grid2(_smax_mbn)(V_jax, mu_jax))
     print(f"{time.perf_counter()-t0:.1f}s")
 
-    # ── Parcel model — vmap over V for each μ value ───────────────────────────
-    # t_end generous enough for the slowest updraft to reach S_max
+    dsmax_dV_arg_num = np.gradient(smax_arg, V_grid, axis=0)
+    dsmax_dV_mbn_num = np.gradient(smax_mbn, V_grid, axis=0)
+
+    # ── Parcel model ──────────────────────────────────────────────────────────
+    # Use generous t_end; the event-based solver stops at S_max automatically.
     t_end = 5.0 * 300.0 / _V_MIN
     ts_global = jnp.linspace(0.0, t_end, max(600, int(t_end)))
 
-    # Get accommodation coefficient from a representative model build
-    _aero0 = pm.AerosolSpecies(
-        "sulfate", pm.Lognorm(mu=mu_grid[0], sigma=a.sigma, N=a.N),
-        kappa=a.kappa, bins=_BINS,
-    )
-    _, _, _, accom_const, _ = pm.ParcelModel([_aero0], V=1.0, T0=a.T0, S0=_S0, P0=a.P0).args
+    # accom is a physical constant, same for every model build.
+    from pyrcel import constants as _c
+    _accom = _c.ac
 
-    # JIT-compiled once; shapes are fixed (V: (n_V,), y0: (7+bins,),
-    # r_drys/Nis/kappas: (bins,)) so cache is reused across all μ iterations.
-    @jax.jit
-    def _batch(V_arr, y0, r_drys, Nis, kappas_arr):
-        def smax_fn(V_val):
-            return max_supersaturation(
-                y0,
-                (r_drys, Nis, kappas_arr, accom_const, ConstantV(V_val)),
-                ts_global,
-            )
-        return (
-            jax.vmap(smax_fn)(V_arr),
-            jax.vmap(jax.grad(smax_fn))(V_arr),
+    # Explicit-arg JIT: shapes are fixed across all (V, μ) calls so the kernel
+    # is compiled once on the first call and reused for all 100 evaluations.
+    def _smax_parcel(V_val, y0, r_drys, Nis, kappas_arr):
+        return max_supersaturation(
+            y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts_global
         )
 
-    print(f"\nParcel model: iterating over {n_mu} μ values (vmapped over {n_V} V values each)")
-    smax_parcel    = np.zeros((n_V, n_mu))
-    dsmax_dV_parcel = np.zeros((n_V, n_mu))
+    _fwd  = jax.jit(_smax_parcel)
+    _grad = jax.jit(jax.grad(_smax_parcel, argnums=0))
+
+    smax_parcel        = np.zeros((n_V, n_mu))
+    dsmax_dV_parcel_ex = np.full((n_V, n_mu), np.nan)
+
+    total = n_V * n_mu
+    done  = 0
+    print(f"Parcel model: {total} forward + adjoint evaluations")
 
     for i_mu, mu_val in enumerate(mu_grid):
         aerosol = pm.AerosolSpecies(
@@ -224,48 +198,55 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
             bins=_BINS,
         )
         mdl = pm.ParcelModel([aerosol], V=1.0, T0=a.T0, S0=_S0, P0=a.P0)
-        y0_jax       = jnp.asarray(mdl.y0,      dtype=jnp.float64)
-        r_drys_jax   = jnp.asarray(mdl.args[0], dtype=jnp.float64)
-        Nis_jax      = jnp.asarray(mdl.args[1], dtype=jnp.float64)
-        kappas_jax   = jnp.asarray(mdl.args[2], dtype=jnp.float64)
+        y0_j = jnp.asarray(mdl.y0,      dtype=jnp.float64)
+        rd_j = jnp.asarray(mdl.args[0], dtype=jnp.float64)
+        ni_j = jnp.asarray(mdl.args[1], dtype=jnp.float64)
+        ka_j = jnp.asarray(mdl.args[2], dtype=jnp.float64)
 
-        tag = "cold" if i_mu == 0 else "warm"
-        print(f"  [{i_mu+1:02d}/{n_mu}] μ = {mu_val:.4f} µm ({tag}) … ", end="", flush=True)
-        t0 = time.perf_counter()
+        for i_V, V_val in enumerate(V_grid):
+            V_j = jnp.float64(V_val)
+            cold = done == 0
 
-        smax_row, dsmax_dV_row = jax.block_until_ready(
-            _batch(V_jax, y0_jax, r_drys_jax, Nis_jax, kappas_jax)
-        )
-        print(f"{time.perf_counter()-t0:.1f}s")
+            label = f"  [{done+1:03d}/{total}] V={V_val:.2f} m/s  μ={mu_val:.4f} µm"
+            if cold:
+                label += "  (cold JIT — compiling forward + adjoint …)"
+            print(label, end="", flush=True)
+            t0 = time.perf_counter()
 
-        smax_parcel[:, i_mu]    = np.asarray(smax_row)
-        dsmax_dV_parcel[:, i_mu] = np.asarray(dsmax_dV_row)
+            try:
+                s = float(jax.block_until_ready(_fwd(V_j, y0_j, rd_j, ni_j, ka_j)))
+                g = float(jax.block_until_ready(_grad(V_j, y0_j, rd_j, ni_j, ka_j)))
+            except Exception as exc:
+                print(f"  ✗ ({exc.__class__.__name__})")
+                s, g = np.nan, np.nan
+            else:
+                print(f"  {time.perf_counter()-t0:.1f}s")
 
-    # ∂Smax/∂μ for parcel: numerical differentiation across the μ axis.
-    # numpy.gradient handles non-uniform (log-spaced) grids correctly.
-    dsmax_dmu_parcel = np.gradient(smax_parcel, mu_grid, axis=1)
+            smax_parcel[i_V, i_mu]        = s
+            dsmax_dV_parcel_ex[i_V, i_mu] = g
+            done += 1
+
+    dsmax_dV_parcel_num = np.gradient(smax_parcel, V_grid, axis=0)
 
     return {
         "V_grid":  V_grid,
         "mu_grid": mu_grid,
-        "sigma":   np.float64(a.sigma),
-        "N":       np.float64(a.N),
-        "kappa":   np.float64(a.kappa),
-        "T0":      np.float64(a.T0),
-        "P0":      np.float64(a.P0),
-        "smax_parcel":      smax_parcel,
-        "dsmax_dV_parcel":  dsmax_dV_parcel,
-        "dsmax_dmu_parcel": dsmax_dmu_parcel,
-        "smax_arg":         smax_arg,
-        "dsmax_dV_arg":     dsmax_dV_arg,
-        "dsmax_dmu_arg":    dsmax_dmu_arg,
-        "smax_mbn":         smax_mbn,
-        "dsmax_dV_mbn":     dsmax_dV_mbn,
-        "dsmax_dmu_mbn":    dsmax_dmu_mbn,
+        "sigma":  np.float64(a.sigma),
+        "N":      np.float64(a.N),
+        "kappa":  np.float64(a.kappa),
+        "T0":     np.float64(a.T0),
+        "P0":     np.float64(a.P0),
+        "smax_parcel":          smax_parcel,
+        "dsmax_dV_parcel_exact": dsmax_dV_parcel_ex,
+        "dsmax_dV_parcel_num":   dsmax_dV_parcel_num,
+        "smax_arg":              smax_arg,
+        "dsmax_dV_arg_exact":    dsmax_dV_arg_ex,
+        "dsmax_dV_arg_num":      dsmax_dV_arg_num,
+        "smax_mbn":              smax_mbn,
+        "dsmax_dV_mbn_exact":    dsmax_dV_mbn_ex,
+        "dsmax_dV_mbn_num":      dsmax_dV_mbn_num,
     }
 
-
-# ── Figure ────────────────────────────────────────────────────────────────────
 
 def _plot(data: dict, path: str) -> None:
     try:
@@ -281,61 +262,56 @@ def _plot(data: dict, path: str) -> None:
 
     row_defs = [
         {
-            "label": "$S_{\\mathrm{max}}$ (%)",
-            "keys":  ("smax_parcel",     "smax_arg",     "smax_mbn"),
-            "scale": pct,
-            "cmap":  "viridis",
-            "sym":   False,
+            "label":  "Parcel model",
+            "exact":  data["dsmax_dV_parcel_exact"] * pct,
+            "num":    data["dsmax_dV_parcel_num"]   * pct,
         },
         {
-            "label": r"$\partial S_{\mathrm{max}}/\partial V$" "\n"
-                     r"(% (m s$^{-1}$)$^{-1}$)",
-            "keys":  ("dsmax_dV_parcel",  "dsmax_dV_arg",  "dsmax_dV_mbn"),
-            "scale": pct,
-            "cmap":  "plasma",
-            "sym":   False,
+            "label":  "ARG2000",
+            "exact":  data["dsmax_dV_arg_exact"] * pct,
+            "num":    data["dsmax_dV_arg_num"]   * pct,
         },
         {
-            "label": r"$\partial S_{\mathrm{max}}/\partial \mu$" "\n"
-                     r"(% µm$^{-1}$)",
-            "keys":  ("dsmax_dmu_parcel", "dsmax_dmu_arg", "dsmax_dmu_mbn"),
-            "scale": pct,
-            "cmap":  "RdBu_r",
-            "sym":   True,
+            "label":  "MBN2014",
+            "exact":  data["dsmax_dV_mbn_exact"] * pct,
+            "num":    data["dsmax_dV_mbn_num"]   * pct,
         },
     ]
-    col_titles = ["Parcel model", "ARG2000", "MBN2014"]
+    col_titles = [
+        "Exact adjoint  (jax.grad)",
+        r"Numerical  (np.gradient on grid)",
+    ]
 
-    fig, axes = plt.subplots(3, 3, figsize=(11, 9), squeeze=False)
-    fig.subplots_adjust(hspace=0.35, wspace=0.07)
+    fig, axes = plt.subplots(3, 2, figsize=(9, 9), squeeze=False)
+    fig.subplots_adjust(hspace=0.30, wspace=0.08)
 
     for i_row, rdef in enumerate(row_defs):
-        arrays = [data[k] * rdef["scale"] for k in rdef["keys"]]
-        all_vals = np.concatenate([arr.ravel() for arr in arrays])
-        vmin, vmax = np.nanpercentile(all_vals, [2, 98])
-        if rdef["sym"]:
-            lim = max(abs(vmin), abs(vmax))
-            vmin, vmax = -lim, lim
-        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        exact = rdef["exact"]
+        num   = rdef["num"]
 
-        for i_col, (arr, ctitle) in enumerate(zip(arrays, col_titles)):
+        # Shared colour limits: symmetric around 0, using finite values only
+        all_vals = np.concatenate([exact[np.isfinite(exact)], num[np.isfinite(num)]])
+        lim = np.nanpercentile(np.abs(all_vals), 98)
+        norm = mcolors.Normalize(vmin=0, vmax=lim)
+
+        for i_col, arr in enumerate([exact, num]):
             ax = axes[i_row, i_col]
             im = ax.pcolormesh(
                 V_grid, mu_grid, arr.T,
-                cmap=rdef["cmap"], norm=norm, shading="auto",
+                cmap="plasma", norm=norm, shading="auto",
             )
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.tick_params(labelsize=8)
 
             if i_row == 0:
-                ax.set_title(ctitle, fontsize=11, fontweight="bold", pad=7)
+                ax.set_title(col_titles[i_col], fontsize=10, pad=7)
             if i_row < 2:
                 ax.set_xticklabels([])
             else:
                 ax.set_xlabel("$V$ (m s$^{-1}$)", labelpad=4)
             if i_col == 0:
-                ax.set_ylabel("$\\mu$ (µm)", labelpad=4)
+                ax.set_ylabel(rdef["label"] + "\n$\\mu$ (µm)", labelpad=4)
             else:
                 ax.set_yticklabels([])
 
@@ -346,7 +322,10 @@ def _plot(data: dict, path: str) -> None:
             shrink=0.85,
             pad=0.02,
         )
-        cbar.set_label(rdef["label"], fontsize=9, labelpad=8)
+        cbar.set_label(
+            r"$\partial S_{\mathrm{max}}/\partial V$  (% (m s$^{-1}$)$^{-1}$)",
+            fontsize=9, labelpad=8,
+        )
         cbar.ax.tick_params(labelsize=8)
 
     Path(path).parent.mkdir(parents=True, exist_ok=True)

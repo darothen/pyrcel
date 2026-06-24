@@ -89,6 +89,13 @@ tolerances is the right choice. Two situations where you might deviate:
   is below the cloud base where the ODE is effectively non-stiff. In practice
   the adaptive step-size controller already handles this automatically with
   `Kvaerno5`, so switching solvers is rarely necessary.
+- **Adjoint failure at extreme conditions**: when `jax.grad` is called at
+  very high updraft speeds ($V \gtrsim 2$ m/s) combined with very small median
+  radii ($\mu \lesssim 0.03\,\mu$m), the implicit solver's Newton step
+  Jacobian can become nearly singular, causing the adjoint backward pass to
+  raise `EquinoxRuntimeError: A linear solver returned non-finite output`. See
+  [Adjoint conditioning failures](#adjoint-conditioning-failures) below for
+  diagnosis and workarounds.
 
 ---
 
@@ -255,6 +262,46 @@ is the terminal condition.  Because `parcel_ode_sys` is fully JAX-traceable,
 `diffrax` constructs the Jacobian-vector products $\boldsymbol{\lambda}^\top
 (\partial \mathbf{f}/\partial \mathbf{y})$ with `jax.vjp` automatically —
 no hand-coded adjoint is required.
+
+### Adjoint conditioning failures
+
+At extreme parameter combinations — particularly high updraft speeds
+($V \gtrsim 2$ m/s) paired with very small particles ($\mu \lesssim 0.03\,\mu$m)
+— the parcel ODE develops very rapid dynamics near activation. The implicit
+solver must then take very stiff Newton steps whose Jacobians can be
+nearly singular. `RecursiveCheckpointAdjoint` backpropagates through these
+discrete steps, and the linear solve in the adjoint inherits that
+ill-conditioning, eventually producing NaN or inf and raising:
+
+```
+EquinoxRuntimeError: A linear solver returned non-finite (NaN or inf) output.
+```
+
+This is a numerical issue with the discrete adjoint of a stiff implicit solver,
+not a bug in the model. The forward pass succeeds at the same point; only the
+gradient computation fails.
+
+**Mitigations (roughly in order of invasiveness):**
+
+1. **Tighten forward tolerances**: smaller `rtol`/`atol` force shorter steps,
+   keeping each step's Jacobian better-conditioned. Try `rtol=1e-9` and
+   radius `atol=1e-14`. The adjoint then inherits a smoother trajectory.
+
+2. **Use `BacksolveAdjoint`**: replaces the discrete adjoint with a
+   continuous adjoint ODE solved backwards in time (Pontryagin), which avoids
+   differentiating through the Newton iterations entirely.  More numerically
+   stable in this regime but can accumulate drift relative to the true gradient
+   for very stiff problems.  Pass via `diffeqsolve(... adjoint=BacksolveAdjoint(...))`.
+
+3. **Lower-order implicit solver**: `diffrax.Kvaerno3` or `diffrax.Euler`
+   have simpler per-step Jacobian structure and can improve conditioning at
+   the cost of accuracy.
+
+4. **Numerical fallback**: for parameter-space sweeps where exact gradients at
+   isolated grid points fail, `numpy.gradient` on the pre-computed $S_\text{max}$
+   grid provides a reliable finite-difference approximation. The
+   [Sensitivity Sweep](../examples/sensitivity_sweep.md) example demonstrates
+   this pattern.
 
 ---
 

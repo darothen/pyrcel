@@ -1,15 +1,21 @@
-# Sensitivity Sweep
+# Sensitivity Sweep: Exact vs Numerical ∂Smax/∂V
 
-Maps $S_\text{max}$ and its gradients $\partial S_\text{max}/\partial V$ and
-$\partial S_\text{max}/\partial \mu$ across a dense 2D grid of updraft speed $V$
-and lognormal median radius $\mu$ for a single-mode sulfate aerosol population.
-Three methods are compared side by side:
+Compares the sensitivity of peak supersaturation $\partial S_\text{max}/\partial V$
+computed two ways — via the **exact adjoint (jax.grad)** and via **numerical
+central-difference** approximation — for each of three methods:
 
-| Method | Implementation | Gradients |
+| Method | Implementation | Exact gradient source |
 |--------|---------------|-----------|
-| Parcel model | Full ODE (JAX/diffrax) | $\partial S/\partial V$ via `jax.grad`; $\partial S/\partial \mu$ via `numpy.gradient` on grid |
-| ARG2000 | Closed-form | `jax.grad` (exact) |
-| MBN2014 | Iterative | `jax.grad` (exact) |
+| Parcel model | Full ODE (JAX/diffrax) | `jax.grad` through the integrator (adjoint) |
+| ARG2000 | Closed-form | `jax.grad` (analytical) |
+| MBN2014 | Iterative | `jax.grad` (analytical) |
+
+The numerical gradient is computed identically for all three methods:
+`numpy.gradient` applied to the pre-computed $S_\text{max}$ grid.  Comparing
+the two columns reveals where finite-difference approximation on a coarse grid
+diverges from the true gradient — and highlights why differentiable
+parameterizations are valuable even when a grid-based approximation seems
+sufficient.
 
 **Script:** [`examples/sensitivity_sweep.py`](https://github.com/darothen/pyrcel/blob/master/examples/sensitivity_sweep.py)
 
@@ -22,27 +28,28 @@ python examples/sensitivity_sweep.py --cache PATH --plot PATH
 
 ## Caching
 
-The parcel model sweep (25 × 25 grid × 2 quantities per point) takes several minutes on
-the first run. Results are saved to a compressed `.npz` cache so the figure can be
-regenerated instantly without re-running the integrator:
+The parcel model requires one JIT-compiled forward pass and one adjoint call
+per grid point (100 points on the default 10 × 10 grid). Results are saved to
+a compressed `.npz` cache so the figure can be regenerated without re-running
+the integrator:
 
 ```python
 import numpy as np
 
 data = np.load("output/sensitivity_sweep_cache.npz")
-smax_parcel    = data["smax_parcel"]     # shape (25, 25)
-dsmax_dV_arg   = data["dsmax_dV_arg"]
-dsmax_dmu_mbn  = data["dsmax_dmu_mbn"]
-V_grid         = data["V_grid"]
-mu_grid        = data["mu_grid"]
+smax_parcel            = data["smax_parcel"]            # shape (n_V, n_mu)
+dsmax_dV_parcel_exact  = data["dsmax_dV_parcel_exact"]  # exact adjoint
+dsmax_dV_parcel_num    = data["dsmax_dV_parcel_num"]    # numpy.gradient
+V_grid                 = data["V_grid"]
+mu_grid                = data["mu_grid"]
 ```
 
-The cache is invalidated automatically if the grid dimensions or aerosol parameters
-change between runs.
+The cache is invalidated automatically if the grid dimensions or aerosol
+parameters differ between runs.
 
-## Computing gradients
+## How adjoint and numerical gradients are computed
 
-For the parameterizations, gradients at any $(V, \mu)$ point are exact and cheap:
+For the parameterizations, the exact gradient is a single `jax.grad` call:
 
 ```python
 import jax
@@ -57,51 +64,57 @@ def smax_arg(V, mu):
     )
     return s
 
-# Gradients at a single point
-dS_dV, dS_dmu = jax.grad(smax_arg, argnums=(0, 1))(1.0, 0.05)
-
-# Gradients over a full V × μ grid via double-vmap
-grid_grads = jax.vmap(
-    jax.vmap(jax.grad(smax_arg, argnums=(0, 1)), in_axes=(None, 0)),
-    in_axes=(0, None),
-)(V_grid, mu_grid)
+dS_dV_exact = jax.grad(smax_arg, argnums=0)(1.0, 0.05)
 ```
 
-For the parcel model, $\partial S_\text{max}/\partial V$ is computed the same way,
-replacing `smax_arg` with a wrapper around
-[`max_supersaturation`](../api/integrator.md):
+For the parcel model, the adjoint is computed the same way but the function
+wraps the ODE integrator.  To reuse a single JAX compilation across the full
+grid, all array-valued inputs are passed as explicit arguments (not closed
+over):
 
 ```python
 from pyrcel.integrator import max_supersaturation
-import pyrcel as pm
+from pyrcel.updraft import ConstantV
 
-def smax_parcel(V_val):
-    args = (r_drys, Nis, kappas, accom, pm.ConstantV(V_val))
-    return max_supersaturation(y0, args, ts)
+def smax_parcel(V_val, y0, r_drys, Nis, kappas_arr):
+    return max_supersaturation(
+        y0, (r_drys, Nis, kappas_arr, accom, ConstantV(V_val)), ts
+    )
 
-dS_dV_parcel = jax.grad(smax_parcel)(V_val)
+grad_parcel = jax.jit(jax.grad(smax_parcel, argnums=0))
+dS_dV_exact = grad_parcel(V_val, y0, r_drys, Nis, kappas_arr)
+```
+
+The JIT compilation happens once on the first call; all subsequent grid points
+reuse the compiled kernel.
+
+The numerical approximation is then identical for every method:
+
+```python
+import numpy as np
+
+dsmax_dV_num = np.gradient(smax_grid, V_grid, axis=0)
 ```
 
 ## Output figure
 
-![Smax and sensitivity maps across (V, μ) space](../assets/figures/sensitivity_sweep.png)
+![Exact vs numerical ∂Smax/∂V for parcel model, ARG2000, and MBN2014](../assets/figures/sensitivity_sweep.png)
 
-Each row shows a different quantity; each column a different method. All panels share
-a common colour scale within their row, so differences are directly comparable.
+**Layout:** 3 rows × 2 columns. Each row is one method; the left column shows
+the exact adjoint gradient and the right column shows the numerical
+finite-difference estimate. Colorbars are shared within each row so that
+discrepancies between exact and numerical are immediately visible.
 
-**Row 1 — $S_\text{max}$.**  All three methods predict higher peak supersaturation at
-larger $V$ and smaller $\mu$ (smaller particles are harder to activate, so more
-supersaturation builds before the condensation sink catches up). ARG2000 consistently
-underestimates $S_\text{max}$, most visibly at high $V$ and intermediate $\mu$.
+**Parcel model (row 1).** The adjoint gradient is obtained by backpropagating
+through the full ODE solver — an expensive but exact operation. The numerical
+estimate (right) recovers the same broad pattern from the forward-pass grid
+alone.  Discrepancies are largest near steep gradients at the boundaries of the
+domain, where the 10-point grid is coarsest.
 
-**Row 2 — $\partial S_\text{max}/\partial V$.**  The sensitivity to updraft speed is
-positive everywhere. It peaks at small $\mu$ and large $V$, where the condensation
-sink responds most slowly. ARG2000 and MBN2014 agree well with the parcel model in
-the bulk of the domain; both tend to underestimate the sensitivity at the small-$\mu$,
-high-$V$ corner where non-equilibrium growth is most important.
+**ARG2000 (row 2).** The closed-form parameterization is fully differentiable
+at negligible cost. For this method the exact and numerical gradients agree
+closely across the entire domain, providing a useful sanity check for the
+grid-based approach.
 
-**Row 3 — $\partial S_\text{max}/\partial \mu$.**  The sensitivity to median radius is
-negative: larger particles have a lower critical supersaturation and a larger
-condensation sink, both of which suppress $S_\text{max}$. The sign and spatial
-structure are consistent across all three methods, though the magnitude differs,
-particularly for MBN2014 at low $V$.
+**MBN2014 (row 3).** Similar to ARG2000. Any residual mismatch between columns
+reflects the finite grid spacing rather than errors in either gradient method.
