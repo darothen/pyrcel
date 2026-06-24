@@ -23,6 +23,7 @@ The namelist is a YAML file with three required top-level keys:
         t_end: 9999.0           # maximum integration time (s)
         terminate: true         # stop shortly after S_max (recommended)
         terminate_depth: 10.0   # extra height (m) to integrate past S_max
+        max_steps: 100000       # optional: adaptive-step cap (default 100 000)
 
     initial_aerosol:
         - name: sulfate
@@ -37,14 +38,26 @@ The namelist is a YAML file with three required top-level keys:
         pressure: 85000.0         # Pa
         updraft_speed: 0.44       # m/s
 
+``model_control`` keys recognised by the v2 CLI:
+
+===================  ======================================================
+Key                  Description
+===================  ======================================================
+``t_end``            Maximum integration time (s). **Required.**
+``output_dt``        Output cadence (s). Default: ``1.0``.
+``terminate``        Stop after S_max. Default: ``true``.
+``terminate_depth``  Extra depth (m) past S_max. Default: ``10.0``.
+``max_steps``        Adaptive-step cap. Default: ``100000``.
+``solver_dt``        **Ignored** (legacy CVode chunk size; diffrax is fully
+                     adaptive and does not need this).
+===================  ======================================================
+
 Notes
 -----
 - Only ``lognormal`` distributions are supported; ``distribution_args`` maps to
   :class:`~pyrcel.distributions.Lognorm` keyword arguments (``mu``, ``sigma``, ``N``).
 - ``relative_humidity`` is converted to initial supersaturation via
   ``S0 = RH - 1.0`` (negative for sub-saturated parcels).
-- ``solver_dt`` from the old namelist is silently ignored; the v2 diffrax backend
-  uses an adaptive step controller.
 - Output is written as NetCDF4 via :meth:`~pyrcel.model_output.ModelOutput.to_netcdf`.
 """
 
@@ -135,6 +148,7 @@ def run_parcel() -> None:
         "output_dt": mc.get("output_dt", 1.0),
         "terminate": mc.get("terminate", True),
         "terminate_depth": mc.get("terminate_depth", 10.0),
+        "max_steps": int(mc.get("max_steps", 100_000)),
     }
     output = model.run(**run_kwargs, mode="full")
 
@@ -143,6 +157,7 @@ def run_parcel() -> None:
         out_path = Path(args.output)
         if out_path.suffix != ".nc":
             out_path = out_path.with_suffix(".nc")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
     else:
         ec = cfg["experiment_control"]
         out_dir = Path(ec.get("output_dir", "output"))
