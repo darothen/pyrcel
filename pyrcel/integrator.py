@@ -31,6 +31,7 @@ import optimistix as optx  # noqa: E402
 from jax import Array  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
+from .activation._common import _kohler_crit_approx  # noqa: E402
 from .parcel_aux import N_STATE_VARS, parcel_ode_sys  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
 
@@ -203,6 +204,82 @@ def max_supersaturation(
         atol = atol_vector(nr)
     sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
     return jnp.max(sol.ys[:, 6])
+
+
+def nd_from_parcel(
+    y0: ArrayLike,
+    args: tuple,
+    t_end: float,
+    *,
+    epsilon: float = 1e-8,
+    rtol: float = STATE_RTOL,
+    atol: ArrayLike | None = None,
+    max_steps: int = 100_000,
+) -> Array:
+    """Differentiable activated droplet number concentration via sigmoid soft threshold.
+
+    Integrates the parcel ODE to ``t_end`` and evaluates:
+
+    .. math::
+
+        N_d^{\\text{soft}} = \\sum_i N_i \\cdot \\sigma\\!\\left(
+            \\frac{r_i(t_{\\text{end}}) - r_{\\text{crit},i}}{\\varepsilon}
+        \\right)
+
+    where :math:`\\sigma` is the logistic sigmoid, :math:`r_{\\text{crit},i}` is
+    the approximate Köhler critical radius for bin *i*, and :math:`\\varepsilon`
+    controls the sharpness of the threshold.
+
+    Unlike the hard-threshold :attr:`~pyrcel.model.ParcelModel.Nd` diagnostic, this
+    function is fully differentiable with respect to ``y0`` and ``args`` via
+    ``diffrax``'s default ``RecursiveCheckpointAdjoint``::
+
+        dNd_dV = jax.grad(nd_from_parcel, argnums=1)(y0, args, t_end)[4].V
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``Nis`` must be in m⁻³ (the unit stored on ``AerosolSpecies.Nis``).
+    t_end : float
+        Integration time (s). Should extend past :math:`S_{\\text{max}}` so that
+        kinetically limited droplets have time to grow past their critical radius.
+    epsilon : float, optional
+        Sigmoid half-width (m). Controls the accuracy/smoothness trade-off:
+        smaller ``ε`` is more accurate but has a steeper gradient. Default
+        ``1e-8`` (≈ 10 nm, much smaller than a typical 100 nm critical radius).
+    rtol, atol : float or array, optional
+        Solver tolerances; defaults mirror the CVode-equivalent values.
+    max_steps : int, optional
+        Upper bound on adaptive ODE steps.
+
+    Returns
+    -------
+    Nd_soft : Array
+        Soft activated droplet number concentration (m⁻³) at ``t_end``.
+        In the limit ``ε → 0`` this converges to the hard-threshold count
+        using the approximate Köhler critical radius.
+    """
+    y0 = jnp.asarray(y0)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+
+    ts = jnp.stack([jnp.zeros((), dtype=jnp.float64), jnp.asarray(t_end, dtype=jnp.float64)])
+    sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
+
+    y_final = sol.ys[-1]  # shape (7 + nr,); T is state index 2
+    T_final = y_final[2]
+    rs_final = y_final[N_STATE_VARS:]  # wet radii (m), shape (nr,)
+
+    r_drys = jnp.asarray(args[0])
+    Nis = jnp.asarray(args[1])
+    kappas = jnp.asarray(args[2])
+
+    r_crits, _ = _kohler_crit_approx(T_final, r_drys, kappas)
+    return jnp.sum(Nis * jax.nn.sigmoid((rs_final - r_crits) / epsilon))
 
 
 # --- Event-based S_max termination (design §4.5 option A) -------------------------

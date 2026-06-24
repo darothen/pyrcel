@@ -23,23 +23,7 @@ from jax.typing import ArrayLike  # noqa: E402
 
 from .. import constants as c  # noqa: E402
 from ..thermo import dv, dv_cont, es, ka_cont, sigma_w  # noqa: E402
-from ._common import _lognormal_act  # noqa: E402, F401
-
-
-def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
-    """Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
-
-    Returns
-    -------
-    r_crit : float
-        Critical wet radius (m).
-    s_crit : float
-        Critical supersaturation (decimal).
-    """
-    A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
-    r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
-    s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kappa * r_dry**3))
-    return r_crit, s_crit
+from ._common import _kohler_crit_approx, _lognormal_act  # noqa: E402, F401
 
 
 def arg2000(
