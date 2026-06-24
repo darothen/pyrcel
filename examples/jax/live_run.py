@@ -37,7 +37,7 @@ def main() -> int:
         {"r_drys": [0.1, 0.25, 0.5], "Nis": [500.0, 200.0, 50.0]},
         kappa=1.2,
     )
-    m = pm.ParcelModelJAX(
+    model = pm.ParcelModel(
         [aerosol],
         V=1.0,
         T0=283.15,
@@ -45,7 +45,7 @@ def main() -> int:
         P0=85000.0,
         console=not a.no_console,
     )
-    m.run(
+    model.run(
         100.0,
         output_dt=1.0,
         terminate=True,
