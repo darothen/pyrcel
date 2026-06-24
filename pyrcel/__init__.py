@@ -12,7 +12,8 @@ The stable v2 entry points are:
 * :class:`~pyrcel.model_output.ModelOutput` — structured output returned by
   ``ParcelModel.run(mode='full')``; exposes ``.to_pandas()``, ``.to_polars()``,
   ``.to_xarray()``, ``.to_netcdf()``, ``.to_csv()``, ``.to_parquet()``
-* :class:`~pyrcel.activation.ARG2000`, :class:`~pyrcel.activation.ActivationScheme`
+* :class:`~pyrcel.activation.ARG2000`, :class:`~pyrcel.activation.MBN2014`,
+  :class:`~pyrcel.activation.ActivationScheme`
 * :func:`~pyrcel.ensemble.run_updraft_ensemble`,
   :func:`~pyrcel.ensemble.smax_nact_ensemble`
 
@@ -43,6 +44,7 @@ _LAZY_ATTRS = {
     "ParcelModelJAX": "pyrcel.model",
     # activation (JAX-heavy; imported lazily)
     "ARG2000": "pyrcel.activation",
+    "MBN2014": "pyrcel.activation",
     "ActivationScheme": "pyrcel.activation",
     # ensemble utilities
     "run_updraft_ensemble": "pyrcel.ensemble",
