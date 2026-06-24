@@ -120,7 +120,7 @@ def kohler_crit(
     kohler_crit_approx : Analytic approximation.
     pyrcel.legacy.thermo.kohler_crit : NumPy equivalent using ``scipy.optimize.fminbound``.
     """
-    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)
+    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
 
     def dseq_dr(r, args):
         rd, kap = args
@@ -169,7 +169,7 @@ def equilibrate_radii(
     """
     r_drys = jnp.asarray(r_drys)
     kappas = jnp.asarray(kappas)
-    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)
+    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
 
     def residual(r, args):
         r_dry, kappa = args

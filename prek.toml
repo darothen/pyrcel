@@ -20,10 +20,10 @@ repo = "local"
   types = ["python"]
 
   [[repos.hooks]]
-  id = "pyright"
-  name = "pyright"
+  id = "pyrefly"
+  name = "pyrefly"
   language = "system"
-  entry = "uv run --extra test pyright"
+  entry = "uv run --extra test pyrefly check"
   pass_filenames = false
 
 [[repos]]

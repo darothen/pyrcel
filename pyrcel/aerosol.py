@@ -191,7 +191,7 @@ class AerosolSpecies:
                     rs.append(r**2.0 / rs[-1])
                 self.rs = np.array(rs) * 1e6
             else:
-                self.rs = None  # monodisperse; no bin edges needed
+                self.rs = None  # pyrefly: ignore[bad-assignment]  # monodisperse; no bin edges needed
 
             self.Nis = np.array(distribution["Nis"])
 
