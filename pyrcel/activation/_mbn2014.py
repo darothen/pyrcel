@@ -438,7 +438,7 @@ def mbn2014(
     V = jnp.asarray(V, dtype=float)
     T = jnp.asarray(T, dtype=float)
     P = jnp.asarray(P, dtype=float)
-    accom = jnp.asarray(accom, dtype=float)
+    accom = jnp.asarray(accom, dtype=float)  # pyrefly: ignore[bad-assignment]
 
     mus_m = mus * 1e-6  # μm → m
     Ns_m = Ns * 1e6  # cm⁻³ → m⁻³
