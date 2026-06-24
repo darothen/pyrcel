@@ -41,7 +41,13 @@ def sigma_w(T: ArrayLike) -> Array:
     Returns
     -------
     float
-        Surface tension, J/m^2.
+        Surface tension, J/m².
+
+    Notes
+    -----
+    Linear fit to experimental data:
+
+    $$\sigma_w(T) = 0.0761 - 1.55 \times 10^{-4}(T - 273.15)$$
 
     See Also
     --------
@@ -63,7 +69,14 @@ def dv_cont(T: ArrayLike, P: ArrayLike) -> Array:
     Returns
     -------
     float
-        Water vapor diffusivity, m^2/s.
+        Water vapor diffusivity, m²/s.
+
+    Notes
+    -----
+    $$D_v(T, P) = 10^{-4} \cdot \frac{0.211}{P_\mathrm{atm}}
+      \left(\frac{T}{273}\right)^{1.94}$$
+
+    where $P_\mathrm{atm}$ is pressure in atmospheres.
 
     See Also
     --------
@@ -90,7 +103,14 @@ def dv(T: ArrayLike, r: ArrayLike, P: ArrayLike, accom: ArrayLike = c.ac) -> Arr
     Returns
     -------
     array or float
-        Non-continuum-corrected water vapor diffusivity, m^2/s.
+        Non-continuum-corrected water vapor diffusivity, m²/s.
+
+    Notes
+    -----
+    $$D_v'(T, r, P) = \frac{D_v(T,P)}{1 + \dfrac{D_v(T,P)}{\alpha_c\, r}
+      \sqrt{\dfrac{2\pi M_w}{R T}}}$$
+
+    where $\alpha_c$ is the condensation (accommodation) coefficient.
 
     See Also
     --------
@@ -107,12 +127,18 @@ def es(T_c: ArrayLike) -> Array:
     Parameters
     ----------
     T_c : float
-        Ambient temperature, degrees C.
+        Ambient temperature, °C.
 
     Returns
     -------
     float
         Saturation vapor pressure, Pa.
+
+    Notes
+    -----
+    Magnus formula:
+
+    $$e_s(T_c) = 611.2 \exp\!\left(\frac{17.67\, T_c}{T_c + 243.5}\right)$$
 
     See Also
     --------
@@ -132,7 +158,11 @@ def ka_cont(T: ArrayLike) -> Array:
     Returns
     -------
     float
-        Thermal conductivity, J/m/s/K.
+        Thermal conductivity, J m⁻¹ s⁻¹ K⁻¹.
+
+    Notes
+    -----
+    $$k_a(T) = 10^{-3}(4.39 + 0.071\, T)$$
 
     See Also
     --------
@@ -149,14 +179,21 @@ def ka(T: ArrayLike, rho: ArrayLike, r: ArrayLike) -> Array:
     T : float
         Ambient temperature, K.
     rho : float
-        Ambient air density, kg/m^3.
+        Ambient air density, kg/m³.
     r : array or float
         Droplet/particle radius, m.
 
     Returns
     -------
     array or float
-        Non-continuum-corrected thermal conductivity, J/m/s/K.
+        Non-continuum-corrected thermal conductivity, J m⁻¹ s⁻¹ K⁻¹.
+
+    Notes
+    -----
+    $$k_a'(T, \rho, r) = \frac{k_a(T)}{1 + \dfrac{k_a(T)}{\alpha_t\, r\, \rho\, C_p}
+      \sqrt{\dfrac{2\pi M_a}{R T}}}$$
+
+    where $\alpha_t$ is the thermal accommodation coefficient.
 
     See Also
     --------
@@ -182,7 +219,17 @@ def rho_air(T: ArrayLike, P: ArrayLike, RH: ArrayLike = 1.0) -> Array:
     Returns
     -------
     float
-        Air density, kg/m^3.
+        Air density, kg/m³.
+
+    Notes
+    -----
+    Uses the virtual temperature $T_v = T(1 + 0.61\, q_\mathrm{sat})$ with
+
+    $$q_\mathrm{sat} = \mathrm{RH} \cdot 0.622 \cdot \frac{e_s(T)}{P}$$
+
+    so that
+
+    $$\rho = \frac{P}{R_d\, T_v}$$
 
     See Also
     --------
@@ -225,7 +272,18 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
     Returns
     -------
     array or float
-        Equilibrium supersaturation :math:`S_{eq}`.
+        Equilibrium supersaturation $S_\mathrm{eq}$.
+
+    Notes
+    -----
+    The full κ-Köhler equation [Petters2007]_:
+
+    $$S_\mathrm{eq}(r) = \exp\!\left(\frac{A}{r}\right)
+      \frac{r^3 - r_d^3}{r^3 - r_d^3(1 - \kappa)} - 1$$
+
+    where the Kelvin parameter is
+
+    $$A = \frac{2 M_w \sigma_w(T)}{R T \rho_w}$$
 
     See Also
     --------
@@ -267,6 +325,15 @@ def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -
     -------
     array or float
         Approximate equilibrium supersaturation.
+
+    Notes
+    -----
+    First-order expansion of :func:`Seq` valid when $A/r \ll 1$ and
+    $\kappa r_d^3 / r^3 \ll 1$:
+
+    $$S_\mathrm{eq}(r) \approx \frac{A}{r} - \kappa \frac{r_d^3}{r^3}$$
+
+    Used for the critical-radius approximation in :mod:`pyrcel.equilibrate`.
 
     See Also
     --------
