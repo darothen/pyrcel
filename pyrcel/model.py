@@ -218,23 +218,24 @@ class ParcelModel:
         trajectory_table : bool or None
             Print a post-hoc trajectory sample after integration. ``None`` (default)
             follows ``console`` (on when ``console=True``).
-        mode : {'full', 'smax'}
+        mode : {'full', 'smax', 'nd'}
             * ``'full'`` -- :class:`~pyrcel.model_output.ModelOutput` containing the
               full trajectory; call ``.to_pandas()``, ``.to_polars()``,
               ``.to_xarray()``, ``.to_netcdf()``, ``.to_csv()``, or
               ``.to_parquet()`` on the result.
             * ``'smax'`` -- the scalar peak supersaturation (primary differentiable
               path; no trajectory stored).
-
-            ``'nd'`` (activated droplet number via kinetic-limitation diagnosis) is
-            deferred to a future release.
+            * ``'nd'`` -- total activated droplet number concentration (cm⁻³),
+              evaluated at the last trajectory step via a hard radius threshold.
+              Uses the same integration as ``'full'``; only the return value differs.
+              For a differentiable analog see issue #67.
 
         Returns
         -------
         :class:`~pyrcel.model_output.ModelOutput` or float
             ``ModelOutput`` for ``mode='full'``; ``float`` for ``mode='smax'``.
         """
-        if mode not in ("full", "smax"):
+        if mode not in ("full", "smax", "nd"):
             raise ValueError(f"invalid mode {mode!r}")
         if live and progress:
             raise ValueError("live and progress are mutually exclusive")
@@ -383,6 +384,8 @@ class ParcelModel:
 
             if mode == "smax":
                 return float(self._summary["S_max"])
+            if mode == "nd":
+                return float(self._summary["total_Nd"])
             return ModelOutput(
                 time=self.time,
                 state=self.x,
@@ -411,17 +414,27 @@ class ParcelModel:
             S_max = float(S[si])
             t_smax = float(self.time[si])
         T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
-        rs = self.x[si, c.N_STATE_VARS :]
+        rs_smax = self.x[si, c.N_STATE_VARS :]
+
+        # Nd snapshot: wet radii at the last trajectory step (terminate_depth m past
+        # S_max when terminate=True), compared against per-bin critical radii.
+        i_nd = len(self.time) - 1
+        T_nd = float(self.x[i_nd, c.STATE_VAR_MAP["T"]])
+        rs_nd = self.x[i_nd, c.N_STATE_VARS :]
+        nd_t_eval = float(self.time[i_nd])
 
         per_species = []
         total_N = 0.0
         total_act = 0.0
+        total_Nd = 0.0
         offset = 0
         for aer in self.aerosols:
             nr = aer.nr
-            eq, kn, _, _ = binned_activation(S_max, T_smax, rs[offset : offset + nr], aer)
+            eq, kn, _, _ = binned_activation(S_max, T_smax, rs_smax[offset : offset + nr], aer)
+            _, nd_frac, _, _ = binned_activation(S_max, T_nd, rs_nd[offset : offset + nr], aer)
             offset += nr
             N = float(np.sum(aer.Nis))
+            Nd_mode = float(nd_frac) * N
             per_species.append(
                 {
                     "species": aer.species,
@@ -429,10 +442,13 @@ class ParcelModel:
                     "kn_act_frac": float(kn),
                     "N": N,
                     "N_act": float(eq) * N,
+                    "nd_frac": float(nd_frac),
+                    "Nd": Nd_mode,
                 }
             )
             total_N += N
             total_act += float(eq) * N
+            total_Nd += Nd_mode
 
         return {
             "S_max": S_max,
@@ -441,6 +457,9 @@ class ParcelModel:
             "z_smax": float(self.x[si, c.STATE_VAR_MAP["z"]]),
             "per_species": per_species,
             "total_act_frac": (total_act / total_N) if total_N > 0 else float("nan"),
+            "total_Nd": total_Nd,
+            "total_nd_frac": (total_Nd / total_N) if total_N > 0 else float("nan"),
+            "nd_t_eval": nd_t_eval,
         }
 
     def summary(self) -> dict:
