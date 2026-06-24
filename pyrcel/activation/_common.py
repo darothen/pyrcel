@@ -11,6 +11,9 @@ from jax import Array  # noqa: E402
 from jax.scipy.special import erfc  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
+from .. import constants as c  # noqa: E402
+from ..thermo import sigma_w  # noqa: E402
+
 
 def _lognormal_act(
     smax: ArrayLike, sigma: ArrayLike, N: ArrayLike, sgi: ArrayLike
@@ -38,3 +41,21 @@ def _lognormal_act(
     ui = 2.0 * jnp.log(sgi / smax) / (3.0 * jnp.sqrt(2.0) * jnp.log(sigma))
     N_act = 0.5 * N * erfc(ui)
     return N_act, N_act / N
+
+
+def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
+    """Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
+
+    Vectorises over ``r_dry`` / ``kappa`` for scalar ``T``.
+
+    Returns
+    -------
+    r_crit : Array
+        Critical wet radius (m).
+    s_crit : Array
+        Critical supersaturation (decimal).
+    """
+    A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
+    r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
+    s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kappa * r_dry**3))
+    return r_crit, s_crit
