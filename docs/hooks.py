@@ -50,7 +50,7 @@ SCRIPTS: list[dict] = [
     {
         "name": "differentiable_smax",
         "script": "examples/differentiable_smax.py",
-        "extra_args": [],
+        "extra_args": ["--plot", str(ASSETS_FIGURES / "differentiable_smax.png")],
     },
     {
         "name": "activation_comparison",

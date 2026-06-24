@@ -57,6 +57,7 @@ def differentiable_smax() -> int:
     p.add_argument("--bins", type=int, default=100, help="number of size bins")
     p.add_argument("--t-end", type=float, default=300.0, help="integration time horizon (s)")
     p.add_argument("--n-out", type=int, default=600, help="number of output time points")
+    p.add_argument("--plot", type=str, default=None, metavar="PATH", help="save sensitivity figure to PATH")
     a = p.parse_args()
 
     # ------------------------------------------------------------------
@@ -167,7 +168,55 @@ def differentiable_smax() -> int:
     print(f"  FD (±{dV:.4f} m/s): {dsmax_dV_fd:.6e} /m/s")
     print(f"  Relative error: {rel_err:.2e}  {'✓' if rel_err < 0.01 else '✗'}")
 
+    if a.plot:
+        _plot_sensitivities(
+            smax_base=smax_base,
+            params={"V (m/s)": (dsmax_dV, a.V), "N (cm⁻³)": (dsmax_dN, a.N), "κ": (dsmax_dkappa, a.kappa)},
+            path=a.plot,
+        )
+
     return 0
+
+
+def _plot_sensitivities(smax_base: float, params: dict, path: str) -> None:
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib not available; skipping plot")
+        return
+    from pathlib import Path
+
+    # Normalised sensitivity (elasticity): (∂S/∂θ)·θ / S — unitless,
+    # interpretable as "% change in S_max per 1% change in θ"
+    labels = list(params)
+    elasticities = [(grad * base / smax_base) for grad, base in params.values()]
+
+    colors = ["#2A9D8F" if e >= 0 else "#E76F51" for e in elasticities]
+
+    fig, ax = plt.subplots(figsize=(6, 3))
+    bars = ax.barh(labels, elasticities, color=colors, height=0.5)
+
+    ax.axvline(0, color="0.3", linewidth=0.8)
+    x_range = max(abs(e) for e in elasticities)
+    pad = x_range * 0.04
+    for bar, val in zip(bars, elasticities):
+        if val >= 0:
+            ax.text(val + pad, bar.get_y() + bar.get_height() / 2,
+                    f"{val:+.3f}", va="center", ha="left", fontsize=9)
+        else:
+            # place inside the bar, near its right edge (close to zero)
+            ax.text(-pad, bar.get_y() + bar.get_height() / 2,
+                    f"{val:+.3f}", va="center", ha="right", fontsize=9)
+
+    ax.set_xlabel(r"Elasticity  $(\partial S_\mathrm{max}/\partial\theta)\cdot\theta\,/\,S_\mathrm{max}$")
+    ax.set_title(r"$S_\mathrm{max}$ sensitivity  (% change per 1% change in parameter)")
+    ax.tick_params(labelsize=9)
+    fig.tight_layout()
+
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    print(f"Saved figure to {path}")
+    plt.close(fig)
 
 
 if __name__ == "__main__":
