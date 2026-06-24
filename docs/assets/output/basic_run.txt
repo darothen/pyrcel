@@ -1,0 +1,22 @@
+pyrcel v2 — basic run
+─────────────────────────────────────────────────────────────────
+ Initial conditions
+   T₀  =  283.15 K    P₀  =  85000 Pa    S₀  =  -0.0200
+   V   =  1.00 m/s    accom = 1.00
+
+ Aerosol population
+   sulfate  N=1000.0 cm⁻³  μ=0.050 μm  σ=2.00  κ=0.54  bins=100
+
+ Integration  t_end=300 s  output_dt=1 s  terminate=True  depth=10 m
+─────────────────────────────────────────────────────────────────
+ Activation summary
+   S_max         =  0.4823 %
+   t(S_max)      =  93.4 s
+   z(S_max)      =  93.4 m
+   N_act         =  6.23e+08 m⁻³
+   act_frac      =  0.623
+
+ Per-species
+   sulfate  eq_act=0.621  nd_frac=0.623  Nd=6.23e+08 m⁻³
+─────────────────────────────────────────────────────────────────
+Wrote output/jax_basic_run.nc

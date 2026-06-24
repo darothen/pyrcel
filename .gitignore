@@ -39,8 +39,8 @@ parcel_model.egg-info
 .idea/*
 *.dat
 *.DS_Store
-# demo / CLI run artifacts
-output/
+# demo / CLI run artifacts (root-level only; does not affect docs/assets/output/)
+/output/
 # pixi environments
 .pixi
 # local virtualenvs (v2 dev env)

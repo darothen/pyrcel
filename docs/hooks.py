@@ -39,6 +39,19 @@ SCRIPTS: list[dict] = [
         "script": "examples/differentiable_smax.py",
         "extra_args": [],
     },
+    {
+        "name": "activation_comparison",
+        "script": "examples/activation_comparison.py",
+        "extra_args": ["--plot", str(ASSETS_FIGURES / "activation_comparison.png")],
+    },
+    # The sensitivity sweep is expensive (~5 min cold).  It writes a cache to
+    # output/sensitivity_sweep_cache.npz and reuses it on subsequent builds if
+    # the grid parameters match.
+    {
+        "name": "sensitivity_sweep",
+        "script": "examples/sensitivity_sweep.py",
+        "extra_args": ["--plot", str(ASSETS_FIGURES / "sensitivity_sweep.png")],
+    },
 ]
 
 

@@ -97,6 +97,8 @@ nav:
     - Live Integration: examples/live_run.md
     - Updraft Ensemble: examples/updraft_ensemble.md
     - Sensitivity Analysis: examples/differentiable_smax.md
+    - Activation Comparison: examples/activation_comparison.md
+    - Sensitivity Sweep: examples/sensitivity_sweep.md
   - API Reference:
     - Core:
       - ParcelModel: api/model.md

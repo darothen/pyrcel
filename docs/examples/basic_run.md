@@ -36,14 +36,19 @@ out = model.run(t_end=300.0, output_dt=1.0)
 --8<-- "docs/assets/output/basic_run.txt"
 ```
 
-## Supersaturation and temperature profile
+## Output figure
 
-![Supersaturation and temperature vs. height](../assets/figures/basic_run.png)
+![Parcel trajectory and aerosol size evolution](../assets/figures/basic_run.png)
 
-The figure shows the supersaturation $S$ (left axis) and temperature $T$ (right axis)
-as functions of altitude. The supersaturation rises rapidly after cloud base as the
-parcel lifts, reaches a peak at $S_\text{max}$, then falls as condensation depletes
-water vapor faster than adiabatic cooling can generate it.
+**Left panel** — supersaturation $S$ (blue, bottom axis) and temperature $T$ (red, top
+axis) as functions of height. The supersaturation rises as the parcel lifts, peaks at
+$S_\text{max}$ (dashed gold line), then falls as condensation depletes water vapor faster
+than adiabatic cooling can generate it.
+
+**Right panel** — size evolution of a sub-sample of aerosol bins from both modes.
+Bold solid traces are activated droplets ($s_\text{crit} < S_\text{max}$); dashed traces
+remain as haze. The kink in each activated trace marks the moment the droplet crosses its
+Köhler critical radius and begins growing freely.
 
 ## Saving output
 

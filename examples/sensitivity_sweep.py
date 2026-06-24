@@ -47,7 +47,7 @@ jax.config.update("jax_enable_x64", True)
 
 # ── Grid extents ──────────────────────────────────────────────────────────────
 _V_MIN,  _V_MAX  = 0.1, 3.0    # updraft speed (m/s)
-_MU_MIN, _MU_MAX = 0.01, 0.30  # median dry radius (µm)
+_MU_MIN, _MU_MAX = 0.02, 0.30  # median dry radius (µm)
 
 # ── Fixed aerosol / parcel parameters ────────────────────────────────────────
 _SIGMA = 2.0

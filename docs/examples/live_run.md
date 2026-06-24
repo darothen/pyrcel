@@ -35,6 +35,14 @@ time, then prints a summary row before starting the next chunk.
 --8<-- "docs/assets/output/live_run.txt"
 ```
 
+## Output figure
+
+![Live integration trajectory](../assets/figures/live_run.png)
+
+The figure shows the same supersaturation and temperature profile as the basic run,
+confirming that chunked live mode produces an identical trajectory to a single compiled
+solve.
+
 ## When to use `live` vs. `progress`
 
 | Mode | How it works | Best for |
