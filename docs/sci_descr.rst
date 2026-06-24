@@ -163,18 +163,17 @@ numerically by employing the typical Kohler theory approximation
 
 These wet radii are used as the initial droplet radii in the simulation.
 
-Once the initial conditions have been configured, the model is
-integrated forward in time with a numerical solver (see :func:`ParcelModel.run`
-for more details). The available solvers wrapped here are:
-
-- LSODA(R)
-- LSODE
-- (C)VODE
+Once the initial conditions have been configured, the model is integrated
+forward in time using the `diffrax <https://github.com/patrick-kidger/diffrax>`_
+library's Kvaerno5 solver — a fifth-order ESDIRK implicit Runge–Kutta method
+with an embedded fourth-order error estimator for adaptive step control.
+The right-hand side is compiled via ``jax.jit`` (XLA) at the first call; subsequent
+calls carry no Python overhead and the same compiled kernel dispatches to GPU when
+requested (see :func:`ParcelModel.run`).
 
 During the model integration, the size representing each aerosol bin is
 allowed to grow via condensation, producing something akin to a moving
-grid.  In the future, a fixed Eulerian
-grid will likely be implemented in the model for comparison.
+grid.
 
 
 Aerosol Population Specification

@@ -6,8 +6,8 @@ Prints z / T / S after each integration chunk (``live=True``). Combine with
 
 Usage
 -----
-    python examples/jax/live_run.py
-    python examples/jax/live_run.py --chunk-dt 5 --no-console
+    python examples/live_run.py
+    python examples/live_run.py --chunk-dt 5 --no-console
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import argparse
 import pyrcel as pm
 
 
-def main() -> int:
+def live_run() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--chunk-dt",
@@ -37,7 +37,7 @@ def main() -> int:
         {"r_drys": [0.1, 0.25, 0.5], "Nis": [500.0, 200.0, 50.0]},
         kappa=1.2,
     )
-    m = pm.ParcelModelJAX(
+    model = pm.ParcelModel(
         [aerosol],
         V=1.0,
         T0=283.15,
@@ -45,7 +45,7 @@ def main() -> int:
         P0=85000.0,
         console=not a.no_console,
     )
-    m.run(
+    model.run(
         100.0,
         output_dt=1.0,
         terminate=True,
@@ -57,4 +57,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    live_run()

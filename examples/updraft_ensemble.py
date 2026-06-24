@@ -13,8 +13,8 @@ call. Each ensemble member integrates to its *own* supersaturation maximum via t
 
 Usage
 -----
-    python examples/jax/updraft_ensemble.py --mean 0.5 --std 0.2 --n 512
-    python examples/jax/updraft_ensemble.py --mean 1.0 --std 0.4 --n 1024 \
+    python examples/updraft_ensemble.py --mean 0.5 --std 0.2 --n 512
+    python examples/updraft_ensemble.py --mean 1.0 --std 0.4 --n 1024 \
         --out output/ensemble.nc --plot output/ensemble.png
 """
 
@@ -29,7 +29,7 @@ import numpy as np
 import pyrcel as pm
 
 
-def main() -> int:
+def updraft_ensemble() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--mean", type=float, default=0.5, help="mean updraft, m/s")
     p.add_argument("--std", type=float, default=0.2, help="updraft std dev, m/s")
@@ -178,4 +178,4 @@ def _plot(V, smax_pct, nact_cm3, path: str) -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    updraft_ensemble()
