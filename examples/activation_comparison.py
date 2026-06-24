@@ -37,8 +37,13 @@ def activation_comparison() -> int:
     p.add_argument("--kappa", type=float, default=0.54, help="hygroscopicity κ")
     p.add_argument("--bins", type=int, default=100, help="size bins for parcel model")
     p.add_argument("--t-end", type=float, default=300.0, help="max integration time (s)")
-    p.add_argument("--plot", type=str, default=None, metavar="PATH",
-                   help="save figure to PATH (requires matplotlib)")
+    p.add_argument(
+        "--plot",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="save figure to PATH (requires matplotlib)",
+    )
     a = p.parse_args()
 
     print(f"\nConditions:  V = {a.V} m/s | T = {a.T0} K | P = {a.P0:.0f} Pa")
@@ -56,23 +61,23 @@ def activation_comparison() -> int:
     s = model.summary()
 
     sp = s["per_species"][0]
-    smax_pm  = s["S_max"] * 100       # fraction → %
-    N_act_pm = sp["N_act"] * 1e-6     # m⁻³ → cm⁻³
-    frac_pm  = sp["eq_act_frac"]
+    smax_pm = s["S_max"] * 100  # fraction → %
+    N_act_pm = sp["N_act"] * 1e-6  # m⁻³ → cm⁻³
+    frac_pm = sp["eq_act_frac"]
 
     # ── Analytical parameterizations ─────────────────────────────────────────
-    mus  = jnp.array([a.mu])
+    mus = jnp.array([a.mu])
     sigs = jnp.array([a.sigma])
-    Ns   = jnp.array([a.N])
+    Ns = jnp.array([a.N])
     kaps = jnp.array([a.kappa])
 
     smax_a, Nact_a, frac_a = arg2000(a.V, a.T0, a.P0, mus, sigs, Ns, kaps)
     smax_m, Nact_m, frac_m = mbn2014(a.V, a.T0, a.P0, mus, sigs, Ns, kaps)
 
     results = [
-        ("Parcel model", smax_pm,              N_act_pm,           frac_pm),
-        ("ARG2000",      float(smax_a) * 100,  float(Nact_a[0]),   float(frac_a[0])),
-        ("MBN2014",      float(smax_m) * 100,  float(Nact_m[0]),   float(frac_m[0])),
+        ("Parcel model", smax_pm, N_act_pm, frac_pm),
+        ("ARG2000", float(smax_a) * 100, float(Nact_a[0]), float(frac_a[0])),
+        ("MBN2014", float(smax_m) * 100, float(Nact_m[0]), float(frac_m[0])),
     ]
 
     # ── Table ────────────────────────────────────────────────────────────────
@@ -80,7 +85,7 @@ def activation_comparison() -> int:
     sep = "─" * (18 + W * 3 + 6)
     print(f"\n{sep}")
     print(f"  {'Method':<16}  {'Smax (%)':>{W}}  {'N_act (cm⁻³)':>{W}}  {'f_act':>{W}}")
-    print(f"  {'─'*16}  {'─'*W}  {'─'*W}  {'─'*W}")
+    print(f"  {'─' * 16}  {'─' * W}  {'─' * W}  {'─' * W}")
     for label, smax, nact, frac in results:
         print(f"  {label:<16}  {smax:>{W}.4f}  {nact:>{W}.1f}  {frac:>{W}.4f}")
     print(sep)
@@ -121,8 +126,7 @@ def _plot(results: list, path: str) -> None:
 
     for ax, (vals, ylabel) in zip(axes, panels):
         ax.bar(x, vals, width=w, color=colors, zorder=3)
-        ax.axhline(vals[0], color="0.45", lw=1.0, ls="--", zorder=2,
-                   label="Parcel model")
+        ax.axhline(vals[0], color="0.45", lw=1.0, ls="--", zorder=2, label="Parcel model")
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=9)
         ax.set_ylabel(ylabel)
@@ -132,6 +136,7 @@ def _plot(results: list, path: str) -> None:
         ax.spines["right"].set_visible(False)
 
     import os
+
     os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
     fig.savefig(path, dpi=150, bbox_inches="tight")
     print(f"Saved figure to {path}")

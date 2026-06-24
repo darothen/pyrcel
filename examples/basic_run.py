@@ -42,9 +42,7 @@ def basic_run() -> int:
         bins=50,
     )
 
-    model = pm.ParcelModel(
-        [accumulation, aitken], V=a.V, T0=a.T0, S0=a.S0, P0=a.P0, console=True
-    )
+    model = pm.ParcelModel([accumulation, aitken], V=a.V, T0=a.T0, S0=a.S0, P0=a.P0, console=True)
     out = model.run(a.t_end, output_dt=1.0, terminate=False, progress=True)
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
@@ -60,6 +58,7 @@ def basic_run() -> int:
 def _plot(out: pm.ModelOutput, model: pm.ParcelModel, path: str) -> None:
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -68,6 +67,7 @@ def _plot(out: pm.ModelOutput, model: pm.ParcelModel, path: str) -> None:
 
     import numpy as np
     from matplotlib.lines import Line2D
+
     from pyrcel.equilibrate import kohler_crit_approx
 
     ds = out.to_xarray()
@@ -103,10 +103,13 @@ def _plot(out: pm.ModelOutput, model: pm.ParcelModel, path: str) -> None:
     ax_left.spines["right"].set_visible(False)
     ax_left.set_ylabel("Height (m)")
     ax_left.text(
-        0.03, z_smax,
+        0.03,
+        z_smax,
         f"$S_{{\\max}} = {s['S_max'] * 100:.3f}\\%$",
         transform=ax_left.get_yaxis_transform(),
-        fontsize=8, color="#C9A227", va="bottom",
+        fontsize=8,
+        color="#C9A227",
+        va="bottom",
     )
 
     ax_T.plot(ds["T"].values, height, color=T_COLOR, lw=1.8)
@@ -155,8 +158,9 @@ def _plot(out: pm.ModelOutput, model: pm.ParcelModel, path: str) -> None:
         frac = per_sp[sp_idx]["eq_act_frac"]
         frac_str = "< 0.01" if 0 < frac < 0.01 else f"{frac:.2f}"
         legend_handles.append(
-            Line2D([0], [0], color=color, lw=2.0,
-                   label=f"{sp}  ($f_{{\\mathrm{{act}}}} = {frac_str}$)")
+            Line2D(
+                [0], [0], color=color, lw=2.0, label=f"{sp}  ($f_{{\\mathrm{{act}}}} = {frac_str}$)"
+            )
         )
 
     # Style/activation proxies — interleaved so ncol=2 gives species left, style right
@@ -169,10 +173,14 @@ def _plot(out: pm.ModelOutput, model: pm.ParcelModel, path: str) -> None:
     )
 
     ax_right.legend(
-        handles=legend_handles, ncol=2,
-        loc="lower left", bbox_to_anchor=(0, 1.01),
-        fontsize=8.5, frameon=False,
-        columnspacing=1.2, handlelength=1.8,
+        handles=legend_handles,
+        ncol=2,
+        loc="lower left",
+        bbox_to_anchor=(0, 1.01),
+        fontsize=8.5,
+        frameon=False,
+        columnspacing=1.2,
+        handlelength=1.8,
     )
 
     ax_right.set_xscale("log")
