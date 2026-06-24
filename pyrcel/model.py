@@ -376,7 +376,7 @@ class ParcelModel:
             self._summary = self._compute_summary(peak)
 
             if self.console:
-                if run_info is not None:
+                if run_info is not None and "smax" in run_info:
                     print_termination_narrative(run_info)
                 if trajectory_table:
                     print_trajectory_table(self.time, self.x)

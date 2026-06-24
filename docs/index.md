@@ -26,44 +26,13 @@ initial conditions — thousands of parcel trajectories in a single call.
 
 ## Quick install
 
-[`uv`](https://docs.astral.sh/uv/) is the recommended way to manage Python projects
-that use pyrcel.
-
-**Add to an existing `uv` project:**
-
 ```bash
-uv add pyrcel          # CPU
-uv add "pyrcel[gpu]"   # CUDA 12
+uv add pyrcel          # recommended
+pip install pyrcel     # pip alternative
 ```
 
-**New project from scratch:**
-
-```bash
-uv init myproject && cd myproject
-uv add pyrcel
-uv run python main.py
-```
-
-**Directly from GitHub (latest unreleased):**
-
-```bash
-uv add "pyrcel @ git+https://github.com/darothen/pyrcel.git"
-```
-
-**Editable install from a local clone:**
-
-```bash
-git clone https://github.com/darothen/pyrcel.git && cd pyrcel
-uv sync          # installs all core deps into an isolated .venv
-uv run python    # runs Python inside that environment
-```
-
-**pip (without uv):**
-
-```bash
-pip install pyrcel
-pip install "pyrcel[gpu]"   # CUDA 12
-```
+See the [Installation guide](getting_started/installation.md) for GPU, editable,
+and GitHub installs.
 
 ---
 
