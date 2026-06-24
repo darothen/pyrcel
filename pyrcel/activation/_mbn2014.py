@@ -1,14 +1,18 @@
 """JAX-native Morales Betancourt & Nenes (2014) activation parameterization.
 
 The scheme finds the maximum parcel supersaturation by solving the implicit
-equation F(smax, θ) = 0 via bisection, then computes per-mode activated
-fractions from lognormal statistics.  The bisection uses
+equation :math:`F(s_\\text{max}, \\theta) = 0` via bisection, then computes
+per-mode activated fractions from lognormal statistics.  The bisection uses
 :func:`jax.lax.while_loop` so it is JIT-compilable but not differentiable
-through the loop itself.  Differentiability w.r.t. the physical inputs is
-recovered by the **implicit function theorem** (IFT), implemented via
+through the loop itself.  Differentiability with respect to the physical inputs
+is recovered by the **implicit function theorem** (IFT), implemented via
 :func:`jax.custom_vjp`:
 
-    ∂smax/∂θ  =  −(∂F/∂θ) / (∂F/∂smax)   at  F(smax, θ) = 0
+.. math::
+
+    \\frac{\\partial s_\\text{max}}{\\partial \\theta}
+    = -\\frac{\\partial F / \\partial \\theta}{\\partial F / \\partial s_\\text{max}}
+    \\quad \\text{at } F(s_\\text{max},\\, \\theta) = 0
 
 Both partial derivatives are evaluated by applying :func:`jax.grad` to the
 residual :func:`_mbn_residual`, which is a plain differentiable JAX function
@@ -34,7 +38,7 @@ from jax.typing import ArrayLike  # noqa: E402
 
 from .. import constants as c  # noqa: E402
 from ..thermo import ka_cont  # noqa: E402
-from ._arg2000 import _lognormal_act  # noqa: E402
+from ._common import _lognormal_act  # noqa: E402
 
 # Bisection search bounds and convergence settings (match legacy defaults).
 _XMIN: float = 1e-5
@@ -217,7 +221,7 @@ def _mbn_residual(
 ) -> Array:
     """Implicit equation F(smax, θ) = 0 whose root defines smax.
 
-    All operations are standard JAX, making this fully differentiable w.r.t.
+    All operations are standard JAX, making this fully differentiable with respect to
     every argument (used by the IFT backward pass).
 
     Parameters
@@ -389,7 +393,7 @@ def mbn2014(
     A faithful JAX re-implementation of :func:`pyrcel.legacy.activation.mbn2014`.
     The maximum parcel supersaturation is found by bisecting the implicit
     equation derived in [MBN2014]_ using :func:`jax.lax.while_loop`.
-    Gradients w.r.t. all physical inputs are available via :func:`jax.grad`
+    Gradients with respect to all physical inputs are available via :func:`jax.grad`
     through the **implicit function theorem** (IFT).
 
     Parameters
