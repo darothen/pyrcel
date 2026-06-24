@@ -4,6 +4,19 @@ Set the environment variable ``DOCS_EXECUTE=1`` to run the scripts during
 ``mkdocs build``. Without it the hook only ensures the asset directories exist
 (useful for ``mkdocs serve`` during local development, where pre-committed
 placeholder assets are used instead).
+
+Workflow for updating docs assets
+----------------------------------
+Figures and console outputs are committed under ``docs/assets/`` and used
+directly by the RTD build (which does NOT set ``DOCS_EXECUTE``).  To regenerate
+them after changing an example script, run locally::
+
+    DOCS_EXECUTE=1 uv run mkdocs build
+
+then commit the updated files in ``docs/assets/figures/`` and
+``docs/assets/output/`` before pushing.  The sensitivity sweep writes a cache
+to ``output/sensitivity_sweep_cache.npz`` (gitignored) and reuses it on
+subsequent runs if grid parameters are unchanged.
 """
 
 from __future__ import annotations
