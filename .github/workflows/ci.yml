@@ -5,10 +5,6 @@ on:
     branches:
       - master
       - main
-      # TODO(#49): feat/** is here only to run CI on PRs targeting
-      # feat/v2-implementation during the v2 development cycle. Remove
-      # once feat/v2-implementation is merged to main.
-      - "feat/**"
   pull_request:
   workflow_dispatch:
 

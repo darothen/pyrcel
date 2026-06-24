@@ -84,9 +84,12 @@ select = ["E", "F", "I", "UP", "NPY"]
 
 [tool.ruff.lint.per-file-ignores]
 # --- pyrcel.legacy files ---
-# These are the preserved NumPy/numba reference implementations. Violations here are
-# tracked for future cleanup in #51. Any suppression that survives that audit must be
-# explicitly documented.
+# Preserved NumPy/numba reference implementations; intentionally not modernised so
+# they remain diff-comparable to the published v1 code.
+# UP031/E731: printf-style strings and lambda assignments are idiomatic in the original.
+# F841: intermediate variables aid readability of the physics.
+# E501: long lines mirror the original equations; breaking them obscures the math.
+# F403/F405 (thermo.py only): wildcard import from constants is the original style.
 "pyrcel/legacy/thermo.py" = ["F403", "F405", "UP031", "E731", "E501"]
 "pyrcel/legacy/activation.py" = ["UP031", "E731", "F841", "E501"]
 "pyrcel/legacy/postprocess.py" = ["UP031", "E731", "F841", "E501"]
@@ -96,12 +99,17 @@ select = ["E", "F", "I", "UP", "NPY"]
 # rejects grouped re-export blocks — suppress rather than let it split them per-symbol.
 "pyrcel/__init__.py" = ["F401", "I001"]
 "pyrcel/activation/__init__.py" = ["F401"]
-# --- other legacy/non-JAX package files ---
-"pyrcel/aerosol.py" = ["UP031", "E731", "F841", "E501"]
-"pyrcel/distributions.py" = ["UP031", "E501"]
+# --- distributions.py ---
+# LaTeX math in RST docstrings produces lines that cannot be split without breaking
+# the rendered equations. E501 is the only remaining suppression; UP031 was fixed.
+"pyrcel/distributions.py" = ["E501"]
+# --- v1-era output module (pyrcel/output.py) ---
+# Not part of the v2 public API (superseded by pyrcel/model_output.py); preserved for
+# backward compatibility. UP031/E731/F841/E501: same rationale as pyrcel.legacy above.
 "pyrcel/output.py" = ["UP031", "E731", "F841", "E501"]
+# --- old unit-test suite (pyrcel/test/) ---
+# Pre-v2 tests; not part of the new pytest suite in tests/. Kept for reference only.
 "pyrcel/test/*.py" = ["F403", "F405", "F401", "UP031", "E501"]
-"pyrcel/constants.py" = ["E501"]
 # --- non-package files ---
 # E402: import order is intentional (sys.path setup, warnings filter before imports)
 "docs/conf.py" = ["E402"]
