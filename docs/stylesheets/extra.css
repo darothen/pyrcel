@@ -1,0 +1,13 @@
+/* Wrap long API signatures instead of scrolling horizontally */
+.doc-signature {
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Allow code blocks in docstrings to wrap at word boundaries */
+.doc-contents .highlight pre {
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+}

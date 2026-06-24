@@ -51,6 +51,7 @@ plugins:
             show_root_full_path: false
             show_signature_annotations: true
             separate_signature: true
+            line_length: 80
             members_order: source
             merge_init_into_class: true
             show_if_no_docstring: false
@@ -77,6 +78,9 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+
+extra_css:
+  - stylesheets/extra.css
 
 extra_javascript:
   - javascripts/mathjax.js
