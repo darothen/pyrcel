@@ -122,3 +122,29 @@ def test_jit_smax_matches_eager():
     eager = float(max_supersaturation(y0, field.args, _TS))
     jitted = float(jax.jit(lambda yy: max_supersaturation(yy, field.args, _TS))(y0))
     assert jitted == pytest.approx(eager, rel=1e-12)
+
+
+def test_parcel_model_smax_is_python_float():
+    """ParcelModel.run(mode='smax') returns a plain Python float.
+
+    The differentiable path is ``max_supersaturation`` / ``integrate_parcel``
+    directly (tested above).  The high-level model class is intentionally
+    outside the JAX trace and returns a Python scalar.
+    """
+    import scenarios as scn
+
+    from pyrcel.model import ParcelModel
+
+    sc = scn.get_scenario("simple_sulfate")
+    ic, run = sc["initial"], sc["run"]
+    m = ParcelModel(
+        scn.build_aerosols(sc),
+        V=ic["V"],
+        T0=ic["T0"],
+        S0=ic["S0"],
+        P0=ic["P0"],
+        accom=ic["accom"],
+    )
+    smax = m.run(run["t_end"], run["output_dt"], mode="smax")
+    assert type(smax) is float
+    assert np.isfinite(smax) and smax > 0

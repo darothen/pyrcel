@@ -219,3 +219,80 @@ def test_cdf_monotone_hypothesis(mu, sigma, N):
     d = Lognorm(mu=mu, sigma=sigma, N=N)
     x = np.logspace(np.log10(mu) - 2, np.log10(mu) + 2, 20)
     assert np.all(np.diff(d.cdf(x)) >= 0)
+
+
+@given(
+    mu=st.floats(min_value=1e-4, max_value=10.0),
+    sigma=st.floats(min_value=1.01, max_value=5.0),
+    N=st.floats(min_value=1.0, max_value=1e5),
+    k=st.integers(min_value=0, max_value=4),
+)
+@settings(max_examples=200)
+def test_moment_positive_hypothesis(mu, sigma, N, k):
+    d = Lognorm(mu=mu, sigma=sigma, N=N)
+    assert d.moment(k) > 0
+
+
+# ---------------------------------------------------------------------------
+# AerosolSpecies — edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_single_bin_lognorm():
+    """bins=1 does not raise; shapes are correct.
+
+    Note: total_N will be << N because a single bin captures very little of a
+    broad Lognorm.  This is expected discretization behaviour, not a bug.
+    """
+    aer = AerosolSpecies("test", Lognorm(mu=0.05, sigma=1.5, N=100.0), kappa=0.6, bins=1)
+    assert aer.nr == 1
+    assert aer.r_drys.shape == (1,)
+    assert aer.Nis.shape == (1,)
+    assert aer.total_N > 0  # positive but not necessarily ≈ N for bins=1
+
+
+def test_multi_mode_list_construction():
+    """A list of two dict-spec aerosols round-trips through AerosolSpecies."""
+    modes = [
+        AerosolSpecies("acc", Lognorm(mu=0.05, sigma=2.0, N=300.0), kappa=0.6, bins=40),
+        AerosolSpecies("coarse", Lognorm(mu=0.5, sigma=2.0, N=10.0), kappa=1.1, bins=10),
+    ]
+    assert modes[0].species == "acc"
+    assert modes[1].species == "coarse"
+    total_bins = sum(m.nr for m in modes)
+    assert total_bins == 50
+
+
+# ---------------------------------------------------------------------------
+# MultiModeLognorm — property-based tests
+# ---------------------------------------------------------------------------
+
+
+@given(
+    mu1=st.floats(min_value=1e-4, max_value=0.1),
+    mu2=st.floats(min_value=0.1, max_value=10.0),
+    sigma1=st.floats(min_value=1.01, max_value=3.0),
+    sigma2=st.floats(min_value=1.01, max_value=3.0),
+    N1=st.floats(min_value=1.0, max_value=1e4),
+    N2=st.floats(min_value=1.0, max_value=1e4),
+)
+@settings(max_examples=100)
+def test_multimode_cdf_monotone_hypothesis(mu1, mu2, sigma1, sigma2, N1, N2):
+    d = MultiModeLognorm(mus=(mu1, mu2), sigmas=(sigma1, sigma2), Ns=(N1, N2))
+    x = np.logspace(-4, 2, 30)
+    assert np.all(np.diff(d.cdf(x)) >= 0)
+
+
+@given(
+    mu1=st.floats(min_value=1e-4, max_value=0.1),
+    mu2=st.floats(min_value=0.1, max_value=10.0),
+    sigma1=st.floats(min_value=1.01, max_value=3.0),
+    sigma2=st.floats(min_value=1.01, max_value=3.0),
+    N1=st.floats(min_value=1.0, max_value=1e4),
+    N2=st.floats(min_value=1.0, max_value=1e4),
+)
+@settings(max_examples=100)
+def test_multimode_total_N_is_sum(mu1, mu2, sigma1, sigma2, N1, N2):
+    d = MultiModeLognorm(mus=(mu1, mu2), sigmas=(sigma1, sigma2), Ns=(N1, N2))
+    # cdf at a very large radius integrates to the total number concentration
+    assert d.cdf(1e6) == pytest.approx(N1 + N2, rel=1e-6)
