@@ -10,24 +10,22 @@ describe droplet size distributions or other collections of objects.
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.special import erf, erfinv
 
-_Float = float | NDArray[np.floating[Any]]
+from ._types import FloatND
 
 
 class BaseDistribution(metaclass=ABCMeta):
     """Interface for distributions, to ensure that they contain a pdf method."""
 
     @abstractmethod
-    def cdf(self, x: _Float) -> _Float:
+    def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function"""
 
     @abstractmethod
-    def pdf(self, x: _Float) -> _Float:
+    def pdf(self, x: FloatND) -> FloatND:
         """Distribution density function."""
 
     @abstractmethod
@@ -96,7 +94,7 @@ class Lognorm(BaseDistribution):
         # Arithmetic mean of the underlying normal: E[r] = mu * exp(0.5 * ln(sigma)^2)
         self.mean = self.mu * np.exp(0.5 * np.log(self.sigma) ** 2)
 
-    def invcdf(self, y: _Float) -> _Float:
+    def invcdf(self, y: FloatND) -> FloatND:
         """Inverse of cumulative density function.
 
         Parameters
@@ -117,7 +115,7 @@ class Lognorm(BaseDistribution):
         erfinv_arg = 2.0 * y / self.N - 1.0
         return self.mu * np.exp(np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg))
 
-    def cdf(self, x: _Float) -> _Float:
+    def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function
 
         .. math::
@@ -137,7 +135,7 @@ class Lognorm(BaseDistribution):
         erf_arg = (np.log(x / self.mu)) / (np.sqrt(2.0) * np.log(self.sigma))
         return (self.N / 2.0) * (1.0 + erf(erf_arg))
 
-    def pdf(self, x: _Float) -> _Float:
+    def pdf(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dx (not logarithmic).
 
         .. math::
@@ -158,7 +156,7 @@ class Lognorm(BaseDistribution):
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return (scaling / x) * np.exp(-exponent)
 
-    def pdfloge(self, x: _Float) -> _Float:
+    def pdfloge(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dln(x) (natural logarithm).
 
         .. math::
@@ -179,7 +177,7 @@ class Lognorm(BaseDistribution):
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return scaling * np.exp(-exponent)
 
-    def pdflog10(self, x: _Float) -> _Float:
+    def pdflog10(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dlog(x) (base 10 logarithm).
 
         .. math::
@@ -280,10 +278,10 @@ class MultiModeLognorm(BaseDistribution):
             mode_dist = Lognorm(mu, sigma, N)
             self.lognorms.append(mode_dist)
 
-    def cdf(self, x: _Float) -> _Float:
+    def cdf(self, x: FloatND) -> FloatND:
         return np.sum([d.cdf(x) for d in self.lognorms], axis=0)
 
-    def pdf(self, x: _Float) -> _Float:
+    def pdf(self, x: FloatND) -> FloatND:
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
     def stats(self) -> dict[str, float]:

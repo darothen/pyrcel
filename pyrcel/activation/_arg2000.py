@@ -22,6 +22,10 @@ from jax import Array  # noqa: E402
 from jax.scipy.special import erfc  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
+# Alias used in per-mode parameter signatures to signal that all arguments
+# sharing this type must have the same length (n_modes,).
+_ModeParam = ArrayLike
+
 from .. import constants as c  # noqa: E402
 from ..thermo import dv, dv_cont, es, ka_cont, sigma_w  # noqa: E402
 
@@ -74,10 +78,10 @@ def arg2000(
     V: ArrayLike,
     T: ArrayLike,
     P: ArrayLike,
-    mus: ArrayLike,
-    sigmas: ArrayLike,
-    Ns: ArrayLike,
-    kappas: ArrayLike,
+    mus: _ModeParam,
+    sigmas: _ModeParam,
+    Ns: _ModeParam,
+    kappas: _ModeParam,
     accom: float = c.ac,
 ) -> tuple[Array, Array, Array]:
     """JAX-native Abdul-Razzak & Ghan (2000) activation parameterization.
@@ -204,10 +208,10 @@ class ARG2000:
         V: ArrayLike,
         T: ArrayLike,
         P: ArrayLike,
-        mus: ArrayLike,
-        sigmas: ArrayLike,
-        Ns: ArrayLike,
-        kappas: ArrayLike,
+        mus: _ModeParam,
+        sigmas: _ModeParam,
+        Ns: _ModeParam,
+        kappas: _ModeParam,
         accom: float | None = None,
     ) -> tuple[Array, Array, Array]:
         return arg2000(
