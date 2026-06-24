@@ -95,6 +95,22 @@ class ModelOutput:
     def wi(self) -> np.ndarray:
         return self.state[:, c.STATE_VAR_MAP["wi"]]
 
+    @property
+    def Nd(self) -> float:
+        """Total activated droplet number concentration (cm⁻³) at the last trajectory step.
+
+        Evaluated by comparing wet radii against per-bin critical radii at
+        ``summary["nd_t_eval"]`` (the final output time, which is
+        ``terminate_depth`` m above S_max when ``terminate=True``).
+        This is a hard-threshold diagnostic; for the differentiable analog see issue #67.
+        """
+        return float(self.summary["total_Nd"])
+
+    @property
+    def nd_frac(self) -> float:
+        """Total activated fraction at the last trajectory step (see :attr:`Nd`)."""
+        return float(self.summary["total_nd_frac"])
+
     # ------------------------------------------------------------------
     # Format conversions
     # ------------------------------------------------------------------
@@ -229,6 +245,21 @@ class ModelOutput:
                 p["eq_act_frac"],
                 {"long_name": f"{p['species']} equilibrium activated fraction"},
             )
+            ds[f"{p['species']}_Nd"] = (
+                (),
+                p["Nd"],
+                {"units": "cm-3", "long_name": f"{p['species']} activated droplet number"},
+            )
+        ds["Nd"] = (
+            (),
+            s["total_Nd"],
+            {"units": "cm-3", "long_name": "Total activated droplet number concentration"},
+        )
+        ds["nd_t_eval"] = (
+            (),
+            s["nd_t_eval"],
+            {"units": "s", "long_name": "Time at which Nd snapshot was evaluated"},
+        )
 
         if isinstance(self.V, ConstantV):
             v_attr = float(self.V.V)
