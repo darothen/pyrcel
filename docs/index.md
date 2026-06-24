@@ -44,6 +44,20 @@ uv add pyrcel
 uv run python main.py
 ```
 
+**Directly from GitHub (latest unreleased):**
+
+```bash
+uv add "pyrcel @ git+https://github.com/darothen/pyrcel.git"
+```
+
+**Editable install from a local clone:**
+
+```bash
+git clone https://github.com/darothen/pyrcel.git && cd pyrcel
+uv sync          # installs all core deps into an isolated .venv
+uv run python    # runs Python inside that environment
+```
+
 **pip (without uv):**
 
 ```bash
