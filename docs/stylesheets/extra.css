@@ -29,6 +29,12 @@
   font-size: 0.875rem;
 }
 
+/* Match navigation font size to body text */
+.md-nav__link,
+.md-nav__title {
+  font-size: 0.875rem;
+}
+
 /* ── API docs: prevent horizontal overflow ────────────────────────────────── */
 
 /* Wrap signatures rendered as code blocks by mkdocstrings */
