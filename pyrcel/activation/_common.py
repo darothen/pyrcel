@@ -37,6 +37,16 @@ def _lognormal_act(
         Activated number concentration.
     act_frac : float
         Activated fraction (0–1).
+
+    Notes
+    -----
+    Integrates the lognormal number distribution above the critical dry size
+    corresponding to $S_\mathrm{max}$:
+
+    $$N_\mathrm{act} = \frac{N}{2}\,\mathrm{erfc}(u_i), \qquad
+      u_i = \frac{2\ln(s_{g,i}/S_\mathrm{max})}{3\sqrt{2}\ln\sigma}$$
+
+    where $s_{g,i}$ is the modal critical supersaturation.
     """
     ui = 2.0 * jnp.log(sgi / smax) / (3.0 * jnp.sqrt(2.0) * jnp.log(sigma))
     N_act = 0.5 * N * erfc(ui)
@@ -54,6 +64,16 @@ def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tup
         Critical wet radius (m).
     s_crit : Array
         Critical supersaturation (decimal).
+
+    Notes
+    -----
+    From the approximate κ-Köhler equation $S_\mathrm{eq} \approx A/r -
+    \kappa r_d^3/r^3$, setting $dS_\mathrm{eq}/dr = 0$ gives:
+
+    $$r_\mathrm{crit} = \sqrt{\frac{3\kappa r_d^3}{A}}, \qquad
+      s_\mathrm{crit} = \sqrt{\frac{4A^3}{27\kappa r_d^3}}$$
+
+    where $A = 2 M_w \sigma_w(T) / (\rho_w R T)$ is the Kelvin parameter.
     """
     A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
     r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
