@@ -6,8 +6,8 @@ Prints z / T / S after each integration chunk (``live=True``). Combine with
 
 Usage
 -----
-    python examples/jax/live_run.py
-    python examples/jax/live_run.py --chunk-dt 5 --no-console
+    python examples/live_run.py
+    python examples/live_run.py --chunk-dt 5 --no-console
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import argparse
 import pyrcel as pm
 
 
-def main() -> int:
+def live_run() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--chunk-dt",
@@ -57,4 +57,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    live_run()

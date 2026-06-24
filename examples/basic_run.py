@@ -7,8 +7,8 @@ temperature-vs-height figure.
 
 Usage
 -----
-    python examples/jax/basic_run.py
-    python examples/jax/basic_run.py --V 0.5 --N 2000 --mu 0.05 --kappa 0.54 \\
+    python examples/basic_run.py
+    python examples/basic_run.py --V 0.5 --N 2000 --mu 0.05 --kappa 0.54 \\
         --out output/basic_run.nc --plot output/basic_run.png
 """
 
@@ -20,17 +20,13 @@ import os
 import pyrcel as pm
 
 
-def main() -> int:
+def basic_run() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--V", type=float, default=1.0, help="updraft speed (m/s)")
     p.add_argument("--T0", type=float, default=283.15, help="initial temperature (K)")
     p.add_argument("--P0", type=float, default=85000.0, help="initial pressure (Pa)")
-    p.add_argument(
-        "--S0", type=float, default=-0.02, help="initial supersaturation (0 = 100%% RH)"
-    )
-    p.add_argument(
-        "--mu", type=float, default=0.05, help="lognormal geometric mean radius (µm)"
-    )
+    p.add_argument("--S0", type=float, default=-0.02, help="initial supersaturation (0 = 100%% RH)")
+    p.add_argument("--mu", type=float, default=0.05, help="lognormal geometric mean radius (µm)")
     p.add_argument("--sigma", type=float, default=2.0, help="lognormal geometric std dev")
     p.add_argument("--N", type=float, default=1000.0, help="aerosol number (cm⁻³)")
     p.add_argument("--kappa", type=float, default=0.54, help="hygroscopicity")
@@ -43,12 +39,8 @@ def main() -> int:
     aerosol = pm.AerosolSpecies(
         "sulfate", pm.Lognorm(mu=a.mu, sigma=a.sigma, N=a.N), kappa=a.kappa, bins=a.bins
     )
-    model = pm.ParcelModel(
-        [aerosol], V=a.V, T0=a.T0, S0=a.S0, P0=a.P0, console=True
-    )
-    out = model.run(
-        a.t_end, output_dt=1.0, terminate=True, terminate_depth=10.0, progress=True
-    )
+    model = pm.ParcelModel([aerosol], V=a.V, T0=a.T0, S0=a.S0, P0=a.P0, console=True)
+    out = model.run(a.t_end, output_dt=1.0, terminate=True, terminate_depth=10.0, progress=True)
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     out.to_netcdf(a.out)
@@ -91,4 +83,4 @@ def _plot(out: pm.ModelOutput, model: pm.ParcelModel, path: str) -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    basic_run()

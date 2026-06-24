@@ -2,9 +2,9 @@
 
 pyrcel v2 replaces the numba + Assimulo/SUNDIALS backend with a pure-Python
 [JAX](https://github.com/google/jax) + [diffrax](https://github.com/patrick-kidger/diffrax)
-stack. The headline benefits — `pip`-installable, differentiable, GPU-capable, and
-`jax.vmap`-batchable — required retiring some internal machinery, but the public interface
-is intentionally conservative. Most existing call-sites need only minor changes.
+stack. The headline benefits of this replacement (`pip`-installable, differentiable,
+GPU-capable, and `jax.vmap`-batchable) required retiring some internal machinery, but
+the public interface was mostly left unchanged.
 
 ---
 
@@ -23,7 +23,7 @@ is intentionally conservative. Most existing call-sites need only minor changes.
 | Numerical precision | numpy float64 (effective) | explicit `jax_enable_x64=True` |
 
 Legacy NumPy/SciPy reference implementations for thermodynamics and activation
-remain in `pyrcel.legacy` for cross-checking and are not removed.
+remain in `pyrcel.legacy` for cross-checking.
 
 ---
 
@@ -51,7 +51,7 @@ import pyrcel as pm
 from pyrcel import AerosolSpecies, Lognorm, ParcelModel
 ```
 
-`ParcelModelJAX` is a backward-compatible alias for `ParcelModel` and will
+`ParcelModelJAX` is a backwards compatible alias for `ParcelModel` and will
 continue to work, but new code should use `ParcelModel` directly.
 
 ---
@@ -77,8 +77,10 @@ model = pm.ParcelModel(
 
 Equilibration of the initial wet-radius spectrum still happens at construction
 time (mirroring `_setup_run` in v1), but now uses
-[optimistix](https://github.com/patrick-kidger/optimistix) Bisection internally
-rather than `scipy.optimize.bisect`.
+[optimistix](https://github.com/patrick-kidger/optimistix) bisection internally
+rather than `scipy.optimize.bisect`. Numerically this algorithm is identical, but
+the new machinery allows us to compute gradients with respect to the analytic form
+of the input aerosol size distribution, regardless of binning.
 
 ---
 
@@ -258,7 +260,9 @@ solely for validation and cross-checking. They are intentionally not
 differentiable and should not be used in new application code.
 
 The v1 CVode/Assimulo integrator is **not** preserved; the SUNDIALS dependency
-has been removed entirely.
+has been removed entirely. You can still download older versions of the model
+directly from GitHub or through [PyPI](https://pypi.org/project/pyrcel/) if you
+need to run with the original numerical solver for any reason.
 
 ---
 
@@ -275,8 +279,8 @@ both methods ($\text{rtol} = 10^{-7}$). Observed differences in practice:
   due to the different BDF vs. ESDIRK step sequences.
 
 These differences are within the physical uncertainty of the model (accommodation
-coefficient, surface tension parameterization) and are not cause for concern. The
-test suite cross-validates v2 output against frozen golden data generated from v1.
+coefficient, surface tension parameterization). The test suite cross-validates v2
+output against frozen golden data generated from v1.
 
 The equilibration step also changes slightly: v1 used `scipy.optimize.bisect`
 with a tolerance of $10^{-6}$; v2 uses `optimistix.Bisection` with a tighter
@@ -305,7 +309,7 @@ grad_fn = jax.grad(lambda V: max_supersaturation(
 dsmax_dV = float(grad_fn(jnp.float64(1.0)))
 ```
 
-See `examples/jax/differentiable_smax.py` for a complete worked example
+See `examples/differentiable_smax.py` for a complete worked example
 computing a full sensitivity table.
 
 ### Batched ensemble runs

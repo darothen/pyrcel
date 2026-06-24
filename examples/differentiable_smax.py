@@ -25,8 +25,8 @@ gradient to verify a finite-difference perturbation experiment.
 
 Usage
 -----
-    python examples/jax/differentiable_smax.py
-    python examples/jax/differentiable_smax.py --V 0.5 --N 500 --bins 50
+    python examples/differentiable_smax.py
+    python examples/differentiable_smax.py --V 0.5 --N 500 --bins 50
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from pyrcel.integrator import max_supersaturation
 jax.config.update("jax_enable_x64", True)
 
 
-def main() -> int:
+def differentiable_smax() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--V", type=float, default=1.0, help="base updraft speed (m/s)")
     p.add_argument("--T0", type=float, default=283.15, help="initial temperature (K)")
@@ -56,9 +56,7 @@ def main() -> int:
     p.add_argument("--kappa", type=float, default=0.54, help="hygroscopicity κ")
     p.add_argument("--bins", type=int, default=100, help="number of size bins")
     p.add_argument("--t-end", type=float, default=300.0, help="integration time horizon (s)")
-    p.add_argument(
-        "--n-out", type=int, default=600, help="number of output time points"
-    )
+    p.add_argument("--n-out", type=int, default=600, help="number of output time points")
     a = p.parse_args()
 
     # ------------------------------------------------------------------
@@ -85,7 +83,7 @@ def main() -> int:
     print("\nWarming up JIT cache (first call includes compilation)...", end=" ", flush=True)
     t_start = time.perf_counter()
     _ = jax.block_until_ready(max_supersaturation(y0, base_args, ts))
-    print(f"done in {time.perf_counter()-t_start:.1f}s")
+    print(f"done in {time.perf_counter() - t_start:.1f}s")
 
     smax_base = float(max_supersaturation(y0, base_args, ts))
     print(f"S_max = {smax_base * 100:.4f}%")
@@ -104,7 +102,7 @@ def main() -> int:
     print("\nComputing ∂S_max/∂V via jax.grad...", end=" ", flush=True)
     t0 = time.perf_counter()
     dsmax_dV = float(jax.grad(smax_of_V)(V_base))
-    print(f"done in {time.perf_counter()-t0:.2f}s")
+    print(f"done in {time.perf_counter() - t0:.2f}s")
 
     # ------------------------------------------------------------------
     # Gradient w.r.t. total aerosol number N (distributed over bins)
@@ -124,7 +122,7 @@ def main() -> int:
     # ∂S_max/∂N = (∂S_max/∂α) / N_total  [units: %/(cm⁻³)]
     N_total = float(np.sum(np.asarray(Nis))) * 1e-6  # m⁻³ → cm⁻³
     dsmax_dN = dsmax_dalpha / N_total
-    print(f"done in {time.perf_counter()-t0:.2f}s")
+    print(f"done in {time.perf_counter() - t0:.2f}s")
 
     # ------------------------------------------------------------------
     # Gradient w.r.t. hygroscopicity κ (uniform shift across all bins)
@@ -138,7 +136,7 @@ def main() -> int:
     print("Computing ∂S_max/∂κ via jax.grad...", end=" ", flush=True)
     t0 = time.perf_counter()
     dsmax_dkappa = float(jax.grad(smax_of_kappa)(jnp.float64(a.kappa)))
-    print(f"done in {time.perf_counter()-t0:.2f}s")
+    print(f"done in {time.perf_counter() - t0:.2f}s")
 
     # ------------------------------------------------------------------
     # Print sensitivity table
@@ -149,7 +147,7 @@ def main() -> int:
     print("S_max sensitivity table  (∂S_max [%] / ∂θ)")
     print("=" * 66)
     print(f"  {'Parameter':<12}  {'Base value':<14}  {'∂S_max/∂θ  [% / unit]':<24}  Unit of θ")
-    print(f"  {'-'*12}  {'-'*14}  {'-'*24}  {'-'*14}")
+    print(f"  {'-' * 12}  {'-' * 14}  {'-' * 24}  {'-' * 14}")
     print(f"  {'V':<12}  {a.V:<14.4f}  {dsmax_dV * pct:<24.4e}  m/s")
     print(f"  {'N':<12}  {a.N:<14.1f}  {dsmax_dN * pct:<24.4e}  cm⁻³")
     print(f"  {'κ':<12}  {a.kappa:<14.4f}  {dsmax_dkappa * pct:<24.4e}  —")
@@ -164,7 +162,7 @@ def main() -> int:
     dsmax_dV_fd = (smax_p - smax_m) / (2 * dV)
 
     rel_err = abs(dsmax_dV - dsmax_dV_fd) / abs(dsmax_dV_fd)
-    print(f"\nFinite-difference check (∂S_max/∂V, decimal units):")
+    print("\nFinite-difference check (∂S_max/∂V, decimal units):")
     print(f"  JAX grad:  {dsmax_dV:.6e} /m/s")
     print(f"  FD (±{dV:.4f} m/s): {dsmax_dV_fd:.6e} /m/s")
     print(f"  Relative error: {rel_err:.2e}  {'✓' if rel_err < 0.01 else '✗'}")
@@ -173,4 +171,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    differentiable_smax()

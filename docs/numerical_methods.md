@@ -37,7 +37,7 @@ G_i = \left(\frac{\rho_w R T}{e_s D_v' M_w} + \frac{L \rho_w \bigl(\tfrac{L M_w}
 $$
 
 where $D_v'$ and $k_a'$ are the non-continuum-corrected vapour diffusivity and
-thermal conductivity [Seinfeld2006]_, and $S_{\mathrm{eq},i}$ is the $\kappa$-Köhler
+thermal conductivity [Seinfeld2006]\_, and $S_{\mathrm{eq},i}$ is the $\kappa$-Köhler
 equilibrium supersaturation [Petters2007]_.
 
 ---
@@ -172,8 +172,8 @@ memory footprint of the adjoint checkpoints.
 
 The parcel model's termination criterion is defined by the supersaturation
 maximum: the point at which $dS/dt$ changes sign from positive to negative,
-marking the end of droplet activation. After this point the model is integrated
-a further `terminate_depth` metres before stopping.
+marking the end of primary droplet activation. After this point the model is 
+integrated a further `terminate_depth` metres before stopping.
 
 Event detection is implemented as a continuous-root-finding solve in
 `diffrax.Event`:
@@ -219,7 +219,7 @@ peak; a conservative choice is `ts = jnp.linspace(0, t_end, n_output)`.
 
 ---
 
-## Differentiating through the ODE: RecursiveCheckpointAdjoint
+## Differentiating through the ODE: `RecursiveCheckpointAdjoint`
 
 Reverse-mode differentiation through an ODE (the adjoint method) requires
 storing or recomputing intermediate trajectory values during the backward pass.
