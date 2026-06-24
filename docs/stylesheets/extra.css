@@ -8,11 +8,11 @@
   --md-primary-bg-color:        #ffffff;
   --md-primary-bg-color--light: hsla(0, 0%, 100%, 0.7);
 
-  /* Warm off-white page background */
-  --md-default-bg-color:          #F7F5F0;
-  --md-default-bg-color--light:   #FDFCF8;
-  --md-default-bg-color--lighter: #FDFCF8;
-  --md-default-bg-color--lightest: #FDFCF8;
+  /* White page background */
+  --md-default-bg-color:          #ffffff;
+  --md-default-bg-color--light:   #ffffff;
+  --md-default-bg-color--lighter: #ffffff;
+  --md-default-bg-color--lightest: #ffffff;
 }
 
 /* Dark scheme: same crimson works well on slate */

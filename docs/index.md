@@ -1,4 +1,4 @@
-# pyrcel
+# pyrcel: cloud parcel model
 
 **pyrcel** is a zero-dimensional adiabatic cloud parcel model for studying aerosol–cloud
 interactions. It simulates the condensational growth of an arbitrary aerosol population as
