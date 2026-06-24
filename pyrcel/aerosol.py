@@ -10,7 +10,9 @@ from numpy.typing import NDArray
 from .distributions import BaseDistribution, Lognorm, MultiModeLognorm
 
 
-def dist_to_conc(dist: BaseDistribution, r_min: float, r_max: float, rule: str = "trapezoid") -> float:
+def dist_to_conc(
+    dist: BaseDistribution, r_min: float, r_max: float, rule: str = "trapezoid"
+) -> float:
     """Convert a size distribution over a bin interval to a number concentration.
 
     Aerosol size distributions are typically reported as dN/dr (number density
