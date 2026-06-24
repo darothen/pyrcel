@@ -292,9 +292,9 @@ class MultiModeLognorm(BaseDistribution):
         raise NotImplementedError()
 
     def __repr__(self) -> str:
-        mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"
-        sigmas_str = "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
-        Ns_str = "(" + ", ".join("%2.2e" % N for N in self.Ns) + ")"
+        mus_str = "(" + ", ".join(f"{mu:2.2e}" for mu in self.mus) + ")"
+        sigmas_str = "(" + ", ".join(f"{sigma:2.2e}" for sigma in self.sigmas) + ")"
+        Ns_str = "(" + ", ".join(f"{N:2.2e}" for N in self.Ns) + ")"
         return f"MultiModeLognorm| mus = {mus_str}, sigmas = {sigmas_str}, Totals = {Ns_str} |"
 
 
