@@ -106,8 +106,7 @@ def run_parcel() -> None:
         dist_key = ap["distribution"]
         if dist_key not in _DIST_MAP:
             print(
-                f"error: unsupported distribution '{dist_key}'. "
-                f"Supported: {list(_DIST_MAP)}",
+                f"error: unsupported distribution '{dist_key}'. Supported: {list(_DIST_MAP)}",
                 file=sys.stderr,
             )
             sys.exit(1)

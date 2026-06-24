@@ -16,8 +16,15 @@ def test_cli_runs_and_writes_netcdf(tmp_path):
     """run_parcel with a minimal YAML produces a valid NetCDF file."""
     out = tmp_path / "smoke.nc"
     result = subprocess.run(
-        [sys.executable, "-m", "pyrcel.scripts.run_parcel", str(FIXTURE), "-o", str(out),
-         "--no-console"],
+        [
+            sys.executable,
+            "-m",
+            "pyrcel.scripts.run_parcel",
+            str(FIXTURE),
+            "-o",
+            str(out),
+            "--no-console",
+        ],
         capture_output=True,
         text=True,
     )
