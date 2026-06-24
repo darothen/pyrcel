@@ -190,7 +190,9 @@ def test_grad_N_fd_check(parcel_setup):
 
     if abs(grad_fd_0) > 1e-4:
         rel_err = abs(float(grad_N[0]) - grad_fd_0) / abs(grad_fd_0)
-        assert rel_err < 0.05, f"JAX={float(grad_N[0]):.4g} FD={grad_fd_0:.4g} rel_err={rel_err:.3%}"
+        assert rel_err < 0.05, (
+            f"JAX={float(grad_N[0]):.4g} FD={grad_fd_0:.4g} rel_err={rel_err:.3%}"
+        )
     else:
         assert abs(float(grad_N[0]) - grad_fd_0) < 1e-3
 
