@@ -10,6 +10,7 @@ on:
       # once feat/v2-implementation is merged to main.
       - "feat/**"
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -36,3 +37,25 @@ jobs:
 
       - name: Run fast tests
         run: uv run pytest tests/ -m "not slow" -v
+
+  slow-tests:
+    runs-on: ubuntu-latest
+    # Run on the weekly schedule, manual dispatch, or pushes to the integration branch.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/v2-implementation'
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }} --extra test --frozen
+
+      - name: Run full test suite (including slow oracle tests)
+        run: uv run pytest tests/ -v
