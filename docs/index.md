@@ -10,8 +10,6 @@ droplets activated at cloud base.
 [![CI](https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg)](https://github.com/darothen/pyrcel/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](https://pyrcel.readthedocs.io/en/stable/)
 
----
-
 ## Highlights
 
 **Differentiable.** Every output is a smooth function of its inputs. Compute
@@ -19,19 +17,37 @@ $\partial S_\text{max}/\partial V$, $\partial N_d/\partial \kappa$, or full Jaco
 through the ODE using `jax.grad` and `jax.jacfwd`.
 
 **GPU-capable.** Pass `device="gpu"` to `ParcelModel` and the integration dispatches
-to CUDA with no code changes.
+to CUDA with no code changes. Particularly useful for ensemble or batch simulations!
 
 **Batchable.** Use `jax.vmap` to map a single compiled kernel over an ensemble of
 initial conditions — thousands of parcel trajectories in a single call.
 
 **Pure Python.** No compiled extensions or conda dependencies. Install with `pip`.
 
----
-
 ## Quick install
 
+[`uv`](https://docs.astral.sh/uv/) is the recommended way to manage Python projects
+that use pyrcel.
+
+**Add to an existing `uv` project:**
+
 ```bash
-pip install pyrcel          # CPU
+uv add pyrcel          # CPU
+uv add "pyrcel[gpu]"   # CUDA 12
+```
+
+**New project from scratch:**
+
+```bash
+uv init myproject && cd myproject
+uv add pyrcel
+uv run python main.py
+```
+
+**pip (without uv):**
+
+```bash
+pip install pyrcel
 pip install "pyrcel[gpu]"   # CUDA 12
 ```
 
@@ -59,11 +75,17 @@ print(f"N_act  = {out.Nd:.3e} m⁻³")
 
 ## Cite
 
-If you use pyrcel for research, please cite:
+If you use pyrcel for research, please cite the original manuscrip where
+the model was detailed:
 
 > Rothenberg, D., & Wang, C. (2016). Metamodeling of droplet activation for global
 > climate models. *J. Atmos. Sci.*, **73**(4), 1255–1272.
 > doi:[10.1175/JAS-D-15-0223.1](https://doi.org/10.1175/JAS-D-15-0223.1)
+
+Additionally, please consider citing the bespoke DOI for the
+[specific release version of pyrcel](https://zenodo.org/records/20693507)
+that you used during your research (or the base version you modified). This
+allows us to track adoption and use of specific model versions over time.
 
 ---
 
