@@ -51,6 +51,7 @@ gpu = [
 test = [
     "pytest>=7",
     "hypothesis>=6",
+    "pyrefly>=1.1",
 ]
 examples = [
     "matplotlib>=3.5",
@@ -110,3 +111,31 @@ markers = [
 filterwarnings = [
     "ignore:invalid value encountered in scalar divide:RuntimeWarning:pyrcel.legacy.activation",
 ]
+
+[tool.pyrefly]
+project-includes = ["pyrcel"]
+project-excludes = [
+    "pyrcel/legacy",
+    "pyrcel/test",
+    "pyrcel/scripts",
+    "pyrcel/output.py",
+]
+python-version = "3.11.0"
+infer-with-first-use = false
+
+[tool.pyrefly.errors]
+# JAX/equinox/diffrax stubs are incomplete in some areas; suppress the noisiest
+# false-positive categories that arise from those packages rather than our code.
+# untyped-import: third-party JAX ecosystem packages lack complete stubs.
+# bad-index / unsupported-operation: ArrayLike includes Python scalars; pyrefly
+#   cannot prove JAX's dynamic dispatch always produces an indexable Array.
+# implicit-any / implicit-any-parameter: accepted in JAX-heavy code where Any
+#   leaks from untyped diffrax/equinox/optimistix callsites.
+# bad-return: ArrayLike arithmetic on ArrayLike inputs produces non-Array types
+#   in pyrefly's view, even though JAX always dispatches to Array at runtime.
+untyped-import = "ignore"
+bad-index = "ignore"
+implicit-any = "ignore"
+bad-return = "ignore"
+unsupported-operation = "ignore"
+implicit-any-parameter = "ignore"

@@ -18,13 +18,15 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
+from jax import Array  # noqa: E402
 from jax.scipy.special import erfc  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
 from .. import constants as c  # noqa: E402
 from ..thermo import dv, dv_cont, es, ka_cont, sigma_w  # noqa: E402
 
 
-def _kohler_crit_approx(T, r_dry, kappa):
+def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
     """Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
 
     Returns
@@ -40,7 +42,9 @@ def _kohler_crit_approx(T, r_dry, kappa):
     return r_crit, s_crit
 
 
-def _lognormal_act(smax, sigma, N, sgi):
+def _lognormal_act(
+    smax: ArrayLike, sigma: ArrayLike, N: ArrayLike, sgi: ArrayLike
+) -> tuple[Array, Array]:
     """Activated fraction of one lognormal mode.
 
     Parameters
@@ -66,7 +70,16 @@ def _lognormal_act(smax, sigma, N, sgi):
     return N_act, N_act / N
 
 
-def arg2000(V, T, P, mus, sigmas, Ns, kappas, accom=c.ac):
+def arg2000(
+    V: ArrayLike,
+    T: ArrayLike,
+    P: ArrayLike,
+    mus: ArrayLike,
+    sigmas: ArrayLike,
+    Ns: ArrayLike,
+    kappas: ArrayLike,
+    accom: float = c.ac,
+) -> tuple[Array, Array, Array]:
     """JAX-native Abdul-Razzak & Ghan (2000) activation parameterization.
 
     A faithful JAX re-implementation of :func:`pyrcel.legacy.activation.arg2000`.
@@ -183,13 +196,23 @@ class ARG2000:
         Condensation accommodation coefficient (forwarded to every call).
     """
 
-    def __init__(self, accom=c.ac):
+    def __init__(self, accom: float = c.ac) -> None:
         self.accom = accom
 
-    def __call__(self, V, T, P, mus, sigmas, Ns, kappas, accom=None):
+    def __call__(
+        self,
+        V: ArrayLike,
+        T: ArrayLike,
+        P: ArrayLike,
+        mus: ArrayLike,
+        sigmas: ArrayLike,
+        Ns: ArrayLike,
+        kappas: ArrayLike,
+        accom: float | None = None,
+    ) -> tuple[Array, Array, Array]:
         return arg2000(
             V, T, P, mus, sigmas, Ns, kappas, accom=self.accom if accom is None else accom
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ARG2000(accom={self.accom})"

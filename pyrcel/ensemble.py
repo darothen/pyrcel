@@ -14,12 +14,16 @@ very different times-to-peak) are handled correctly within one ``vmap``.
 
 from __future__ import annotations
 
+from typing import Any
+
 import jax
 import numpy as np
+from numpy.typing import NDArray
 
 jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
 from . import constants as c  # noqa: E402
 from .equilibrate import equilibrate_initial_state, kohler_crit_approx  # noqa: E402
@@ -29,7 +33,9 @@ from .updraft import ConstantV  # noqa: E402
 __all__ = ["sample_gaussian_updrafts", "smax_nact_ensemble", "run_updraft_ensemble"]
 
 
-def sample_gaussian_updrafts(mean, std, n, *, seed=0, v_min=1e-2):
+def sample_gaussian_updrafts(
+    mean: float, std: float, n: int, *, seed: int = 0, v_min: float = 1e-2
+) -> NDArray[np.floating[Any]]:
     """Draw ``n`` updraft speeds from ``Normal(mean, std)`` (m/s).
 
     Samples are clipped at ``v_min`` so every member is a physical (positive) updraft;
@@ -41,18 +47,18 @@ def sample_gaussian_updrafts(mean, std, n, *, seed=0, v_min=1e-2):
 
 
 def smax_nact_ensemble(
-    y0,
-    r_drys,
-    Nis,
-    kappas,
-    accom,
-    V_samples,
-    t_end,
+    y0: ArrayLike,
+    r_drys: ArrayLike,
+    Nis: ArrayLike,
+    kappas: ArrayLike,
+    accom: float,
+    V_samples: ArrayLike,
+    t_end: float,
     *,
-    rtol=STATE_RTOL,
-    atol=None,
-    max_steps=100_000,
-):
+    rtol: float = STATE_RTOL,
+    atol: ArrayLike | None = None,
+    max_steps: int = 100_000,
+) -> dict[str, NDArray[np.floating[Any]] | NDArray[np.bool_] | float]:
     """Peak supersaturation and activated number for a batch of updraft speeds.
 
     Parameters
@@ -108,21 +114,21 @@ def smax_nact_ensemble(
 
 
 def run_updraft_ensemble(
-    aerosols,
-    T0,
-    S0,
-    P0,
+    aerosols: list[Any],
+    T0: float,
+    S0: float,
+    P0: float,
     *,
-    mean,
-    std,
-    n,
-    seed=0,
-    v_min=1e-2,
-    accom=c.ac,
-    z_cap=400.0,
-    t_end=None,
-    max_steps=100_000,
-):
+    mean: float,
+    std: float,
+    n: int,
+    seed: int = 0,
+    v_min: float = 1e-2,
+    accom: float = c.ac,
+    z_cap: float = 400.0,
+    t_end: float | None = None,
+    max_steps: int = 100_000,
+) -> dict[str, Any]:
     """Convenience: sample a Gaussian updraft distribution and run the ensemble.
 
     Equilibrates ``y0`` once for the given aerosols/conditions, samples ``n`` updraft

@@ -25,12 +25,16 @@ Per the locked decision, gradients are required through the *integration* w.r.t.
 
 from __future__ import annotations
 
+from typing import Any
+
 import jax
 
 jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
 import optimistix as optx  # noqa: E402
+from jax import Array  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
 from . import constants as c  # noqa: E402
 from .thermo import Seq, es, rho_air, sigma_w  # noqa: E402
@@ -42,7 +46,7 @@ _ATOL = 1e-30
 _MAX_STEPS = 200
 
 
-def kohler_crit_approx(T, r_dry, kappa):
+def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
     """Analytic approximate Köhler critical radius and supersaturation.
 
     Mirrors :func:`pyrcel.legacy.thermo.kohler_crit` with ``approx=True``. This
@@ -77,7 +81,15 @@ def kohler_crit_approx(T, r_dry, kappa):
     return r_crit, s_crit
 
 
-def kohler_crit(T, r_dry, kappa, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS):
+def kohler_crit(
+    T: ArrayLike,
+    r_dry: ArrayLike,
+    kappa: ArrayLike,
+    *,
+    rtol: float = _RTOL,
+    atol: float = _ATOL,
+    max_steps: int = _MAX_STEPS,
+) -> Array:
     """Exact Köhler critical (peak) radius via a root-find on ``dSeq/dr = 0``.
 
     The JAX analog of ``pyrcel.legacy.thermo.kohler_crit`` (which uses
@@ -109,7 +121,7 @@ def kohler_crit(T, r_dry, kappa, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS
     kohler_crit_approx : Analytic approximation.
     pyrcel.legacy.thermo.kohler_crit : NumPy equivalent using ``scipy.optimize.fminbound``.
     """
-    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)
+    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
 
     def dseq_dr(r, args):
         rd, kap = args
@@ -130,7 +142,16 @@ def kohler_crit(T, r_dry, kappa, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS
     return sol.value
 
 
-def equilibrate_radii(T0, S0, r_drys, kappas, *, rtol=_RTOL, atol=_ATOL, max_steps=_MAX_STEPS):
+def equilibrate_radii(
+    T0: float,
+    S0: float,
+    r_drys: ArrayLike,
+    kappas: ArrayLike,
+    *,
+    rtol: float = _RTOL,
+    atol: float = _ATOL,
+    max_steps: int = _MAX_STEPS,
+) -> Array:
     """Equilibrium wet radii for every aerosol bin (vectorized over bins).
 
     Parameters
@@ -149,7 +170,7 @@ def equilibrate_radii(T0, S0, r_drys, kappas, *, rtol=_RTOL, atol=_ATOL, max_ste
     """
     r_drys = jnp.asarray(r_drys)
     kappas = jnp.asarray(kappas)
-    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)
+    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
 
     def residual(r, args):
         r_dry, kappa = args
@@ -174,7 +195,15 @@ def equilibrate_radii(T0, S0, r_drys, kappas, *, rtol=_RTOL, atol=_ATOL, max_ste
     return jax.vmap(solve_one)(r_drys, kappas)
 
 
-def equilibrate_initial_state(T0, S0, P0, r_drys, kappas, Nis, **kwargs):
+def equilibrate_initial_state(
+    T0: float,
+    S0: float,
+    P0: float,
+    r_drys: ArrayLike,
+    kappas: ArrayLike,
+    Nis: ArrayLike,
+    **kwargs: Any,
+) -> Array:
     """Assemble the equilibrated initial state vector ``y0``.
 
     Faithful to ``ParcelModel._setup_run``: water-vapor mixing ratio from the

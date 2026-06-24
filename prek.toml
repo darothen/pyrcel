@@ -19,6 +19,13 @@ repo = "local"
   entry = "ruff check --fix"
   types = ["python"]
 
+  [[repos.hooks]]
+  id = "pyrefly"
+  name = "pyrefly"
+  language = "system"
+  entry = "uv run --extra test pyrefly check"
+  pass_filenames = false
+
 [[repos]]
 repo = "builtin"
 

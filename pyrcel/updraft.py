@@ -23,12 +23,14 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
+from jax import Array  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
 
 class AbstractUpdraft(eqx.Module):
     """Base class for updraft models. Subclasses implement ``__call__(t) -> V``."""
 
-    def __call__(self, t):  # pragma: no cover - abstract
+    def __call__(self, t: ArrayLike) -> Array:  # pragma: no cover - abstract
         raise NotImplementedError
 
 
@@ -37,11 +39,11 @@ class ConstantV(AbstractUpdraft):
 
     V: jax.Array
 
-    def __init__(self, V):
+    def __init__(self, V: ArrayLike) -> None:
         # Store as a float64 scalar array so it is a differentiable pytree leaf.
         self.V = jnp.asarray(V, dtype=jnp.float64)
 
-    def __call__(self, t):
+    def __call__(self, t: ArrayLike) -> Array:
         return self.V
 
 
@@ -60,11 +62,11 @@ class InterpolatedUpdraft(AbstractUpdraft):
     ts: jax.Array
     vs: jax.Array
 
-    def __init__(self, ts, vs):
+    def __init__(self, ts: ArrayLike, vs: ArrayLike) -> None:
         self.ts = jnp.asarray(ts, dtype=jnp.float64)
         self.vs = jnp.asarray(vs, dtype=jnp.float64)
 
-    def __call__(self, t):
+    def __call__(self, t: ArrayLike) -> Array:
         return jnp.interp(t, self.ts, self.vs)
 
 

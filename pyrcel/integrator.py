@@ -18,6 +18,7 @@ This is the differentiable/batchable numerical core: it is a pure function of
 from __future__ import annotations
 
 import functools
+from typing import Any
 
 import jax
 
@@ -27,6 +28,8 @@ import diffrax as dfx  # noqa: E402
 import jax.numpy as jnp  # noqa: E402
 import numpy as np  # noqa: E402
 import optimistix as optx  # noqa: E402
+from jax import Array  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
 from .parcel_aux import N_STATE_VARS, parcel_ode_sys  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
@@ -39,7 +42,7 @@ RADIUS_ATOL = 1e-12
 _TERM = dfx.ODETerm(parcel_ode_sys)
 
 
-def atol_vector(nr: int) -> jnp.ndarray:
+def atol_vector(nr: int) -> Array:
     """Build the per-component absolute tolerance vector for the ODE solver.
 
     Parameters
@@ -76,16 +79,16 @@ def _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter=dfx.NoProg
 
 
 def integrate_parcel(
-    y0,
-    args,
-    ts,
+    y0: ArrayLike,
+    args: tuple,
+    ts: ArrayLike,
     *,
     rtol: float = STATE_RTOL,
-    atol=None,
+    atol: ArrayLike | None = None,
     dtmax: float | None = None,
     max_steps: int = 100_000,
-    progress_meter=None,
-):
+    progress_meter: dfx.AbstractProgressMeter | None = None,
+) -> dfx.Solution:
     """Integrate the parcel ODE and return the full ``diffrax`` solution.
 
     Parameters
@@ -123,7 +126,9 @@ def integrate_parcel(
     return _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter)
 
 
-def integrate_parcel_arrays(y0, args, ts, **kwargs):
+def integrate_parcel_arrays(
+    y0: ArrayLike, args: tuple, ts: ArrayLike, **kwargs: Any
+) -> tuple[Array, Array, bool]:
     """Integrate the parcel ODE and return raw arrays.
 
     Convenience wrapper around :func:`integrate_parcel` that unpacks the
@@ -157,7 +162,15 @@ def integrate_parcel_arrays(y0, args, ts, **kwargs):
 # --- Differentiable diagnostics (design §5.3, §7.6) ------------------------------
 
 
-def max_supersaturation(y0, args, ts, *, rtol=STATE_RTOL, atol=None, max_steps=100_000):
+def max_supersaturation(
+    y0: ArrayLike,
+    args: tuple,
+    ts: ArrayLike,
+    *,
+    rtol: float = STATE_RTOL,
+    atol: ArrayLike | None = None,
+    max_steps: int = 100_000,
+) -> Array:
     """Peak supersaturation over the output grid, as a differentiable scalar.
 
     A fixed-horizon solve (no data-dependent event) so the whole computation is a
@@ -529,6 +542,7 @@ def integrate_parcel_chunked(
             ts_parts.append(ts)
             ys_parts.append(ys)
 
+        assert sol.ys is not None
         y_curr = sol.ys[-1]
         t_curr = float(ts[-1])
 

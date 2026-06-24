@@ -7,30 +7,33 @@ describe droplet size distributions or other collections of objects.
 
 """
 
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from scipy.special import erf, erfinv
+
+from ._types import FloatND
 
 
 class BaseDistribution(metaclass=ABCMeta):
     """Interface for distributions, to ensure that they contain a pdf method."""
 
     @abstractmethod
-    def cdf(self, x):
+    def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function"""
 
     @abstractmethod
-    def pdf(self, x):
+    def pdf(self, x: FloatND) -> FloatND:
         """Distribution density function."""
 
-    @property
     @abstractmethod
-    def stats(self):
+    def stats(self) -> dict[str, float]:
         pass
 
     @abstractmethod
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Representation function."""
 
 
@@ -82,7 +85,7 @@ class Lognorm(BaseDistribution):
 
     """
 
-    def __init__(self, mu, sigma, N=1.0, base=np.e):
+    def __init__(self, mu: float, sigma: float, N: float = 1.0, base: float = np.e) -> None:
         self.mu = mu
         self.sigma = sigma
         self.N = N
@@ -91,7 +94,7 @@ class Lognorm(BaseDistribution):
         # Arithmetic mean of the underlying normal: E[r] = mu * exp(0.5 * ln(sigma)^2)
         self.mean = self.mu * np.exp(0.5 * np.log(self.sigma) ** 2)
 
-    def invcdf(self, y):
+    def invcdf(self, y: FloatND) -> FloatND:
         """Inverse of cumulative density function.
 
         Parameters
@@ -112,7 +115,7 @@ class Lognorm(BaseDistribution):
         erfinv_arg = 2.0 * y / self.N - 1.0
         return self.mu * np.exp(np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg))
 
-    def cdf(self, x):
+    def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function
 
         .. math::
@@ -132,7 +135,7 @@ class Lognorm(BaseDistribution):
         erf_arg = (np.log(x / self.mu)) / (np.sqrt(2.0) * np.log(self.sigma))
         return (self.N / 2.0) * (1.0 + erf(erf_arg))
 
-    def pdf(self, x):
+    def pdf(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dx (not logarithmic).
 
         .. math::
@@ -153,7 +156,7 @@ class Lognorm(BaseDistribution):
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return (scaling / x) * np.exp(-exponent)
 
-    def pdfloge(self, x):
+    def pdfloge(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dln(x) (natural logarithm).
 
         .. math::
@@ -174,7 +177,7 @@ class Lognorm(BaseDistribution):
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return scaling * np.exp(-exponent)
 
-    def pdflog10(self, x):
+    def pdflog10(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dlog(x) (base 10 logarithm).
 
         .. math::
@@ -195,7 +198,7 @@ class Lognorm(BaseDistribution):
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return np.log(10) * scaling * np.exp(-exponent)
 
-    def moment(self, k):
+    def moment(self, k: int | float) -> float:
         """Compute the k-th moment of the lognormal distribution.
 
         .. math::
@@ -216,7 +219,7 @@ class Lognorm(BaseDistribution):
         exponent = ((k**2) / 2.0) * (np.log(self.sigma)) ** 2
         return scaling * np.exp(exponent)
 
-    def stats(self):
+    def stats(self) -> dict[str, float]:
         """Compute useful statistics for a lognormal distribution
 
         Returns
@@ -243,7 +246,7 @@ class Lognorm(BaseDistribution):
 
         return stats_dict
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Lognorm | mu = {self.mu:2.2e}, sigma = {self.sigma:2.2e}, Total = {self.N:2.2e} |"
 
 
@@ -254,7 +257,13 @@ class MultiModeLognorm(BaseDistribution):
     distribution.
     """
 
-    def __init__(self, mus, sigmas, Ns, base=np.e):
+    def __init__(
+        self,
+        mus: tuple[float, ...] | list[float],
+        sigmas: tuple[float, ...] | list[float],
+        Ns: tuple[float, ...] | list[float],
+        base: float = np.e,
+    ) -> None:
         dist_params = list(zip(mus, sigmas, Ns))
         from operator import itemgetter
 
@@ -269,20 +278,20 @@ class MultiModeLognorm(BaseDistribution):
             mode_dist = Lognorm(mu, sigma, N)
             self.lognorms.append(mode_dist)
 
-    def cdf(self, x):
+    def cdf(self, x: FloatND) -> FloatND:
         return np.sum([d.cdf(x) for d in self.lognorms], axis=0)
 
-    def pdf(self, x):
+    def pdf(self, x: FloatND) -> FloatND:
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
-    def stats(self):
+    def stats(self) -> dict[str, float]:
         """Compute useful statistics for a multi-mode lognormal distribution
 
         TODO: Implement multi-mode lognorm stats
         """
         raise NotImplementedError()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"
         sigmas_str = "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
         Ns_str = "(" + ", ".join("%2.2e" % N for N in self.Ns) + ")"
