@@ -82,10 +82,76 @@ rather than `scipy.optimize.bisect`. Numerically this algorithm is identical, bu
 the new machinery allows us to compute gradients with respect to the analytic form
 of the input aerosol size distribution, regardless of binning.
 
-### Distribution utilities
+### AerosolSpecies constructor
 
-`Lognorm` and `MultiModeLognorm` (and the `AerosolSpecies` constructor) are
-unchanged from v1. Two known limitations:
+`AerosolSpecies` and the distribution classes are unchanged from v1. The
+constructor has several optional parameters worth noting:
+
+```python
+from pyrcel import AerosolSpecies, Lognorm
+
+aerosol = AerosolSpecies(
+    "(NH4)2SO4",
+    Lognorm(mu=0.05e-6, sigma=2.0, N=1000.0),
+    kappa=0.6,
+    bins=100,
+    rho=1760.0,       # kg m⁻³ — enables mass-weighted stats()
+    mw=132.14e-3,     # kg mol⁻¹ — stored as metadata
+    r_min=0.001e-6,   # override lower bin edge (m)
+    r_max=10.0e-6,    # override upper bin edge (m)
+)
+```
+
+`rho` and `mw` are optional metadata; they do not affect the integration but
+enable `aerosol.stats()` to return mass-weighted diagnostics
+(`total_mass`, `mean_mass`, `specific_surface_area`). `r_min` / `r_max` override
+the auto-derived bin bounds when the tails of the distribution need finer control.
+
+After construction the key attributes are:
+
+| Attribute | Unit | Description |
+|---|---|---|
+| `aerosol.nr` | — | Number of size bins |
+| `aerosol.r_drys` | m | Dry-radius bin representatives, shape `(nr,)` |
+| `aerosol.Nis` | m⁻³ | Number concentration per bin, shape `(nr,)` |
+| `aerosol.total_N` | cm⁻³ | Total number concentration (stored pre-conversion) |
+
+### `dist_to_conc`
+
+`dist_to_conc` integrates a `Lognorm` (or any object with a `pdf` method) over
+a bin interval to return a number concentration, and is the building block used
+internally during discretization:
+
+```python
+from pyrcel.aerosol import dist_to_conc
+
+dist = Lognorm(mu=0.015e-6, sigma=1.6, N=850.0)
+n_bin = dist_to_conc(dist, r_min=0.005e-6, r_max=0.025e-6)
+```
+
+### Pre-built size distributions
+
+Several published aerosol climatology distributions are included as ready-to-use
+`Lognorm` or `MultiModeLognorm` objects:
+
+| Name | Source | Keys |
+|---|---|---|
+| `pyrcel.distributions.FN2005_single_modes` | Fountoukis & Nenes (2005) | `SM1`–`SM5` |
+| `pyrcel.distributions.NS2003_single_modes` | Nenes & Seinfeld (2003) | `SM1`–`SM5` |
+| `pyrcel.distributions.whitby_distributions` | Whitby (1978) | `marine`, `continental`, `background`, `urban` |
+| `pyrcel.distributions.jaenicke_distributions` | Jaenicke (1993) | `Polar`, `Urban`, `Background`, `Maritime`, `Remote Continental`, `Rural` |
+
+```python
+from pyrcel.distributions import whitby_distributions, jaenicke_distributions
+
+marine_modes = whitby_distributions["marine"]   # list of 3 Lognorm objects
+urban = jaenicke_distributions["Urban"]         # MultiModeLognorm
+```
+
+`whitby_distributions` entries are lists of `Lognorm` objects (one per mode);
+`jaenicke_distributions` entries are `MultiModeLognorm` objects.
+
+### Known limitations
 
 - `MultiModeLognorm.stats()` raises `NotImplementedError`. Use
   `lognorm.stats()` on each element of `multi.lognorms` and combine manually.
