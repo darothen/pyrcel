@@ -11,10 +11,6 @@ if TYPE_CHECKING:
     from jax import Array
     from jax.typing import ArrayLike
 
-    # Per-mode parameter: all arguments annotated with this type must share
-    # the same length (n_modes,).
-    _ModeParam = ArrayLike
-
 
 class ActivationScheme(ABC):
     """Interface for droplet activation parameterizations.
@@ -31,10 +27,10 @@ class ActivationScheme(ABC):
         V: ArrayLike,
         T: ArrayLike,
         P: ArrayLike,
-        mus: _ModeParam,
-        sigmas: _ModeParam,
-        Ns: _ModeParam,
-        kappas: _ModeParam,
+        mus: ArrayLike,
+        sigmas: ArrayLike,
+        Ns: ArrayLike,
+        kappas: ArrayLike,
         accom: float = c.ac,
     ) -> tuple[Array, Array, Array]:
         """Predict maximum supersaturation and activated fractions.
