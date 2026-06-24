@@ -166,6 +166,12 @@ For the differentiable diagnostics (`max_supersaturation`, `nd_from_parcel`) the
 backend uses `SaveAt(t1=True)` to retain only the final state, minimising the
 memory footprint of the adjoint checkpoints.
 
+The `live=True` mode on `ParcelModel.run()` is the one exception to single-call
+integration: it deliberately re-introduces a Python chunk loop to print per-step
+diagnostics, at the cost of JIT overhead per chunk and incompatibility with
+`jax.grad`. See the [migration guide](migration.md) for the full display-option
+comparison (`progress`, `live`, `trajectory_table`).
+
 ---
 
 ## Supersaturation-maximum event detection

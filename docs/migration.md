@@ -126,7 +126,57 @@ construction — useful on the differentiable path:
 
 ```python
 smax  = model.run(t_end=300.0, output_dt=1.0, mode="smax")   # float, S_max
-nd    = model.run(t_end=300.0, output_dt=1.0, mode="nd")      # float, N_d (cm⁻³)
+nd    = model.run(t_end=300.0, output_dt=1.0, mode="nd")      # float, N_d (m⁻³)
+```
+
+### Monitoring the integration
+
+Three mutually exclusive display options control what you see while the model runs.
+They are independent of the output format and can be combined with any `mode`.
+
+**`progress=True`** — diffrax text progress meter (recommended for interactive use).
+A single-line progress bar is printed and updated in-place during the adaptive solve.
+This is the lightest-weight option: the solve runs as a single compiled call with no
+Python overhead between steps.
+
+```python
+out = model.run(t_end=300.0, output_dt=1.0, progress=True)
+```
+
+**`live=True`** — legacy CVode-style step table. The integration is split into
+`live_chunk_dt`-second chunks; a row of `z / T / S` diagnostics is printed after
+each chunk completes. This replicates the interactive output from the v1 CVode
+integrator and is useful for debugging or for watching a long run. Because the
+solve is divided across Python-level chunk boundaries, `live=True` is slower than a
+single compiled call and is **not** compatible with `jax.grad`.
+
+```python
+out = model.run(t_end=300.0, output_dt=1.0, live=True, live_chunk_dt=10.0)
+```
+
+**Default (neither flag)** — the solve runs silently as a single compiled call.
+Pass `console=True` at construction time to print the initial-conditions and
+post-solve activation summary tables without any per-step output.
+
+```python
+model = pm.ParcelModel([aerosol], V=1.0, T0=283.15, S0=0.0, P0=85000.0,
+                        console=True)   # prints setup + summary; solve is silent
+out = model.run(t_end=300.0, output_dt=1.0)
+```
+
+A **post-solve trajectory table** (a sampled printout of the state at a handful of
+time points) can be requested independently via `trajectory_table=True`. It defaults
+to `True` when `console=True` and `False` otherwise.
+
+### Solver step limit
+
+The adaptive solver is bounded by `max_steps` (default 100,000). This cap must be
+finite under `jax.jit`. Runs that terminate prematurely with a `max_steps` warning
+typically involve very fine aerosol bins or very tight tolerances — increase
+`max_steps` or widen `atol` for radius bins:
+
+```python
+out = model.run(t_end=300.0, output_dt=1.0, max_steps=500_000)
 ```
 
 ---
