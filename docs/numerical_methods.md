@@ -354,6 +354,98 @@ dNd_dV = grad_args[4].V   # gradient w.r.t. updraft speed (ConstantV module)
 
 ---
 
+## Low-level integrator API
+
+`ParcelModel.run()` is the recommended entry point, but the underlying functions
+are public and fully composable for advanced workflows — building a custom
+optimization loop, wrapping the ODE in an external framework, or constructing
+partial pipelines with `jax.vmap`.
+
+### Equilibration
+
+```python
+from pyrcel.equilibrate import equilibrate_initial_state
+
+y0 = equilibrate_initial_state(T0, S0, P0, r_drys, kappas, Nis)
+# y0: shape (7 + nr,) — [z, P, T, wv, wc, wi, S, r_0, ..., r_{nr-1}]
+```
+
+`equilibrate_initial_state` computes the equilibrium wet-radius spectrum at the
+initial conditions and assembles the full `(7 + nr)`-element state vector. It is
+the direct equivalent of `ParcelModel._setup_run` and is itself JAX-traceable
+(uses `optimistix` bisection).
+
+### Core solve
+
+| Function | Returns | When to use |
+|---|---|---|
+| `integrate_parcel(y0, args, ts)` | `diffrax.Solution` | Full solution object with `sol.ts`, `sol.ys`, `sol.result` |
+| `integrate_parcel_arrays(y0, args, ts)` | `(ts, ys, success)` | Raw arrays; avoids unpacking the diffrax object |
+
+```python
+from pyrcel.integrator import integrate_parcel_arrays
+
+ts_out = jnp.linspace(0.0, t_end, n_out)
+ts, ys, ok = integrate_parcel_arrays(y0, args, ts_out)
+# ys: shape (n_out, 7 + nr)
+```
+
+`args` is the tuple `(r_drys, Nis, kappas, accom, V)` where `V` is a
+`ConstantV` or `InterpolatedUpdraft`.
+
+### Differentiable diagnostics
+
+| Function | Returns | Notes |
+|---|---|---|
+| `max_supersaturation(y0, args, ts)` | `float` | $S_\text{max}$ via dense output; `jax.grad`-able |
+| `nd_from_parcel(y0, args, t_end)` | `float` | Soft-threshold $N_d$ (m⁻³); `jax.grad`-able |
+
+Both are designed for the differentiable path and documented in detail in the
+[adjoint](#differentiating-through-the-ode-recursivecheckpointadjoint) and
+[sigmoid Nd](#differentiable-activated-droplet-number-sigmoid-soft-threshold)
+sections above.
+
+### Terminated-run pipeline
+
+When `terminate=True` the interactive path uses a three-function pipeline:
+
+```python
+from pyrcel.integrator import (
+    find_smax,
+    terminate_cutoff_time,
+    integrate_parcel_terminated,
+)
+
+# 1. Precisely localize S_max via a dS/dt = 0 event
+t_smax, smax, y_smax, activated = find_smax(y0, args, t_end)
+
+# 2. Compute the altitude-based cutoff time (terminate_depth m past S_max)
+t_cut = terminate_cutoff_time(
+    y0, args, t_end,
+    terminate_depth=10.0, t_smax=t_smax, y_smax=y_smax, activated=activated,
+)
+
+# 3. Integrate to the cutoff and return the full trajectory
+ts, ys = integrate_parcel_terminated(y0, args, t_cut, output_dt=1.0)
+```
+
+`find_smax` is **not** differentiable (event detection is discontinuous; see
+[the event section](#supersaturation-maximum-event-detection)). Use
+`max_supersaturation` on the differentiable path.
+
+### Tolerance constants
+
+The module-level constants `STATE_RTOL`, `STATE_ATOL`, and `RADIUS_ATOL` are
+importable and match the CVode configuration from the legacy model:
+
+```python
+from pyrcel.integrator import STATE_RTOL, atol_vector
+
+atol = atol_vector(nr)  # per-component vector matching legacy CVode setup
+```
+
+---
+
 ## Performance tips
 
 ### JIT compilation warm-up
