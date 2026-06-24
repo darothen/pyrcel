@@ -57,6 +57,9 @@ examples = [
     "matplotlib>=3.5",
 ]
 
+[project.scripts]
+run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
+
 [project.urls]
 Documentation = "https://pyrcel.readthedocs.io/en/latest/"
 Repository = "https://github.com/darothen/pyrcel"
