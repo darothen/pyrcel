@@ -28,6 +28,8 @@ docs/_build/
 docs/generated/
 docs/examples/*.rst
 docs/examples/*files/
+# mkdocs build output
+site/
 
 # Other
 #######
