@@ -97,7 +97,7 @@ class ModelOutput:
 
     @property
     def Nd(self) -> float:
-        """Total activated droplet number concentration (cm⁻³) at the last trajectory step.
+        """Total activated droplet number concentration (m⁻³) at the last trajectory step.
 
         Evaluated by comparing wet radii against per-bin critical radii at
         ``summary["nd_t_eval"]`` (the final output time, which is
@@ -248,12 +248,12 @@ class ModelOutput:
             ds[f"{p['species']}_Nd"] = (
                 (),
                 p["Nd"],
-                {"units": "cm-3", "long_name": f"{p['species']} activated droplet number"},
+                {"units": "m-3", "long_name": f"{p['species']} activated droplet number"},
             )
         ds["Nd"] = (
             (),
             s["total_Nd"],
-            {"units": "cm-3", "long_name": "Total activated droplet number concentration"},
+            {"units": "m-3", "long_name": "Total activated droplet number concentration"},
         )
         ds["nd_t_eval"] = (
             (),

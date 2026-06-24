@@ -38,9 +38,8 @@ class BaseDistribution(metaclass=ABCMeta):
 
 
 class Gamma(BaseDistribution):
-    """Gamma size distribution"""
+    """Gamma size distribution — not yet implemented."""
 
-    # TODO: Implement Gamma size distribution
     pass
 
 
@@ -285,9 +284,10 @@ class MultiModeLognorm(BaseDistribution):
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
     def stats(self) -> dict[str, float]:
-        """Compute useful statistics for a multi-mode lognormal distribution
+        """Not implemented for multi-mode distributions.
 
-        TODO: Implement multi-mode lognorm stats
+        Call ``lognorm.stats()`` on each constituent :class:`Lognorm` mode
+        (accessible via ``self.lognorms``) and combine manually.
         """
         raise NotImplementedError()
 

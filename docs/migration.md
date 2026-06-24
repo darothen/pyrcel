@@ -82,6 +82,16 @@ rather than `scipy.optimize.bisect`. Numerically this algorithm is identical, bu
 the new machinery allows us to compute gradients with respect to the analytic form
 of the input aerosol size distribution, regardless of binning.
 
+### Distribution utilities
+
+`Lognorm` and `MultiModeLognorm` (and the `AerosolSpecies` constructor) are
+unchanged from v1. Two known limitations:
+
+- `MultiModeLognorm.stats()` raises `NotImplementedError`. Use
+  `lognorm.stats()` on each element of `multi.lognorms` and combine manually.
+- `Gamma` is a placeholder class with no implementation; it cannot be used to
+  construct an aerosol population.
+
 ---
 
 ## `ParcelModel.run()` — return type and new parameters
@@ -214,10 +224,32 @@ The post-solve summary dict is accessible on the `ModelOutput` object:
 
 ```python
 out = model.run(t_end=300.0, output_dt=1.0)
-print(out.summary["S_max"])          # peak supersaturation (decimal)
-print(out.summary["t_smax"])         # time of S_max (s)
-print(out.summary["total_act_frac"]) # total activated fraction
+s = out.summary
 ```
+
+| Key | Type | Description |
+|---|---|---|
+| `S_max` | float | Peak supersaturation (decimal fraction, e.g. `0.005` = 0.5 %) |
+| `t_smax` | float | Time of $S_\text{max}$ (s) |
+| `T_smax` | float | Temperature at $S_\text{max}$ (K) |
+| `z_smax` | float | Altitude at $S_\text{max}$ (m) |
+| `total_act_frac` | float | Total activated fraction at $S_\text{max}$ (0–1) |
+| `total_Nd` | float | Total activated droplet number concentration (m⁻³) at `nd_t_eval` |
+| `total_nd_frac` | float | Activated fraction at `nd_t_eval` (0–1) |
+| `nd_t_eval` | float | Time of the $N_d$ snapshot (s); equals last output time, i.e. `terminate_depth` m above $S_\text{max}$ when `terminate=True` |
+| `per_species` | list[dict] | One dict per aerosol mode — see below |
+
+Each `per_species` entry contains:
+
+| Key | Description |
+|---|---|
+| `species` | Mode name (str) |
+| `eq_act_frac` | Equilibrium activated fraction at $S_\text{max}$ (0–1) |
+| `kn_act_frac` | Kinetically-limited activated fraction at $S_\text{max}$ (0–1) |
+| `N` | Total mode number concentration (m⁻³) |
+| `N_act` | Activated concentration at $S_\text{max}$ (m⁻³) |
+| `nd_frac` | Activated fraction at `nd_t_eval` (0–1) |
+| `Nd` | Activated concentration at `nd_t_eval` (m⁻³) |
 
 ---
 
@@ -388,6 +420,16 @@ result = pm.run_updraft_ensemble([aerosol], T0=283.15, S0=0.0, P0=85000.0,
                                   mean=0.5, std=0.2, n=1024)
 print(result["S_max"].mean())
 ```
+
+`sample_gaussian_updrafts` is also available as a standalone utility when you
+want to draw updraft samples independently of the solve:
+
+```python
+V_samples = pm.sample_gaussian_updrafts(mean=0.5, std=0.2, n=1024, seed=42)
+```
+
+It clips at a configurable minimum speed (`v_min`, default 0.01 m/s) to avoid
+degenerate parcel trajectories at very low updraft velocities.
 
 ### GPU acceleration
 
