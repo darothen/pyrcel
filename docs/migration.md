@@ -210,13 +210,13 @@ print(out.Nd)         # activated droplet number at trajectory end (m⁻³)
 print(out.nd_frac)    # activated fraction at trajectory end
 ```
 
-The post-solve summary dict is accessible through the model directly:
+The post-solve summary dict is accessible on the `ModelOutput` object:
 
 ```python
-s = model.summary()
-print(s["S_max"])          # peak supersaturation (decimal)
-print(s["t_smax"])         # time of S_max (s)
-print(s["total_act_frac"]) # total activated fraction
+out = model.run(t_end=300.0, output_dt=1.0)
+print(out.summary["S_max"])          # peak supersaturation (decimal)
+print(out.summary["t_smax"])         # time of S_max (s)
+print(out.summary["total_act_frac"]) # total activated fraction
 ```
 
 ---
@@ -264,13 +264,13 @@ ts = np.linspace(0, 300, 1000)
 Vs = 1.0 + 0.5 * np.sin(ts / 30.0)
 model = pm.ParcelModel([aer], V=InterpolatedUpdraft(ts, Vs), ...)
 
-# Convenience helper: wraps a scalar or (ts, Vs) pair
+# Convenience helper: wraps a scalar in ConstantV, or passes through an AbstractUpdraft
 model = pm.ParcelModel([aer], V=as_updraft(1.0), ...)
 ```
 
-The `as_updraft` helper accepts a scalar (returns `ConstantV`), a tuple
-`(ts, Vs)` (returns `InterpolatedUpdraft`), or an existing `AbstractUpdraft`
-(returned as-is).
+The `as_updraft` helper accepts a scalar (returns `ConstantV`) or an existing
+`AbstractUpdraft` (returned as-is). To construct a time-varying profile pass an
+`InterpolatedUpdraft` directly rather than a raw tuple or callable.
 
 ---
 
@@ -281,7 +281,7 @@ YAML format and two new keys:
 
 ```yaml
 model_control:
-  dt_output: 1.0
+  output_dt: 1.0
   t_end: 300.0
   terminate: true
   terminate_depth: 10.0
@@ -368,7 +368,16 @@ computing a full sensitivity table.
 loop, using a single JIT-compiled kernel:
 
 ```python
-smax_arr, nact_arr = pm.smax_nact_ensemble(y0_batch, args_batch, t_end)
+result = pm.smax_nact_ensemble(
+    y0,          # equilibrated initial state, shape (7 + nr,)
+    r_drys,      # dry radii, shape (nr,)
+    Nis,         # number concentrations, shape (nr,)
+    kappas,      # hygroscopicities, shape (nr,)
+    accom,       # accommodation coefficient (float)
+    V_samples,   # updraft speed array, shape (n_ensemble,)
+    t_end,
+)
+# result keys: "S_max", "N_act", "T_smax", "activated" (bool), "V" — each shape (n_ensemble,)
 ```
 
 The `run_updraft_ensemble` convenience function handles the full pipeline for
