@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from .. import constants as c
+
+if TYPE_CHECKING:
+    from jax import Array
+    from jax.typing import ArrayLike
 
 
 class ActivationScheme(ABC):
@@ -17,7 +22,17 @@ class ActivationScheme(ABC):
     """
 
     @abstractmethod
-    def __call__(self, V, T, P, mus, sigmas, Ns, kappas, accom=c.ac):
+    def __call__(
+        self,
+        V: ArrayLike,
+        T: ArrayLike,
+        P: ArrayLike,
+        mus: ArrayLike,
+        sigmas: ArrayLike,
+        Ns: ArrayLike,
+        kappas: ArrayLike,
+        accom: float = c.ac,
+    ) -> tuple[Array, Array, Array]:
         """Predict maximum supersaturation and activated fractions.
 
         Parameters

@@ -22,13 +22,15 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
+from jax import Array  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
 from . import constants as c  # noqa: E402
 
 PI = math.pi
 
 
-def sigma_w(T):
+def sigma_w(T: ArrayLike) -> Array:
     """Surface tension of water for a given temperature.
 
     Parameters
@@ -48,7 +50,7 @@ def sigma_w(T):
     return 0.0761 - 1.55e-4 * (T - 273.15)
 
 
-def dv_cont(T, P):
+def dv_cont(T: ArrayLike, P: ArrayLike) -> Array:
     """Diffusivity of water vapor in air, neglecting non-continuum effects.
 
     Parameters
@@ -71,7 +73,7 @@ def dv_cont(T, P):
     return 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
 
 
-def dv(T, r, P, accom=c.ac):
+def dv(T: ArrayLike, r: ArrayLike, P: ArrayLike, accom: ArrayLike = c.ac) -> Array:
     """Diffusivity of water vapor in air, modified for non-continuum effects.
 
     Parameters
@@ -99,7 +101,7 @@ def dv(T, r, P, accom=c.ac):
     return dv_t / denom
 
 
-def es(T_c):
+def es(T_c: ArrayLike) -> Array:
     """Saturation vapor pressure over water for a given temperature.
 
     Parameters
@@ -119,7 +121,7 @@ def es(T_c):
     return 611.2 * jnp.exp(17.67 * T_c / (T_c + 243.5))
 
 
-def ka_cont(T):
+def ka_cont(T: ArrayLike) -> Array:
     """Thermal conductivity of air, neglecting non-continuum effects.
 
     Parameters
@@ -139,7 +141,7 @@ def ka_cont(T):
     return 1e-3 * (4.39 + 0.071 * T)
 
 
-def ka(T, rho, r):
+def ka(T: ArrayLike, rho: ArrayLike, r: ArrayLike) -> Array:
     """Thermal conductivity of air, modified for non-continuum effects.
 
     Parameters
@@ -165,7 +167,7 @@ def ka(T, rho, r):
     return ka_t / denom
 
 
-def rho_air(T, P, RH=1.0):
+def rho_air(T: ArrayLike, P: ArrayLike, RH: ArrayLike = 1.0) -> Array:
     """Density of moist air for a given temperature, pressure, and relative humidity.
 
     Parameters
@@ -191,7 +193,7 @@ def rho_air(T, P, RH=1.0):
     return P / c.Rd / Tv
 
 
-def Seq(r, r_dry, T, kappa):
+def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array:
     """κ-Köhler equilibrium supersaturation over an aerosol particle.
 
     Two numerical stability improvements over the naïve formulation:
@@ -247,7 +249,7 @@ def Seq(r, r_dry, T, kappa):
     return B * jnp.expm1(A) + Bm1
 
 
-def Seq_approx(r, r_dry, T, kappa):
+def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array:
     """Approximate κ-Köhler equilibrium supersaturation over an aerosol particle.
 
     Parameters

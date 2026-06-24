@@ -19,6 +19,13 @@ repo = "local"
   entry = "ruff check --fix"
   types = ["python"]
 
+  [[repos.hooks]]
+  id = "pyright"
+  name = "pyright"
+  language = "system"
+  entry = "uv run --extra test pyright"
+  pass_filenames = false
+
 [[repos]]
 repo = "builtin"
 

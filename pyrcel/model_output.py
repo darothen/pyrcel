@@ -57,7 +57,7 @@ class ModelOutput:
     state: np.ndarray
     aerosols: list
     summary: dict
-    V: object
+    V: float | AbstractUpdraft
     T0: float
     S0: float
     P0: float

@@ -1,11 +1,16 @@
 """Container class for encapsulating data about aerosol size distributions."""
 
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
 
 from .distributions import BaseDistribution, Lognorm, MultiModeLognorm
 
 
-def dist_to_conc(dist, r_min, r_max, rule="trapezoid"):
+def dist_to_conc(dist: BaseDistribution, r_min: float, r_max: float, rule: str = "trapezoid") -> float:
     """Convert a size distribution over a bin interval to a number concentration.
 
     Aerosol size distributions are typically reported as dN/dr (number density
@@ -157,15 +162,15 @@ class AerosolSpecies:
 
     def __init__(
         self,
-        species,
-        distribution,
-        kappa,
-        rho=None,
-        mw=None,
-        bins=None,
-        r_min=None,
-        r_max=None,
-    ):
+        species: str,
+        distribution: BaseDistribution | dict[str, Any],
+        kappa: float,
+        rho: float | None = None,
+        mw: float | None = None,
+        bins: int | NDArray[np.floating[Any]] | None = None,
+        r_min: float | None = None,
+        r_max: float | None = None,
+    ) -> None:
         self.species = species
         self.kappa = kappa
         self.rho = rho
@@ -228,7 +233,7 @@ class AerosolSpecies:
         self.Nis = self.Nis * 1e6
         self.nr = len(self.r_drys)
 
-    def stats(self):
+    def stats(self) -> dict[str, float]:
         """Compute useful statistics about this aerosol's size distribution.
 
         Returns
@@ -260,11 +265,11 @@ class AerosolSpecies:
 
         return stats_dict
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"AerosolSpecies({self.species!r}, kappa={self.kappa}, "
             f"distribution={self.distribution!r})"
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.species}: kappa={self.kappa:.3f}, N={self.total_N:.1f} cm⁻³, nr={self.nr}"

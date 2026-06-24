@@ -35,6 +35,9 @@ jobs:
           uvx ruff format --check pyrcel/ tests/ examples/ tools/
           uvx ruff check pyrcel/ tests/ examples/ tools/
 
+      - name: Type check (pyright)
+        run: uv run pyright
+
       - name: Run fast tests
         run: uv run pytest tests/ -m "not slow" -v
 

@@ -27,6 +27,9 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp  # noqa: E402
+from jax import Array  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
+from typing import Any  # noqa: E402
 
 from . import constants as c  # noqa: E402
 from .thermo import Seq, dv, es, ka  # noqa: E402
@@ -38,7 +41,7 @@ PI = math.pi
 N_STATE_VARS = c.N_STATE_VARS
 
 
-def parcel_ode_sys(t, y, args):
+def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
     """Instantaneous tendency of the parcel-model state vector.
 
     Parameters

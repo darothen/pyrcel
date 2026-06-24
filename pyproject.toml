@@ -51,6 +51,7 @@ gpu = [
 test = [
     "pytest>=7",
     "hypothesis>=6",
+    "pyright>=1.1.380",
 ]
 examples = [
     "matplotlib>=3.5",
@@ -102,6 +103,25 @@ select = ["E", "F", "I", "UP", "NPY"]
 # E402: import order is intentional (sys.path setup, warnings filter before imports)
 "docs/conf.py" = ["E402"]
 "tools/**/*.py" = ["E402", "E501"]
+
+[tool.pyright]
+include = ["pyrcel"]
+exclude = ["pyrcel/legacy", "pyrcel/test", "pyrcel/scripts", "pyrcel/output.py"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+# JAX/equinox/diffrax stubs are incomplete in some areas; suppress the noisiest
+# false-positive categories that arise from those packages rather than our code.
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+# jax.typing.ArrayLike is a broad union that includes Python scalars; pyright
+# cannot prove that JAX's dynamic dispatch always produces Array, so arithmetic
+# on ArrayLike arguments and ArrayLike → Array returns trigger false positives.
+reportOperatorIssue = false
+reportReturnType = false
+reportIndexIssue = false
 
 [tool.pytest.ini_options]
 markers = [

@@ -19,6 +19,9 @@ inner vector field / updraft are Equinox modules.
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 
 from . import constants as c
@@ -71,7 +74,16 @@ class ParcelModel:
     available immediately as :attr:`y0`.
     """
 
-    def __init__(self, aerosols, V, T0, S0, P0, accom=c.ac, console=False):
+    def __init__(
+        self,
+        aerosols: list,
+        V: float | AbstractUpdraft,
+        T0: float,
+        S0: float,
+        P0: float,
+        accom: float = c.ac,
+        console: bool = False,
+    ) -> None:
         self.aerosols = list(aerosols)
         self.V = V
         self.T0 = float(T0)
@@ -134,18 +146,18 @@ class ParcelModel:
 
     def run(
         self,
-        t_end,
-        output_dt=1.0,
+        t_end: float,
+        output_dt: float = 1.0,
         *,
-        terminate=True,
-        terminate_depth=10.0,
-        max_steps=100_000,
-        progress=False,
-        live=False,
-        live_chunk_dt=10.0,
-        trajectory_table=None,
-        mode="full",
-    ):
+        terminate: bool = True,
+        terminate_depth: float = 10.0,
+        max_steps: int = 100_000,
+        progress: bool = False,
+        live: bool = False,
+        live_chunk_dt: float = 10.0,
+        trajectory_table: bool | None = None,
+        mode: str = "full",
+    ) -> ModelOutput | float:
         """Run the simulation.
 
         Parameters
@@ -348,7 +360,9 @@ class ParcelModel:
 
     # --- diagnostics --------------------------------------------------------------
 
-    def _compute_summary(self, peak=None) -> dict:
+    def _compute_summary(self, peak: object = None) -> dict:
+        assert self.x is not None
+        assert self.time is not None
         S = self.x[:, c.STATE_VAR_MAP["S"]]
         if peak is not None:
             # Use the event-localized (precise) S_max/t_smax; take droplet radii from
@@ -401,7 +415,7 @@ class ParcelModel:
     # --- output formatting (delegates to ModelOutput) ----------------------------
 
     def _make_output(self) -> ModelOutput:
-        if self.x is None:
+        if self.x is None or self.time is None or self._summary is None:
             raise RuntimeError("call run() before accessing output")
         return ModelOutput(
             time=self.time,
@@ -415,14 +429,14 @@ class ParcelModel:
             accom=self.accom,
         )
 
-    def to_dataset(self):
+    def to_dataset(self) -> Any:
         """Return a CF-flavoured :class:`xarray.Dataset`.
 
         Delegates to :meth:`~pyrcel.model_output.ModelOutput.to_xarray`.
         """
         return self._make_output().to_xarray()
 
-    def save_netcdf(self, filename):
+    def save_netcdf(self, filename: str | Path) -> str | Path:
         """Write the run to a NetCDF file (see :meth:`to_dataset`)."""
         self._make_output().to_netcdf(filename)
         if self.console:
