@@ -1,12 +1,49 @@
-/* Wrap long API signatures instead of scrolling horizontally */
-.doc-signature {
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
+/* ── Custom colour palette ────────────────────────────────────────────────── */
+
+/* Light scheme: warm off-white background, deep crimson header */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:        #8B2232;
+  --md-primary-fg-color--light: #AE3345;
+  --md-primary-fg-color--dark:  #611826;
+  --md-primary-bg-color:        #ffffff;
+  --md-primary-bg-color--light: hsla(0, 0%, 100%, 0.7);
+
+  /* Warm off-white page background */
+  --md-default-bg-color:          #F7F5F0;
+  --md-default-bg-color--light:   #FDFCF8;
+  --md-default-bg-color--lighter: #FDFCF8;
+  --md-default-bg-color--lightest: #FDFCF8;
 }
 
-/* Allow code blocks in docstrings to wrap at word boundaries */
-.doc-contents .highlight pre {
+/* Dark scheme: same crimson works well on slate */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #C2344A;
+  --md-primary-fg-color--light: #D65568;
+  --md-primary-fg-color--dark:  #8B2232;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+
+/* Bump body text up ~1-2pt from Material default (0.8rem) */
+.md-typeset {
+  font-size: 0.875rem;
+}
+
+/* ── API docs: prevent horizontal overflow ────────────────────────────────── */
+
+/* Wrap signatures rendered as code blocks by mkdocstrings */
+.doc-heading code,
+.doc-signature,
+.doc-signature pre,
+.doc-signature code {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+/* Wrap code examples inside docstring bodies */
+.doc-contents .highlight pre,
+.doc-contents .highlight code {
   white-space: pre-wrap;
   word-break: normal;
   overflow-wrap: break-word;

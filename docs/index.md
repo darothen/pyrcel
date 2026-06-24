@@ -10,6 +10,8 @@ droplets activated at cloud base.
 [![CI](https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg)](https://github.com/darothen/pyrcel/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](https://pyrcel.readthedocs.io/en/stable/)
 
+![Parcel model simulation: supersaturation and aerosol size evolution](assets/figures/basic_run.png)
+
 ## Highlights
 
 **Differentiable.** Every output is a smooth function of its inputs. Compute
