@@ -18,6 +18,7 @@ This is the differentiable/batchable numerical core: it is a pure function of
 from __future__ import annotations
 
 import functools
+from typing import Any
 
 import jax
 
@@ -29,7 +30,6 @@ import numpy as np  # noqa: E402
 import optimistix as optx  # noqa: E402
 from jax import Array  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
-from typing import Any  # noqa: E402
 
 from .parcel_aux import N_STATE_VARS, parcel_ode_sys  # noqa: E402
 from .updraft import ConstantV  # noqa: E402

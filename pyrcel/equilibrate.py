@@ -25,6 +25,8 @@ Per the locked decision, gradients are required through the *integration* w.r.t.
 
 from __future__ import annotations
 
+from typing import Any
+
 import jax
 
 jax.config.update("jax_enable_x64", True)
@@ -33,7 +35,6 @@ import jax.numpy as jnp  # noqa: E402
 import optimistix as optx  # noqa: E402
 from jax import Array  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
-from typing import Any  # noqa: E402
 
 from . import constants as c  # noqa: E402
 from .thermo import Seq, es, rho_air, sigma_w  # noqa: E402
