@@ -31,7 +31,7 @@ PI = math.pi
 
 
 def sigma_w(T: ArrayLike) -> Array:
-    """Surface tension of water for a given temperature.
+    r"""Surface tension of water for a given temperature.
 
     Parameters
     ----------
@@ -57,7 +57,7 @@ def sigma_w(T: ArrayLike) -> Array:
 
 
 def dv_cont(T: ArrayLike, P: ArrayLike) -> Array:
-    """Diffusivity of water vapor in air, neglecting non-continuum effects.
+    r"""Diffusivity of water vapor in air, neglecting non-continuum effects.
 
     Parameters
     ----------
@@ -87,7 +87,7 @@ def dv_cont(T: ArrayLike, P: ArrayLike) -> Array:
 
 
 def dv(T: ArrayLike, r: ArrayLike, P: ArrayLike, accom: ArrayLike = c.ac) -> Array:
-    """Diffusivity of water vapor in air, modified for non-continuum effects.
+    r"""Diffusivity of water vapor in air, modified for non-continuum effects.
 
     Parameters
     ----------
@@ -122,7 +122,7 @@ def dv(T: ArrayLike, r: ArrayLike, P: ArrayLike, accom: ArrayLike = c.ac) -> Arr
 
 
 def es(T_c: ArrayLike) -> Array:
-    """Saturation vapor pressure over water for a given temperature.
+    r"""Saturation vapor pressure over water for a given temperature.
 
     Parameters
     ----------
@@ -172,7 +172,7 @@ def ka_cont(T: ArrayLike) -> Array:
 
 
 def ka(T: ArrayLike, rho: ArrayLike, r: ArrayLike) -> Array:
-    """Thermal conductivity of air, modified for non-continuum effects.
+    r"""Thermal conductivity of air, modified for non-continuum effects.
 
     Parameters
     ----------
@@ -205,7 +205,7 @@ def ka(T: ArrayLike, rho: ArrayLike, r: ArrayLike) -> Array:
 
 
 def rho_air(T: ArrayLike, P: ArrayLike, RH: ArrayLike = 1.0) -> Array:
-    """Density of moist air for a given temperature, pressure, and relative humidity.
+    r"""Density of moist air for a given temperature, pressure, and relative humidity.
 
     Parameters
     ----------
@@ -241,7 +241,7 @@ def rho_air(T: ArrayLike, P: ArrayLike, RH: ArrayLike = 1.0) -> Array:
 
 
 def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array:
-    """κ-Köhler equilibrium supersaturation over an aerosol particle.
+    r"""κ-Köhler equilibrium supersaturation over an aerosol particle.
 
     Two numerical stability improvements over the naïve formulation:
 
@@ -308,7 +308,7 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
 
 
 def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array:
-    """Approximate κ-Köhler equilibrium supersaturation over an aerosol particle.
+    r"""Approximate κ-Köhler equilibrium supersaturation over an aerosol particle.
 
     Parameters
     ----------

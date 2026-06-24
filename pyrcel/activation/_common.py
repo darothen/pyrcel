@@ -18,7 +18,7 @@ from ..thermo import sigma_w  # noqa: E402
 def _lognormal_act(
     smax: ArrayLike, sigma: ArrayLike, N: ArrayLike, sgi: ArrayLike
 ) -> tuple[Array, Array]:
-    """Activated fraction of one lognormal mode.
+    r"""Activated fraction of one lognormal mode.
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ def _lognormal_act(
 
 
 def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
-    """Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
+    r"""Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
 
     Vectorises over ``r_dry`` / ``kappa`` for scalar ``T``.
 
