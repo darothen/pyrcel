@@ -7,6 +7,7 @@ Usage
     run_parcel config.yml                    # write output/<name>.nc
     run_parcel config.yml -o results/run1   # explicit output path (no .nc extension needed)
     run_parcel config.yml --no-console      # suppress the setup/summary table
+    run_parcel config.yml --device gpu      # run on the first available GPU
 
 YAML Namelist Format
 --------------------
@@ -48,6 +49,8 @@ Key                  Description
 ``terminate``        Stop after S_max. Default: ``true``.
 ``terminate_depth``  Extra depth (m) past S_max. Default: ``10.0``.
 ``max_steps``        Adaptive-step cap. Default: ``100000``.
+``device``           JAX backend: ``"cpu"`` or ``"gpu"``. Default: JAX's
+                     current default device. Overridden by ``--device``.
 ``solver_dt``        **Ignored** (legacy CVode chunk size; diffrax is fully
                      adaptive and does not need this).
 ===================  ======================================================
@@ -98,6 +101,17 @@ parser.add_argument(
     default=False,
     help="Suppress the setup/summary console output",
 )
+parser.add_argument(
+    "--device",
+    type=str,
+    default=None,
+    metavar="BACKEND",
+    help=(
+        'JAX device backend: "cpu" or "gpu". '
+        "Overrides the model_control.device namelist key. "
+        "Defaults to JAX's current default device."
+    ),
+)
 
 
 def run_parcel() -> None:
@@ -132,6 +146,10 @@ def run_parcel() -> None:
     ic = cfg["initial_conditions"]
     S0 = ic["relative_humidity"] - 1.0  # RH=0.95 → S0=-0.05
 
+    mc = cfg["model_control"]
+    # CLI --device flag takes precedence over model_control.device in the namelist.
+    device = args.device if args.device is not None else mc.get("device", None)
+
     model = pm.ParcelModel(
         aerosol_modes,
         V=ic["updraft_speed"],
@@ -139,10 +157,10 @@ def run_parcel() -> None:
         S0=S0,
         P0=ic["pressure"],
         console=not args.no_console,
+        device=device,
     )
 
     # --- run -----------------------------------------------------------------
-    mc = cfg["model_control"]
     run_kwargs = {
         "t_end": mc["t_end"],
         "output_dt": mc.get("output_dt", 1.0),
