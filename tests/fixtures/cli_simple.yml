@@ -1,0 +1,22 @@
+experiment_control:
+    name: "cli_smoke"
+    output_dir: "output/"
+
+model_control:
+    output_dt: 5.0
+    t_end: 200.0
+    terminate: true
+    terminate_depth: 10.0
+
+initial_aerosol:
+    - name: sulfate
+      distribution: lognormal
+      distribution_args: { mu: 0.05, N: 1000.0, sigma: 1.6 }
+      kappa: 0.54
+      bins: 10
+
+initial_conditions:
+    temperature: 283.15
+    relative_humidity: 0.95
+    pressure: 85000.0
+    updraft_speed: 0.5
