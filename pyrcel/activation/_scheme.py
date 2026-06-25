@@ -17,8 +17,8 @@ class ActivationScheme(ABC):
 
     All schemes accept lognormal aerosol parameters and updraft conditions and
     return the maximum parcel supersaturation plus per-mode activated fractions.
-    JAX-native subclasses (e.g. :class:`ARG2000`) are fully differentiable via
-    :func:`jax.grad`.
+    JAX-native subclasses (e.g. [ARG2000][]) are fully differentiable via
+    [jax.grad][].
     """
 
     @abstractmethod

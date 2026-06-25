@@ -58,10 +58,10 @@ Key                  Description
 Notes
 -----
 - Only ``lognormal`` distributions are supported; ``distribution_args`` maps to
-  :class:`~pyrcel.distributions.Lognorm` keyword arguments (``mu``, ``sigma``, ``N``).
+  [Lognorm][pyrcel.distributions.Lognorm] keyword arguments (``mu``, ``sigma``, ``N``).
 - ``relative_humidity`` is converted to initial supersaturation via
   ``S0 = RH - 1.0`` (negative for sub-saturated parcels).
-- Output is written as NetCDF4 via :meth:`~pyrcel.model_output.ModelOutput.to_netcdf`.
+- Output is written as NetCDF4 via [to_netcdf][pyrcel.model_output.ModelOutput.to_netcdf].
 """
 
 from __future__ import annotations

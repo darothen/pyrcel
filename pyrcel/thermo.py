@@ -2,13 +2,13 @@
 
 This is the v2 (JAX + diffrax) primary thermodynamics module. Every function
 here is a faithful, elementwise translation of the corresponding NumPy reference
-in :mod:`pyrcel.legacy.thermo` and is intended to agree with it to within
+in `pyrcel.legacy.thermo` and is intended to agree with it to within
 floating-point round-off (see ``tests/test_thermo.py``). Unlike the NumPy
 version these functions are ``jax``-traceable: they accept scalars or arrays,
 broadcast naturally, and are differentiable via ``jax.grad``/``jax.jacfwd``.
 
 float64 is **mandatory** for this model (radii ~1e-8 m and the ``r**3 - r_dry**3``
-cancellation in :func:`Seq`). We enable it at import time so the module is correct
+cancellation in [Seq][]). We enable it at import time so the module is correct
 regardless of how it is first used; this is idempotent and matches the design doc
 (§6.1).
 """
@@ -98,7 +98,7 @@ def dv(T: ArrayLike, r: ArrayLike, P: ArrayLike, accom: ArrayLike = c.ac) -> Arr
     P : float
         Ambient pressure, Pa.
     accom : float, optional
-        Condensation coefficient (default :data:`pyrcel.constants.ac`).
+        Condensation coefficient (default [pyrcel.constants.ac][]).
 
     Returns
     -------
@@ -328,12 +328,12 @@ def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -
 
     Notes
     -----
-    First-order expansion of :func:`Seq` valid when $A/r \ll 1$ and
+    First-order expansion of [Seq][] valid when $A/r \ll 1$ and
     $\kappa r_d^3 / r^3 \ll 1$:
 
     $$S_\mathrm{eq}(r) \approx \frac{A}{r} - \kappa \frac{r_d^3}{r^3}$$
 
-    Used for the critical-radius approximation in :mod:`pyrcel.equilibrate`.
+    Used for the critical-radius approximation in `pyrcel.equilibrate`.
 
     See Also
     --------

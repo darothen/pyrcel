@@ -5,7 +5,7 @@ integrated in a single compiled, batched call. The canonical use case is propaga
 *distribution of vertical velocities* through the model to estimate the resulting
 distributions of peak supersaturation ``S_max`` and activated droplet number.
 
-The core, :func:`smax_nact_ensemble`, ``vmap``s the event-based ``S_max`` solve over a
+The core, [smax_nact_ensemble][], ``vmap``s the event-based ``S_max`` solve over a
 batch of updraft speeds. Because the equilibrated initial state ``y0`` does not depend on
 ``V``, it is computed once and shared across the batch. Each member runs to its *own*
 supersaturation maximum (the ``dS/dt`` event), so members with very different ``V`` (hence
@@ -133,7 +133,7 @@ def run_updraft_ensemble(
 
     Equilibrates ``y0`` once for the given aerosols/conditions, samples ``n`` updraft
     speeds from ``Normal(mean, std)`` (clipped at ``v_min``), and returns the per-member
-    ``S_max``/``N_act`` (see :func:`smax_nact_ensemble`). ``t_end`` defaults to
+    ``S_max``/``N_act`` (see [smax_nact_ensemble][]). ``t_end`` defaults to
     ``z_cap / min(V)`` so even the slowest member reaches its supersaturation maximum.
     """
     species, r_drys, kappas, Nis = [], [], [], []

@@ -3,17 +3,17 @@
 A thin, user-facing wrapper over the differentiable JAX/diffrax core that mirrors the
 spirit of the legacy parcel model without numba or Assimulo. It ties together the three v2 pieces:
 
-* equilibration of the initial wet radii (:mod:`pyrcel.equilibrate`),
+* equilibration of the initial wet radii (`pyrcel.equilibrate`),
 * a single adaptive ``diffrax`` solve, with optional event-based ``S_max`` termination
-  (:mod:`pyrcel.integrator`), and
-* post-solve activation diagnostics (:func:`pyrcel.activation.binned_activation`).
+  (`pyrcel.integrator`), and
+* post-solve activation diagnostics ([pyrcel.activation.binned_activation][]).
 
 There are deliberately *two* presentation modes over the same numerical core (design
-§4.7): the functions in :mod:`pyrcel.integrator` are the ``jit``/``vmap``/``grad``
+§4.7): the functions in `pyrcel.integrator` are the ``jit``/``vmap``/``grad``
 core, while this class is the **interactive** layer -- an optional live progress meter and
 a post-solve summary table -- and is intentionally kept out of the differentiable path.
 
-:class:`ParcelModel` is a plain mutable Python class (per the locked decision); only the
+[ParcelModel][] is a plain mutable Python class (per the locked decision); only the
 inner vector field / updraft are Equinox modules.
 """
 
@@ -70,23 +70,23 @@ class ParcelModel:
 
     Parameters
     ----------
-    aerosols : sequence of :class:`pyrcel.aerosol.AerosolSpecies`
+    aerosols : sequence of [pyrcel.aerosol.AerosolSpecies][]
         The aerosol population in the parcel.
-    V : float or :class:`pyrcel.updraft.AbstractUpdraft`
+    V : float or [pyrcel.updraft.AbstractUpdraft][]
         Updraft speed (m/s). A scalar is a constant updraft; pass a
-        :class:`~pyrcel.updraft.InterpolatedUpdraft` for a time-varying ``V(t)``.
+        [InterpolatedUpdraft][pyrcel.updraft.InterpolatedUpdraft] for a time-varying ``V(t)``.
     T0, S0, P0 : float
         Initial temperature (K), supersaturation (0.0 == 100% RH), pressure (Pa).
     accom : float, optional
-        Condensation/accommodation coefficient (default :data:`pyrcel.constants.ac`).
+        Condensation/accommodation coefficient (default [pyrcel.constants.ac][]).
     console : bool, optional
         Print an initial-conditions and post-solve summary table.
-    device : :class:`jax.Device`, str, or None, optional
+    device : [jax.Device][], str, or None, optional
         JAX device on which to run the integration.  ``None`` (default) uses
         JAX's current default device (typically the first available GPU when a
         CUDA-capable GPU is present, otherwise CPU).  Pass ``"gpu"`` or
-        ``"cpu"`` as a shorthand, or an explicit :class:`jax.Device` obtained
-        from :func:`jax.devices`.
+        ``"cpu"`` as a shorthand, or an explicit [jax.Device][] obtained
+        from [jax.devices][].
 
         Example::
 
@@ -96,8 +96,8 @@ class ParcelModel:
     Notes
     -----
     Equilibration runs at construction (like the legacy ``_setup_run``), so ``y0`` is
-    available immediately as :attr:`y0`.  All JAX computation — both equilibration and
-    integration — is dispatched to ``device``.  Output arrays (:attr:`x`, :attr:`time`)
+    available immediately as [y0][].  All JAX computation — both equilibration and
+    integration — is dispatched to ``device``.  Output arrays ([x][], [time][])
     are always returned as NumPy arrays on CPU regardless of ``device``.
     """
 
@@ -219,7 +219,7 @@ class ParcelModel:
             Print a post-hoc trajectory sample after integration. ``None`` (default)
             follows ``console`` (on when ``console=True``).
         mode : {'full', 'smax', 'nd'}
-            * ``'full'`` -- :class:`~pyrcel.model_output.ModelOutput` containing the
+            * ``'full'`` -- [ModelOutput][pyrcel.model_output.ModelOutput] containing the
               full trajectory; call ``.to_pandas()``, ``.to_polars()``,
               ``.to_xarray()``, ``.to_netcdf()``, ``.to_csv()``, or
               ``.to_parquet()`` on the result.
@@ -232,7 +232,7 @@ class ParcelModel:
 
         Returns
         -------
-        :class:`~pyrcel.model_output.ModelOutput` or float
+        [ModelOutput][pyrcel.model_output.ModelOutput] or float
             ``ModelOutput`` for ``mode='full'``; ``float`` for ``mode='smax'``.
         """
         if mode not in ("full", "smax", "nd"):
@@ -490,14 +490,14 @@ class ParcelModel:
         )
 
     def to_dataset(self) -> Any:
-        """Return a CF-flavoured :class:`xarray.Dataset`.
+        """Return a CF-flavoured [xarray.Dataset][].
 
-        Delegates to :meth:`~pyrcel.model_output.ModelOutput.to_xarray`.
+        Delegates to [to_xarray][pyrcel.model_output.ModelOutput.to_xarray].
         """
         return self._make_output().to_xarray()
 
     def save_netcdf(self, filename: str | Path) -> str | Path:
-        """Write the run to a NetCDF file (see :meth:`to_dataset`)."""
+        """Write the run to a NetCDF file (see [to_dataset][])."""
         self._make_output().to_netcdf(filename)
         if self.console:
             from .console_report import configure_logging

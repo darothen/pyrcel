@@ -1,4 +1,4 @@
-"""Formatted console output for the interactive :class:`~pyrcel.model.ParcelModel` layer.
+"""Formatted console output for the interactive [ParcelModel][pyrcel.model.ParcelModel] layer.
 
 Default UX (``console=True``): single adaptive solve, compile/integrate phase banners,
 rich setup and integration-plan tables, a post-hoc trajectory sample, and the activation
@@ -301,7 +301,8 @@ def print_termination_narrative(info: dict) -> None:
     Parameters
     ----------
     info : dict
-        Run-info dict returned by :func:`~pyrcel.integrator.integrate_parcel_terminated`
+        Run-info dict returned by
+        [integrate_parcel_terminated][pyrcel.integrator.integrate_parcel_terminated]
         or the ``live`` integration path; expected keys ``activated``, ``smax``,
         ``t_smax``, ``t_cutoff``, and optionally ``z_smax`` / ``z_end``.
     """
@@ -353,7 +354,7 @@ def print_summary(summary: dict) -> None:
     ----------
     summary : dict
         Summary dict as returned by
-        :meth:`~pyrcel.model.ParcelModel._compute_summary`; expected keys
+        [_compute_summary][pyrcel.model.ParcelModel._compute_summary]; expected keys
         ``S_max``, ``t_smax``, ``T_smax``, ``z_smax``, ``per_species``, and
         ``total_act_frac``.
     """
