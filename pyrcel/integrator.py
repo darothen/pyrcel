@@ -79,25 +79,6 @@ def _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter=dfx.NoProg
     )
 
 
-@functools.partial(jax.jit, static_argnames=("max_steps",))
-def _solve_dense(y0, args, t0, t1, rtol, atol, max_steps):
-    """Solve with SaveAt(dense=True) for a continuous polynomial interpolant."""
-    controller = dfx.PIDController(rtol=rtol, atol=atol)
-    return dfx.diffeqsolve(
-        _TERM,
-        dfx.Kvaerno5(),
-        t0=t0,
-        t1=t1,
-        dt0=None,
-        y0=y0,
-        args=args,
-        stepsize_controller=controller,
-        saveat=dfx.SaveAt(dense=True),
-        max_steps=max_steps,
-        throw=False,
-    )
-
-
 def integrate_parcel(
     y0: ArrayLike,
     args: tuple,
@@ -184,7 +165,6 @@ def integrate_parcel_arrays(
 
 
 _S_IDX = 6
-_N_REFINE = 64  # dense evaluations within the peak bracket for sub-grid accuracy
 
 
 def _peak_from_trajectory(
@@ -323,26 +303,31 @@ def max_supersaturation(
     atol: ArrayLike | None = None,
     max_steps: int = 100_000,
 ) -> Array:
-    """Peak supersaturation, found via continuous interpolation of the ODE solution.
+    """Peak supersaturation via Hermite cubic interpolation of the saved trajectory.
 
-    Solves the parcel ODE with a dense polynomial interpolant (``SaveAt(dense=True)``),
-    then locates the supersaturation peak on the continuous curve rather than as the
-    discrete maximum of saved time-point values.  This eliminates the aliasing that
-    arises when the adaptive integrator's step structure shifts with the updraft speed
-    V, causing ``jnp.max`` over a fixed output grid to oscillate as the argmax jumps
-    between adjacent time points.
+    Solves the parcel ODE with ``SaveAt(ts=ts)`` (the same kernel as
+    ``integrate_parcel``), then locates the supersaturation peak using cubic Hermite
+    interpolation over the two sub-intervals bracketing the coarse argmax.  The ODE
+    right-hand side supplies exact endpoint derivatives — the same polynomial family
+    diffrax uses for ``SaveAt(dense=True)`` — applied analytically to the saved
+    discrete output.
 
-    The peak time ``t_peak`` is found by:
+    The peak is found by:
 
-    1. Evaluating the dense interpolant at the caller-supplied ``ts`` for a coarse
-       bracket (same times as before; the argmax of these values is stop-gradient'd).
-    2. Refining with ``_N_REFINE`` equally-spaced evaluations in the ±1 grid-cell
-       window around the coarse peak.
-    3. Returning ``sol.evaluate(t_peak)[S_IDX]`` where ``t_peak`` is stop-gradient'd.
+    1. Argmax of ``sol.ys[:, S_IDX]`` → coarse bracket index (stop-gradient'd).
+    2. Three ``parcel_ode_sys`` evaluations at the three bracket points (``i-1``,
+       ``i``, ``i+1``) for exact endpoint derivatives ``dS/dt``.
+    3. Analytic solution of ``dp/du = 0`` (a quadratic in the normalised parameter
+       ``u``) over each sub-interval; the larger interior maximum wins.
+    4. Evaluate the Hermite polynomial at ``u*`` (stop-gradient'd).
 
-    By the envelope theorem, ``d(S_max)/dV = ∂S/∂V|_{t_peak}`` — the dependence of
-    ``t_peak`` on V drops out — so ``stop_gradient`` on ``t_peak`` is exact, not an
-    approximation.  The gradient flows correctly through the diffrax adjoint.
+    By the envelope theorem, ``d(S_max)/dV = ∂S/∂V|_{u*}`` — the dependence of the
+    peak location on V drops out — so ``stop_gradient`` on ``u*`` is exact.  The
+    gradient flows through the diffrax adjoint via the endpoint state values and
+    their ODE derivatives.
+
+    Cost: one ODE solve (shared JIT kernel with ``integrate_parcel``) + 3 ODE RHS
+    evaluations.  No ``SaveAt(dense=True)`` second kernel; no vmap fine grid.
 
     Parameters
     ----------
@@ -351,7 +336,7 @@ def max_supersaturation(
     args : tuple
         ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
     ts : array, shape ``(n_out,)``
-        Output times (monotonic). Must span the supersaturation peak.
+        Output times (monotonic, must span the supersaturation peak).
     rtol, atol : float or array, optional
         Solver tolerances.
     max_steps : int, optional
@@ -368,40 +353,84 @@ def max_supersaturation(
     if atol is None:
         atol = atol_vector(nr)
 
-    sol = _solve_dense(y0, args, ts[0], ts[-1], rtol, atol, max_steps)
+    sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
 
-    # Evaluate dense interpolant at the caller's ts for a coarse peak bracket.
-    # i_pk is stop-gradient'd: it locates the window but does not carry gradient.
-    S_coarse = jax.vmap(lambda t: sol.evaluate(t)[_S_IDX])(ts)
-    i_pk = jax.lax.stop_gradient(jnp.argmax(S_coarse))
-    i_pk = jax.lax.stop_gradient(jnp.clip(i_pk, 1, ts.shape[0] - 2))
+    # Coarse bracket: argmax of saved S values (no polynomial evaluations needed).
+    # i_pk locates the ±1-cell window; stop-gradient'd so discrete index ops are safe.
+    S_coarse = sol.ys[:, _S_IDX]
+    i_pk = jax.lax.stop_gradient(jnp.clip(jnp.argmax(S_coarse), 1, ts.shape[0] - 2))
 
-    # Refine: evaluate the continuous interpolant at _N_REFINE points in the
-    # ±1 grid-cell bracket to get a close initial estimate.
-    t_lo = jax.lax.stop_gradient(ts[i_pk - 1])
-    t_hi = jax.lax.stop_gradient(ts[i_pk + 1])
-    t_fine = jnp.linspace(t_lo, t_hi, _N_REFINE)
-    S_fine = jax.vmap(lambda t: sol.evaluate(t)[_S_IDX])(t_fine)
-    i_fine = jax.lax.stop_gradient(jnp.argmax(S_fine))
+    # Extract bracket states via dynamic indexing (i_pk is stop-gradient'd).
+    t_m, t_c, t_p = ts[i_pk - 1], ts[i_pk], ts[i_pk + 1]
+    y_m = sol.ys[i_pk - 1]
+    y_c = sol.ys[i_pk]
+    y_p = sol.ys[i_pk + 1]
 
-    # Newton correction: one step of t -= (dS/dt) / (d²S/dt²) drives the
-    # residual dS/dt error from ±dt_fine to near machine precision.  We use the
-    # ODE RHS for dS/dt (exact) and second-order FD for d²S/dt² from S_fine.
-    # All quantities are stop-gradient'd — only the final evaluate carries gradient.
-    i_c = jax.lax.stop_gradient(jnp.clip(i_fine, 1, _N_REFINE - 2))
-    dt_f = jax.lax.stop_gradient(t_fine[1] - t_fine[0])
-    d2S = jax.lax.stop_gradient(
-        (S_fine[i_c + 1] - 2.0 * S_fine[i_c] + S_fine[i_c - 1]) / (dt_f * dt_f)
-    )
-    t_est = jax.lax.stop_gradient(t_fine[i_c])
-    y_est = jax.lax.stop_gradient(sol.evaluate(t_est))
-    dS_dt = jax.lax.stop_gradient(parcel_ode_sys(t_est, y_est, args)[_S_IDX])
-    t_newton = jax.lax.stop_gradient(jnp.where(jnp.abs(d2S) > 1e-20, t_est - dS_dt / d2S, t_est))
-    t_peak = jax.lax.stop_gradient(jnp.clip(t_newton, t_lo, t_hi))
+    # ODE RHS at the three bracket points — exact dS/dt, no finite differences.
+    # Gradient flows through both the ODE adjoint (via y_m/y_c/y_p) and the
+    # explicit V-dependence in parcel_ode_sys.
+    f_m = parcel_ode_sys(t_m, y_m, args)
+    f_c = parcel_ode_sys(t_c, y_c, args)
+    f_p = parcel_ode_sys(t_p, y_p, args)
 
-    # Envelope theorem: gradient of S_max w.r.t. V is ∂S/∂V evaluated at the
-    # peak time, so stop_gradient on t_peak is exact (not an approximation).
-    return sol.evaluate(t_peak)[_S_IDX]
+    S_m, S_c, S_p = y_m[_S_IDX], y_c[_S_IDX], y_p[_S_IDX]
+    dS_m, dS_c, dS_p = f_m[_S_IDX], f_c[_S_IDX], f_p[_S_IDX]
+
+    # Hermite cubic on [t0, t1] parameterised by u = (t - t0) / h:
+    #   p(u) = h00(u)*S0 + h01(u)*S1 + h*h10(u)*dS0 + h*h11(u)*dS1
+    # Gradient flows through (S0, S1, dS0, dS1) at the stop-gradient'd u*.
+    def _S_at_u(S0, S1, dS0, dS1, h, u):
+        return (
+            (2 * u**3 - 3 * u**2 + 1) * S0
+            + (-2 * u**3 + 3 * u**2) * S1
+            + h * (u**3 - 2 * u**2 + u) * dS0
+            + h * (u**3 - u**2) * dS1
+        )
+
+    def _peak_u(S0, S1, dS0, dS1, h) -> Array:
+        """Stop-gradient'd interior peak u in (0,1), or boundary fallback."""
+        # All inputs are stop-gradient'd so u* carries no gradient.
+        S0s, S1s, dS0s, dS1s, hs = (jax.lax.stop_gradient(x) for x in (S0, S1, dS0, dS1, h))
+        A = 6.0 * (S0s - S1s) / hs + 3.0 * (dS0s + dS1s)
+        B = 6.0 * (S1s - S0s) / hs - 2.0 * (2.0 * dS0s + dS1s)
+        C = dS0s
+        disc = B * B - 4.0 * A * C
+        sq = jnp.sqrt(jnp.maximum(disc, 0.0))
+        A_safe = jnp.where(jnp.abs(A) > 1e-30, A, 1.0)
+        u1 = (-B + sq) / (2.0 * A_safe)
+        u2 = (-B - sq) / (2.0 * A_safe)
+
+        def _is_interior_max(u):
+            return (
+                (disc >= 0.0)
+                & (jnp.abs(A) > 1e-30)
+                & (u > 0.0)
+                & (u < 1.0)
+                & (2.0 * A * u + B < 0.0)
+            )
+
+        v1, v2 = _is_interior_max(u1), _is_interior_max(u2)
+        S1v = _S_at_u(S0s, S1s, dS0s, dS1s, hs, u1)
+        S2v = _S_at_u(S0s, S1s, dS0s, dS1s, hs, u2)
+        return jnp.where(
+            v1 & (~v2 | (S1v >= S2v)),
+            u1,
+            jnp.where(v2, u2, jnp.where(S0s >= S1s, 0.0, 1.0)),
+        )
+
+    # Find stop-gradient'd u* on each sub-interval.
+    h_lo = jax.lax.stop_gradient(t_c - t_m)
+    h_hi = jax.lax.stop_gradient(t_p - t_c)
+    u_lo = _peak_u(S_m, S_c, dS_m, dS_c, h_lo)
+    u_hi = _peak_u(S_c, S_p, dS_c, dS_p, h_hi)
+
+    # Evaluate S at each candidate peak (gradient flows here via envelope theorem).
+    S_lo = _S_at_u(S_m, S_c, dS_m, dS_c, h_lo, u_lo)
+    S_hi = _S_at_u(S_c, S_p, dS_c, dS_p, h_hi, u_hi)
+
+    # Take the sub-interval with the larger S_max (condition is stop-gradient'd).
+    use_lo = jax.lax.stop_gradient(jax.lax.stop_gradient(S_lo) >= jax.lax.stop_gradient(S_hi))
+    return jnp.where(use_lo, S_lo, S_hi)
 
 
 def nd_from_parcel(

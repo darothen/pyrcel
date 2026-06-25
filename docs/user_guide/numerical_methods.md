@@ -169,9 +169,11 @@ requested output times using the solver's built-in continuous extension. This
 removes the chunking bookkeeping entirely and reduces the number of JAX
 compilations to one per unique `(nr, n_output)` configuration.
 
-For the differentiable diagnostics (`max_supersaturation`, `nd_from_parcel`) the
-backend uses `SaveAt(t1=True)` to retain only the final state, minimising the
-memory footprint of the adjoint checkpoints.
+For the `nd_from_parcel` diagnostic, the backend uses `SaveAt(t1=True)` to
+retain only the final state, minimising the memory footprint of the adjoint
+checkpoints. `max_supersaturation` uses `SaveAt(ts=ts)` — the same kernel as
+`integrate_parcel` — so no second JIT compilation is triggered for gradient
+workflows.
 
 The `live=True` mode on `ParcelModel.run()` is the one exception to single-call
 integration: it deliberately re-introduces a Python chunk loop to print per-step
@@ -243,7 +245,7 @@ below for guidance on sizing and scaling `ts`.
 
 ---
 
-## Differentiable $S_\text{max}$: dense interpolation and Newton refinement
+## Differentiable $S_\text{max}$: Hermite cubic interpolation
 
 Computing a gradient-accurate $S_\text{max}$ requires more than returning
 `jnp.max(sol.ys[:, 6])`. The adaptive solver takes slightly different internal
@@ -251,68 +253,81 @@ step structures for slightly different parameter values (especially updraft
 speed $V$). With a discrete output grid, the argmax occasionally jumps by one
 time step as $V$ varies, producing an aliased, non-monotone $S_\text{max}(V)$
 curve with alternating-sign gradient kinks of $\sim 10^{-3}$ relative
-amplitude. Quadratic correction at the argmax is roughly $10^3$ times too
-small to close this gap.
+amplitude.
 
-`max_supersaturation` eliminates the aliasing with a three-stage peak-finding
-procedure on the solver's continuous **Hermite polynomial interpolant**
-(`SaveAt(dense=True)`).
+`max_supersaturation` eliminates the aliasing via analytic peak-finding on a
+**cubic Hermite interpolant** constructed from the discrete trajectory returned
+by `_solve` (the same kernel as `integrate_parcel`). No second dense-output
+solve is required.
 
-### Stage 1 — coarse bracket on the dense solution
+### Stage 1 — coarse bracket
 
-The solve stores a full piecewise-polynomial interpolant $\widetilde{S}(t)$
-over the integration interval rather than a discrete trajectory. The
-caller-supplied `ts` is used only as a *probe array* to locate the approximate
-peak bin:
+The argmax of the saved discrete supersaturation values $\{S_j\}$ locates the
+approximate peak bin:
 
 $$
-i^\ast = \operatorname{argmax}_{j}\, \widetilde{S}(t_j), \qquad
-t_j \in \mathbf{ts}
+i^\ast = \operatorname{argmax}_{j}\, S_j, \qquad j = 0,\dots,n-1
 $$
 
-$i^\ast$ is `stop_gradient`'d and used solely to define the bracket
-$[t_{i^\ast - 1},\, t_{i^\ast + 1}]$.
+$i^\ast$ is `stop_gradient`'d and used solely to define the two sub-intervals
+$[t_{i^\ast - 1},\, t_{i^\ast}]$ and $[t_{i^\ast},\, t_{i^\ast + 1}]$.
 
-### Stage 2 — fine-grid refinement
+### Stage 2 — endpoint derivatives
 
-Within that two-cell bracket, $N_\text{refine} = 64$ equally-spaced
-evaluations of the same continuous interpolant narrow the bracket to
-$2\,\Delta t / N_\text{refine}$. For a 600-point output grid spanning 1500 s,
-this is $\lesssim 0.09$ s.
-
-### Stage 3 — Newton correction
-
-One Newton step using the exact ODE right-hand side for $dS/dt$ and
-second-order finite differences for $d^2S/dt^2$ from the fine grid drives the
-peak-time residual to near machine precision:
+Three evaluations of the ODE right-hand side at the bracket points supply exact
+endpoint slopes:
 
 $$
-t_\text{peak} \leftarrow t_\text{fine} - \frac{(dS/dt)\big|_{t_\text{fine}}}{(d^2S/dt^2)\big|_{t_\text{fine}}}
+\dot{S}_{i^\ast - 1},\quad \dot{S}_{i^\ast},\quad \dot{S}_{i^\ast + 1}
 $$
 
-where $(dS/dt)|_t = \mathbf{f}(t, \mathbf{y}(t), \boldsymbol{\theta})[6]$ is
-read directly from `parcel_ode_sys` (exact, not finite-differenced). All three
-stages operate entirely under `jax.lax.stop_gradient`.
+where $\dot{S}_j = \mathbf{f}(t_j, \mathbf{y}_j, \boldsymbol{\theta})[6]$.
+These are the same Hermite coefficients diffrax stores per step internally when
+`SaveAt(dense=True)` is used.
 
-### Why `stop_gradient` on $t_\text{peak}$ is exact
+### Stage 3 — analytic quadratic solve
 
-Treating $t_\text{peak}$ as a non-differentiable constant is not an
+On each sub-interval $[t_0, t_1]$ with $h = t_1 - t_0$, the Hermite cubic in
+the normalised coordinate $u = (t - t_0)/h \in [0,1]$ is
+
+$$
+p(u) = (2u^3-3u^2+1)\,S_0 + (-2u^3+3u^2)\,S_1
+       + h\,(u^3-2u^2+u)\,\dot{S}_0 + h\,(u^3-u^2)\,\dot{S}_1
+$$
+
+Setting $dp/du = 0$ yields a quadratic in $u$:
+
+$$
+A u^2 + B u + C = 0, \qquad
+A = 3\!\left[\tfrac{2(S_0-S_1)}{h} + \dot{S}_0 + \dot{S}_1\right], \quad
+B = \tfrac{6(S_1-S_0)}{h} - 2(2\dot{S}_0+\dot{S}_1), \quad
+C = \dot{S}_0
+$$
+
+The root in $(0,1)$ at which $dp^2/du^2 < 0$ is the interior maximum. If both
+sub-intervals have an interior maximum, the larger wins. All root-finding
+operates under `jax.lax.stop_gradient` (including the discriminant and the
+maximum-of-two selection).
+
+### Why `stop_gradient` on $u^\ast$ is exact
+
+Treating the peak parameter $u^\ast$ as a non-differentiable constant is not an
 approximation. By the **envelope theorem**, at a smooth interior maximum
 
 $$
-\frac{dS_\text{max}}{d\theta} = \frac{\partial S}{\partial \theta}\bigg|_{t_\text{peak}}
+\frac{dS_\text{max}}{d\theta} = \frac{\partial S}{\partial \theta}\bigg|_{u^\ast}
 $$
 
-the implicit dependence of $t_\text{peak}$ on $\theta$ drops out identically.
-Gradient flows correctly through the diffrax adjoint from the single
-`sol.evaluate(t_peak)` call, with no contribution from the bracket-finding
-logic.
+the implicit dependence of $u^\ast$ on $\theta$ drops out identically.
+Gradient flows through $p(u^\ast)$ via the endpoint values $S_{i^\ast-1},\,
+S_{i^\ast},\, S_{i^\ast+1}$ (ODE adjoint) and the endpoint derivatives
+$\dot{S}_{i^\ast-1},\, \dot{S}_{i^\ast},\, \dot{S}_{i^\ast+1}$ (ODE RHS at
+those points).
 
 ### Output-grid sizing and $t_\text{end}$ scaling
 
-Because the dense interpolant is evaluated at `ts` only for the coarse bracket,
-the grid need not be fine — it must only be dense enough to contain the
-supersaturation peak.
+`ts` is used directly for both the ODE output grid and the coarse bracket,
+so it must be dense enough to contain the supersaturation peak.
 
 **Rule 1 — ensure the peak lies in the interior.** `ts[-1]` must extend past
 $S_\text{max}$ with at least one grid point beyond the peak. For a parcel
@@ -558,7 +573,7 @@ ts, ys, ok = integrate_parcel_arrays(y0, args, ts_out)
 
 | Function | Returns | Notes |
 |---|---|---|
-| `max_supersaturation(y0, args, ts)` | `float` | $S_\text{max}$ via dense output; `jax.grad`-able |
+| `max_supersaturation(y0, args, ts)` | `float` | $S_\text{max}$ via Hermite cubic; `jax.grad`-able |
 | `nd_from_parcel(y0, args, t_end)` | `float` | Soft-threshold $N_d$ (m⁻³); `jax.grad`-able |
 
 Both are designed for the differentiable path and documented in detail in the
