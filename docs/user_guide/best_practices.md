@@ -7,11 +7,10 @@ targets a specific question; follow the cross-links for full derivations.
 
 ## Choosing output times for `max_supersaturation`
 
-The output-time array `ts` passed to `max_supersaturation` is used only to
-locate the supersaturation peak bracket; the actual maximum is refined on the
-solver's continuous Hermite interpolant and corrected to near-machine-precision
-by a Newton step (see
-[Numerical Methods — Differentiable $S_\text{max}$](numerical_methods.md#differentiable-s_max-dense-interpolation-and-newton-refinement)).
+The output-time array `ts` passed to `max_supersaturation` is used both as
+the ODE output grid and to locate the coarse peak bracket; the actual maximum
+is then found analytically via a Hermite cubic quadratic solve (see
+[Numerical Methods — Differentiable $S_\text{max}$](numerical_methods.md#differentiable-s_max-hermite-cubic-interpolation)).
 Three rules apply:
 
 **1. The peak must lie strictly inside `[ts[0], ts[-1]]`.**

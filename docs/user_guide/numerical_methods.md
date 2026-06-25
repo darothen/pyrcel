@@ -240,7 +240,7 @@ grad_nd = jax.grad(nd_from_parcel, argnums=(0, 1))(y0, args, t_end)
 ```
 
 The `ts` array passed to `max_supersaturation` must span the supersaturation
-peak; see [Differentiable $S_\text{max}$](#differentiable-s_max-dense-interpolation-and-newton-refinement)
+peak; see [Differentiable $S_\text{max}$](#differentiable-s_max-hermite-cubic-interpolation)
 below for guidance on sizing and scaling `ts`.
 
 ---
