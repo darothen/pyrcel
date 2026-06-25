@@ -10,7 +10,7 @@ targets a specific question; follow the cross-links for full derivations.
 The output-time array `ts` passed to `max_supersaturation` is used both as
 the ODE output grid and to locate the coarse peak bracket; the actual maximum
 is then found analytically via a Hermite cubic quadratic solve (see
-[Numerical Methods — Differentiable $S_\text{max}$](numerical_methods.md#differentiable-s_max-hermite-cubic-interpolation)).
+[Numerical Methods — Differentiable $S_\text{max}$](numerical_methods.md#differentiable-s_textmax-hermite-cubic-interpolation)).
 Three rules apply:
 
 **1. The peak must lie strictly inside `[ts[0], ts[-1]]`.**
