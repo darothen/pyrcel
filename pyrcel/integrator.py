@@ -394,13 +394,20 @@ def max_supersaturation(
         A = 6.0 * (S0s - S1s) / hs + 3.0 * (dS0s + dS1s)
         B = 6.0 * (S1s - S0s) / hs - 2.0 * (2.0 * dS0s + dS1s)
         C = dS0s
+
+        # Quadratic roots (valid when |A| is non-negligible).
         disc = B * B - 4.0 * A * C
         sq = jnp.sqrt(jnp.maximum(disc, 0.0))
         A_safe = jnp.where(jnp.abs(A) > 1e-30, A, 1.0)
         u1 = (-B + sq) / (2.0 * A_safe)
         u2 = (-B - sq) / (2.0 * A_safe)
 
-        def _is_interior_max(u):
+        # Linear root: when A ≈ 0, dp/du = Bu + C is linear with root u = -C/B.
+        # d²p/du² at the linear root ≈ B, so B < 0 is the maximum condition.
+        B_safe = jnp.where(jnp.abs(B) > 1e-30, B, 1.0)
+        u_lin = -C / B_safe
+
+        def _is_interior_max_quad(u):
             return (
                 (disc >= 0.0)
                 & (jnp.abs(A) > 1e-30)
@@ -409,13 +416,16 @@ def max_supersaturation(
                 & (2.0 * A * u + B < 0.0)
             )
 
-        v1, v2 = _is_interior_max(u1), _is_interior_max(u2)
+        v1, v2 = _is_interior_max_quad(u1), _is_interior_max_quad(u2)
+        v_lin = (
+            (jnp.abs(A) <= 1e-30) & (jnp.abs(B) > 1e-30) & (B < 0.0) & (u_lin > 0.0) & (u_lin < 1.0)
+        )
         S1v = _S_at_u(S0s, S1s, dS0s, dS1s, hs, u1)
         S2v = _S_at_u(S0s, S1s, dS0s, dS1s, hs, u2)
         return jnp.where(
             v1 & (~v2 | (S1v >= S2v)),
             u1,
-            jnp.where(v2, u2, jnp.where(S0s >= S1s, 0.0, 1.0)),
+            jnp.where(v2, u2, jnp.where(v_lin, u_lin, jnp.where(S0s >= S1s, 0.0, 1.0))),
         )
 
     # Find stop-gradient'd u* on each sub-interval.
