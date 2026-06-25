@@ -1,3 +1,5 @@
+"""Utilities for writing parcel model output to disk."""
+
 import os.path
 import pickle
 from datetime import datetime as ddt
@@ -16,8 +18,18 @@ OUTPUT_FORMATS = ["nc", "obj", "csv"]
 
 
 def get_timestamp(fmt="%m%d%y_%H%M%S"):
-    """Get current timestamp in MMDDYY_hhmmss format."""
+    """Return the current timestamp as a formatted string.
 
+    Parameters
+    ----------
+    fmt : str, optional
+        ``strftime`` format string (default ``'%m%d%y_%H%M%S'``).
+
+    Returns
+    -------
+    str
+        Current timestamp formatted according to ``fmt``.
+    """
     current_time = ddt.now()
     timestamp = current_time.strftime("%m%d%y_%H%M%S")
 
@@ -73,9 +85,7 @@ def write_parcel_output(
 
     if parcel.console:
         print()
-        print(
-            "Saving output to %s format with base filename %s" % (extension, basename)
-        )
+        print("Saving output to %s format with base filename %s" % (extension, basename))
         print()
 
     # filename = "%s.%s" % (basename, extension)
@@ -273,9 +283,7 @@ def parcel_to_dataframes(parcel):
     heights = parcel.heights
     time = parcel.time
 
-    parcel_out = pd.DataFrame(
-        {var: x[:, i] for i, var in enumerate(c.STATE_VARS)}, index=time
-    )
+    parcel_out = pd.DataFrame({var: x[:, i] for i, var in enumerate(c.STATE_VARS)}, index=time)
 
     ## Add some thermodynamic output to the parcel model dataframe
     parcel_out["rho"] = rho_air(parcel_out["T"], parcel_out["P"], parcel_out["S"] + 1.0)

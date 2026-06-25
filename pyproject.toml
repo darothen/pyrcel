@@ -9,7 +9,7 @@ authors = [
     { name = "Daniel Rothenberg", email = "daniel@danielrothenberg.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -18,24 +18,59 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: Unix",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
-    "numba",
     "numpy",
-    "pandas",
-    "pyyaml",
     "scipy",
-    "setuptools",
+    "pandas",
+    "polars",
     "xarray",
+    "netcdf4",
+    "pyyaml",
+    "setuptools",
+    "jax>=0.4.38",
+    "diffrax>=0.6.2",
+    "equinox>=0.11.10",
+    "optimistix>=0.0.7",
 ]
 dynamic = ["version"]
+
+[project.optional-dependencies]
+# Swap in CUDA-enabled JAX; all other v2 backend deps are already in core.
+gpu = [
+    "jax[cuda12]>=0.4.38",
+    "diffrax>=0.6.2",
+    "equinox>=0.11.10",
+    "optimistix>=0.0.7",
+]
+test = [
+    "pytest>=7",
+    "pytest-xdist>=3",
+    "hypothesis>=6",
+    "pyrefly>=1.1",
+]
+examples = [
+    "matplotlib>=3.5",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+    "pymdown-extensions>=10.7",
+    "ruff>=0.4",
+    "matplotlib>=3.5",
+    "jax[cpu]>=0.4.38",
+    "diffrax>=0.6.2",
+    "equinox>=0.11.10",
+    "optimistix>=0.0.7",
+]
+
+[project.scripts]
+run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
 
 [project.urls]
 Documentation = "https://pyrcel.readthedocs.io/en/latest/"
@@ -45,61 +80,84 @@ Repository = "https://github.com/darothen/pyrcel"
 packages = ["pyrcel"]
 
 [tool.setuptools.packages]
-find = {namespaces = false} 
-
-[project.scripts]
-run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
+find = {namespaces = false}
 
 [tool.setuptools_scm]
 version_file = "pyrcel/version.py"
 
-[tool.pixi.workspace]
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = []
 
-[tool.pixi.dependencies]
-numpy = "<2.2"
-assimulo = "==3.6"
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "NPY"]
 
-[tool.pixi.feature.py39.dependencies]
-python = "3.9.*"
+[tool.ruff.lint.per-file-ignores]
+# --- pyrcel.legacy files ---
+# Preserved NumPy/numba reference implementations; intentionally not modernised so
+# they remain diff-comparable to the published v1 code.
+# UP031/E731: printf-style strings and lambda assignments are idiomatic in the original.
+# F841: intermediate variables aid readability of the physics.
+# E501: long lines mirror the original equations; breaking them obscures the math.
+# F403/F405 (thermo.py only): wildcard import from constants is the original style.
+"pyrcel/legacy/thermo.py" = ["F403", "F405", "UP031", "E731", "E501"]
+"pyrcel/legacy/activation.py" = ["UP031", "E731", "F841", "E501"]
+"pyrcel/legacy/postprocess.py" = ["UP031", "E731", "F841", "E501"]
+"pyrcel/legacy/vis.py" = ["E731", "F841", "UP031", "E501"]
+# --- public API shims ---
+# F401: explicit `X as X` re-exports are intentional public API; I001: ruff isort
+# rejects grouped re-export blocks — suppress rather than let it split them per-symbol.
+"pyrcel/__init__.py" = ["F401", "I001"]
+"pyrcel/activation/__init__.py" = ["F401"]
+# --- distributions.py ---
+# LaTeX math in RST docstrings produces lines that cannot be split without breaking
+# the rendered equations. E501 is the only remaining suppression; UP031 was fixed.
+"pyrcel/distributions.py" = ["E501"]
+# --- v1-era output module (pyrcel/output.py) ---
+# Not part of the v2 public API (superseded by pyrcel/model_output.py); preserved for
+# backward compatibility. UP031/E731/F841/E501: same rationale as pyrcel.legacy above.
+"pyrcel/output.py" = ["UP031", "E731", "F841", "E501"]
+# --- old unit-test suite (pyrcel/test/) ---
+# Pre-v2 tests; not part of the new pytest suite in tests/. Kept for reference only.
+"pyrcel/test/*.py" = ["F403", "F405", "F401", "UP031", "E501"]
+# --- non-package files ---
+# E402: import order is intentional (sys.path setup, warnings filter before imports)
+"tools/**/*.py" = ["E402", "E501"]
 
-[tool.pixi.feature.py310.dependencies]
-python = "3.10.*"
+[tool.pytest.ini_options]
+addopts = "-n auto"
+markers = [
+    "slow: full JAX/diffrax integration, autodiff, or ensemble solve (skip locally with -m 'not slow')",
+]
+filterwarnings = [
+    "ignore:invalid value encountered in scalar divide:RuntimeWarning:pyrcel.legacy.activation",
+]
 
-[tool.pixi.feature.py311.dependencies]
-python = "3.11.*"
+[tool.pyrefly]
+project-includes = ["pyrcel"]
+project-excludes = [
+    "pyrcel/legacy",
+    "pyrcel/test",
+    "pyrcel/scripts",
+    "pyrcel/output.py",
+]
+python-version = "3.11.0"
+infer-with-first-use = false
 
-[tool.pixi.feature.py312.dependencies]
-python = "3.12.*"
-
-[tool.pixi.feature.py313.dependencies]
-python = "3.13.*"
-
-[tool.pixi.feature.py314.dependencies]
-python = "3.14.*"
-numpy = ">=2.1,<3"
-assimulo = ">=3.7,<4"
-
-[tool.pixi.feature.py314.pypi-dependencies]
-pyrcel = { path = ".", editable = true }
-
-[tool.pixi.feature.py314.tasks]
-run_parcel = "run_parcel"
-ci = "run_parcel examples/simple.yml"
-
-[tool.pixi.environments]
-default = ["py311"]
-py39 = ["py39"]
-py310 = ["py310"]
-py311 = ["py311"]
-py312 = ["py312"]
-py313 = ["py313"]
-py314 = { features = ["py314"], no-default-feature = true }
-
-[tool.pixi.pypi-dependencies]
-pyrcel = { path = ".", editable = true }
-
-[tool.pixi.tasks]
-run_parcel = "run_parcel"
-ci = "run_parcel examples/simple.yml"
+[tool.pyrefly.errors]
+# JAX/equinox/diffrax stubs are incomplete in some areas; suppress the noisiest
+# false-positive categories that arise from those packages rather than our code.
+# untyped-import: third-party JAX ecosystem packages lack complete stubs.
+# bad-index / unsupported-operation: ArrayLike includes Python scalars; pyrefly
+#   cannot prove JAX's dynamic dispatch always produces an indexable Array.
+# implicit-any / implicit-any-parameter: accepted in JAX-heavy code where Any
+#   leaks from untyped diffrax/equinox/optimistix callsites.
+# bad-return: ArrayLike arithmetic on ArrayLike inputs produces non-Array types
+#   in pyrefly's view, even though JAX always dispatches to Array at runtime.
+untyped-import = "ignore"
+bad-index = "ignore"
+implicit-any = "ignore"
+bad-return = "ignore"
+unsupported-operation = "ignore"
+implicit-any-parameter = "ignore"

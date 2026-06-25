@@ -1,19 +1,85 @@
-#!/usr/bin/env python
-"""
-CLI interface to run parcel model simulation.
+"""CLI interface for running a parcel-model simulation with the v2 JAX/diffrax backend.
 
+Usage
+-----
+.. code-block:: bash
+
+    run_parcel config.yml                    # write output/<name>.nc
+    run_parcel config.yml -o results/run1   # explicit output path (no .nc extension needed)
+    run_parcel config.yml --no-console      # suppress the setup/summary table
+    run_parcel config.yml --device gpu      # run on the first available GPU
+
+YAML Namelist Format
+--------------------
+The namelist is a YAML file with three required top-level keys:
+
+.. code-block:: yaml
+
+    experiment_control:
+        name: "simple"          # base name for the output file
+        output_dir: "output/"   # directory to write the NetCDF file into
+
+    model_control:
+        output_dt: 1.0          # output cadence (s)
+        t_end: 9999.0           # maximum integration time (s)
+        terminate: true         # stop shortly after S_max (recommended)
+        terminate_depth: 10.0   # extra height (m) to integrate past S_max
+        max_steps: 100000       # optional: adaptive-step cap (default 100 000)
+
+    initial_aerosol:
+        - name: sulfate
+          distribution: lognormal
+          distribution_args: { mu: 0.15, N: 1000.0, sigma: 1.2 }
+          kappa: 0.54
+          bins: 250
+
+    initial_conditions:
+        temperature: 283.15       # K
+        relative_humidity: 0.95   # decimal fraction (0–1)
+        pressure: 85000.0         # Pa
+        updraft_speed: 0.44       # m/s
+
+``model_control`` keys recognised by the v2 CLI:
+
+===================  ======================================================
+Key                  Description
+===================  ======================================================
+``t_end``            Maximum integration time (s). **Required.**
+``output_dt``        Output cadence (s). Default: ``1.0``.
+``terminate``        Stop after S_max. Default: ``true``.
+``terminate_depth``  Extra depth (m) past S_max. Default: ``10.0``.
+``max_steps``        Adaptive-step cap. Default: ``100000``.
+``device``           JAX backend: ``"cpu"`` or ``"gpu"``. Default: JAX's
+                     current default device. Overridden by ``--device``.
+``solver_dt``        **Ignored** (legacy CVode chunk size; diffrax is fully
+                     adaptive and does not need this).
+===================  ======================================================
+
+Notes
+-----
+- Only ``lognormal`` distributions are supported; ``distribution_args`` maps to
+  [Lognorm][pyrcel.distributions.Lognorm] keyword arguments (``mu``, ``sigma``, ``N``).
+- ``relative_humidity`` is converted to initial supersaturation via
+  ``S0 = RH - 1.0`` (negative for sub-saturated parcels).
+- Output is written as NetCDF4 via [to_netcdf][pyrcel.model_output.ModelOutput.to_netcdf].
 """
-import os
+
+from __future__ import annotations
+
 import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from pathlib import Path
 
 import yaml
 
-import pyrcel as pm
-import pyrcel.util
+_DIST_MAP = {
+    "lognormal": "Lognorm",
+}
 
 parser = ArgumentParser(
-    description=__doc__, formatter_class=RawDescriptionHelpFormatter
+    prog="run_parcel",
+    description=__doc__,
+    formatter_class=RawDescriptionHelpFormatter,
 )
 parser.add_argument(
     "namelist",
@@ -21,91 +87,104 @@ parser.add_argument(
     metavar="config.yml",
     help="YAML namelist controlling simulation configuration",
 )
+parser.add_argument(
+    "-o",
+    "--output",
+    type=str,
+    default=None,
+    metavar="PATH",
+    help="Override output path (default: <output_dir>/<name>.nc from namelist)",
+)
+parser.add_argument(
+    "--no-console",
+    action="store_true",
+    default=False,
+    help="Suppress the setup/summary console output",
+)
+parser.add_argument(
+    "--device",
+    type=str,
+    default=None,
+    metavar="BACKEND",
+    help=(
+        'JAX device backend: "cpu" or "gpu". '
+        "Overrides the model_control.device namelist key. "
+        "Defaults to JAX's current default device."
+    ),
+)
 
-DIST_MAP = {
-    "lognormal": pm.Lognorm,
-}
 
-
-def run_parcel():
-    # Read command-line arguments
+def run_parcel() -> None:
     args = parser.parse_args()
 
-    # Convert the namelist file into an in-memory dictionary
+    # --- load namelist -------------------------------------------------------
     try:
-        print("Attempting to read simulation namelist {}".format(args.namelist))
         with open(args.namelist, "rb") as f:
-            y = yaml.safe_load(f)
-    except IOError:
-        print("Couldn't read file {}".format(args.namelist))
-        sys.exit(0)
+            cfg = yaml.safe_load(f)
+    except OSError as exc:
+        print(f"error: cannot read namelist '{args.namelist}': {exc}", file=sys.stderr)
+        sys.exit(1)
 
-    # Create the aerosol
+    # --- build aerosol modes -------------------------------------------------
+    import pyrcel as pm
+
     aerosol_modes = []
-    print("Constructing aerosol modes")
-    for i, aerosol_params in enumerate(y["initial_aerosol"], start=1):
-        ap = aerosol_params
-
-        dist = DIST_MAP[ap["distribution"]](**ap["distribution_args"])
-
+    for ap in cfg["initial_aerosol"]:
+        dist_key = ap["distribution"]
+        if dist_key not in _DIST_MAP:
+            print(
+                f"error: unsupported distribution '{dist_key}'. Supported: {list(_DIST_MAP)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        dist_cls = getattr(pm, _DIST_MAP[dist_key])
+        dist = dist_cls(**ap["distribution_args"])
         aer = pm.AerosolSpecies(ap["name"], dist, kappa=ap["kappa"], bins=ap["bins"])
-        print("   {:2d})".format(i), aer)
-
         aerosol_modes.append(aer)
 
-    # Set up the model
-    ic = y["initial_conditions"]
-    print("Initializing model")
-    try:
-        model = pm.ParcelModel(
-            aerosol_modes,
-            V=ic["updraft_speed"],
-            T0=ic["temperature"],
-            S0=-1.0 * (1.0 - ic["relative_humidity"]),
-            P0=ic["pressure"],
-            console=True,
-            truncate_aerosols=True,
-        )
-    except pyrcel.util.ParcelModelError:
-        print("Something went wrong setting up the model")
-        sys.exit(0)
+    # --- initialise model ----------------------------------------------------
+    ic = cfg["initial_conditions"]
+    S0 = ic["relative_humidity"] - 1.0  # RH=0.95 → S0=-0.05
 
-    # Run the model
-    mc = y["model_control"]
-    print("Beginning simulation")
-    try:
-        par_out, aer_out = model.run(
-            max_steps=2000,
-            solver="cvode",
-            output_fmt="dataframes",
-            # terminate=True,
-            # terminate_depth=10.,
-            **mc,
-        )
-    except pyrcel.util.ParcelModelError:
-        print("Something went wrong during model run")
-        sys.exit(0)
+    mc = cfg["model_control"]
+    # CLI --device flag takes precedence over model_control.device in the namelist.
+    device = args.device if args.device is not None else mc.get("device", None)
 
-    # Output
-    ec = y["experiment_control"]
+    model = pm.ParcelModel(
+        aerosol_modes,
+        V=ic["updraft_speed"],
+        T0=ic["temperature"],
+        S0=S0,
+        P0=ic["pressure"],
+        console=not args.no_console,
+        device=device,
+    )
 
-    Smax = par_out["S"].max()
-    T_fin = par_out["T"].iloc[-1]
+    # --- run -----------------------------------------------------------------
+    run_kwargs = {
+        "t_end": mc["t_end"],
+        "output_dt": mc.get("output_dt", 1.0),
+        "terminate": mc.get("terminate", True),
+        "terminate_depth": mc.get("terminate_depth", 10.0),
+        "max_steps": int(mc.get("max_steps", 100_000)),
+    }
+    output = model.run(**run_kwargs, mode="full")
 
-    # Make output directory if it doesn't exist
-    if not os.path.exists(ec["output_dir"]):
-        os.makedirs(ec["output_dir"])
+    # --- write output --------------------------------------------------------
+    if args.output:
+        out_path = Path(args.output)
+        if out_path.suffix != ".nc":
+            out_path = out_path.with_suffix(".nc")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        ec = cfg["experiment_control"]
+        out_dir = Path(ec.get("output_dir", "output"))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{ec['name']}.nc"
 
-    out_file = os.path.join(ec["output_dir"], ec["name"]) + ".nc"
-    try:
-        print("Trying to save output to {}".format(out_file))
-        pm.output.write_parcel_output(out_file, parcel=model)
-    except (IOError, RuntimeError):
-        print("Something went wrong saving to {}".format(out_file))
-        sys.exit(0)
-
-    # Succesful completion
-    print("Done!")
+    output.to_netcdf(out_path)
+    if not args.no_console:
+        print(f"Output written to {out_path}")
 
 
 if __name__ == "__main__":

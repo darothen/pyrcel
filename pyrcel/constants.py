@@ -1,31 +1,25 @@
-""" Commonly used constants in microphysics and aerosol thermodynamics equations as
+"""Commonly used constants in microphysics and aerosol thermodynamics equations as
 well as important model parameters.
 
-================= ============= ========== ==========        ======================
-Symbol            Variable      Value      Units             Description
-================= ============= ========== ==========        ======================
-:math:`g`         ``g``         9.8        m s**-2           gravitational constant
-:math:`C_p`       ``Cp``        1004.0     J/kg              specific heat of dry air
-                                                             at constant pressure
-:math:`\\rho_w`    ``rho_w``     1000.0     kg m**-3          density of water at STP
-:math:`R_d`       ``Rd``        287.0      J/kg/K            gas constant for dry air
-:math:`R_v`       ``Rv``        461.5      J/kg/K            gas constant for water vapor
-:math:`R`         ``R``         8.314      J/mol/K           universal gas constant
-:math:`M_w`       ``Mw``        0.018      kg/mol            molecular weight of water
-:math:`M_a`       ``Ma``        0.0289     kg/mol            molecular weight of dry air
-:math:`D_v`       ``Dv``        3e-5       m**2/s            diffusivity of water vapor
-                                                             in air
-:math:`L_v`       ``L``         2.25e6     J/kg/K            latent heat of vaporization
-                                                             of water
-:math:`\\alpha_c`  ``ac``        1.0        unitless          condensation coefficient
-:math:`K_a`       ``Ka``        0.02       J/m/s/K           thermal conductivity of air
-:math:`a_T`       ``at``        0.96       unitless          thermal accommodation
-                                                             coefficient
-:math:`\epsilon`  ``epsilon``   0.622      unitless          ratio of :math:`M_w/M_a`
-================= ============= ========== ==========        ======================
+| Symbol | Variable | Value | Units | Description |
+|--------|----------|-------|-------|-------------|
+| $g$ | `g` | 9.8 | m s⁻² | gravitational constant |
+| $C_p$ | `Cp` | 1004.0 | J/kg | specific heat of dry air at constant pressure |
+| $\\rho_w$ | `rho_w` | 1000.0 | kg m⁻³ | density of water at STP |
+| $R_d$ | `Rd` | 287.0 | J/kg/K | gas constant for dry air |
+| $R_v$ | `Rv` | 461.5 | J/kg/K | gas constant for water vapor |
+| $R$ | `R` | 8.314 | J/mol/K | universal gas constant |
+| $M_w$ | `Mw` | 0.018 | kg/mol | molecular weight of water |
+| $M_a$ | `Ma` | 0.0289 | kg/mol | molecular weight of dry air |
+| $D_v$ | `Dv` | 3×10⁻⁵ | m²/s | diffusivity of water vapor in air |
+| $L_v$ | `L` | 2.25×10⁶ | J/kg | latent heat of vaporization of water |
+| $\\alpha_c$ | `ac` | 1.0 | — | condensation coefficient |
+| $K_a$ | `Ka` | 0.02 | J/m/s/K | thermal conductivity of air |
+| $a_T$ | `at` | 0.96 | — | thermal accommodation coefficient |
+| $\\epsilon$ | `epsilon` | 0.622 | — | ratio $M_w/M_a$ |
 
 Additionally, a reference table containing the
-`1976 US Standard Atmosphere <http://www.pdas.com/atmos.html>`_ is implemented in the
+[1976 US Standard Atmosphere](http://www.pdas.com/atmos.html) is implemented in the
 constant ``std_atm``, which is a pandas DataFrame with the fields
 
 - ``alt``, altitude in km
@@ -69,4 +63,4 @@ STATE_VAR_MAP = {var: i for i, var in enumerate(STATE_VARS)}
 
 # Read the standard atmosphere CSV file
 with files("pyrcel").joinpath("data/std_atm.csv").open("r") as _f:
-    std_atm = pd.read_csv(_f, sep="\s+")
+    std_atm = pd.read_csv(_f, sep=r"\s+")

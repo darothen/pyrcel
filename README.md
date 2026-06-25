@@ -1,127 +1,133 @@
 pyrcel: cloud parcel model
 ==========================
 
-![sample parcel model run](docs/figs/model_example.png)
+![sample parcel model run](docs/assets/figures/basic_run.png)
 
-[![DOI](https://zenodo.org/badge/12927551.svg)](https://zenodo.org/badge/latestdoi/12927551)[![PyPI Version](https://badge.fury.io/py/pyrcel.svg)](https://badge.fury.io/py/pyrcel)[![CI](https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg)](https://github.com/darothen/pyrcel/actions/workflows/ci.yml)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](http://pyrcel.readthedocs.io/en/latest/index.html)
+[![DOI](https://zenodo.org/badge/12927551.svg)](https://zenodo.org/badge/latestdoi/12927551)[![PyPI Version](https://badge.fury.io/py/pyrcel.svg)](https://badge.fury.io/py/pyrcel)[![CI](https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg)](https://github.com/darothen/pyrcel/actions/workflows/ci.yml)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](https://pyrcel.readthedocs.io/en/latest/)
 
 
-This is an implementation of a simple, adiabatic cloud parcel model for use in
-aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements
- and changes over [Nenes et al (2001)][nenes2001]:
+`pyrcel` is a simple, adiabatic cloud parcel model for use in
+aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements over [Nenes et al (2001)][nenes2001]:
 
-* Implementation of κ-Köhler theory for condensation physics ([Petters and
-Kreidenweis, 2007)][pk2007]
-* Extension of model to handle arbitrary sectional representations of aerosol
-populations, based on user-controlled empirical or parameterized size distributions
-* Improved, modular numerical framework for integrating the model, including bindings
-to several different stiff integrators:
-    - ~~`lsoda` - [scipy ODEINT wrapper](http://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html)~~
-    - ~~`vode, lsode*, lsoda*` - ODEPACK via [odespy][hplgit]~~
-    - `cvode` - SUNDIALS via [Assimulo](http://www.jmodelica.org/assimulo_home/index.html#)
+* Implementation of κ-Köhler theory for condensation physics ([Petters and Kreidenweis, 2007][pk2007])
+* Extension of model to handle arbitrary sectional representations of aerosol populations, based on user-controlled empirical or parameterized size distributions
+* JAX/[diffrax][diffrax]-based numerical core — differentiable, batchable, GPU-ready, with no Fortran/SUNDIALS dependency
 
-among other details. It also includes a library of droplet activation routines and scripts/notebooks for evaluating those schemes against equivalent calculations done with the parcel model.
+[Detailed documentation is available](https://pyrcel.readthedocs.io/en/latest/), including a [scientific description](https://pyrcel.readthedocs.io/en/latest/user_guide/sci_descr/), [installation details](https://pyrcel.readthedocs.io/en/latest/getting_started/installation/), and a [basic example](https://pyrcel.readthedocs.io/en/latest/examples/basic_run/).
 
 > [!WARNING]
-> As of version 1.3, we no longer support any ODE solver backends other than `cvode`.
-> All publications using this model have used this backend, so users shouldn't expect
-> any inconsistencies with historical results. A future version is planned to add a new
-> suite of ODE solvers from the [diffrax][diffrax] toolkit.
+> **Version 2.0 Notice**
+>
+> This is **pyrcel v2.0**, a major new release with more features, greater flexibility, and a JAX-based differentiable kernel. However, there are several **breaking changes** compared to version 1.3.x.
+>
+> Please review the [migration guide](https://pyrcel.readthedocs.io/en/latest/user_guide/migration/) to update your code.
+>
+> If you wish to continue using the legacy (v1.3.x) model, you can install it from PyPI by pinning the version:
+>
+> ```shell
+> pip install "pyrcel<2"
+> ```
 
-Updated code can be found the project [github repository](https://github.com/darothen/pyrcel). If you'd like to use this code or have any questions about it, please [contact the author][author_email]. In particular, if you use this code for research purposes, be sure to carefully read through the model and ensure that you have tweaked/configured it for your purposes (i.e., modifying the accomodation coefficient); other derived quantities).
-
-[Detailed documentation is available](http://pyrcel.readthedocs.org/en/latest/index.html), including a [scientific description](http://pyrcel.readthedocs.org/en/latest/sci_descr.html), [installation details](http://pyrcel.readthedocs.org/en/latest/install.html), and a [basic example](http://pyrcel.readthedocs.org/en/latest/examples/basic_run.html) which produces a figure like the plot at the top of this page.
 
 Quick Start
 -----------
 
-As of February, 2025, we provide an ultra simple way to run `pyrcel` without any installation
-or setup using [`pixi`](https://pixi.sh/latest/).
-`pixi` is an all-in-one package management tool that makes handling complex environment
-setup and dependencies extremely easy.
+The easiest way to run `pyrcel` from source is with [`uv`](https://docs.astral.sh/uv/):
 
-Clone or download this repo, then **cd** into the top-level folder from a terminal.
-From there, execute:
-
-``` shell
-$ pixi run run_parcel examples/simple.yml
+```shell
+$ git clone https://github.com/darothen/pyrcel.git && cd pyrcel
+$ uv run python examples/basic_run.py
 ```
 
-This will automatically prepare an environment with all of `pyrcel`'s dependencies installed,
-and then run an example model setup.
-The first time the model runs, it may take a few second after invoking the script; this is
-normal, and is just a side-effect of `numba` caching and pre-compiling some of the functions
-used to drive the parcel model simulation.
+`uv` will automatically create an isolated environment and install all dependencies.
+The first call compiles JAX kernels; subsequent calls are fast.
 
-> [!NOTE]
-> We provide `pixi` environments for Linux, MacOS (both Intel and Apple Silicon) and
-> Windows, but we have never tried to run the model on a Windows computer so your mileage
-> may vary. Contact the authors if you have any questions and we can try to support your
-> use case.
+Usage
+-----
+
+```python
+import pyrcel as pm
+
+sulfate = pm.AerosolSpecies(
+    "sulfate", pm.Lognorm(mu=0.05, sigma=2.0, N=1000.0), kappa=0.54, bins=50
+)
+model = pm.ParcelModel([sulfate], V=1.0, T0=283.0, S0=-0.02, P0=85000.0, console=True)
+output = model.run(t_end=300.0, output_dt=10.0, terminate=True, live=True)
+
+print(f"S_max  = {output.summary['S_max']*100:.3f} %")
+print(f"N_act  = {output.Nd:.3e} m⁻³")
+```
+
+Key capabilities:
+
+* **Autodiff** — exact gradients of `S_max` w.r.t. updraft speed, initial conditions,
+  accommodation coefficient, and aerosol properties via `jax.grad`.
+* **Batching / GPU** — `jax.vmap` runs ensembles of parcels in one compiled call;
+  pass `device="gpu"` to `ParcelModel` for CUDA acceleration.
+* **Time-varying updraft** — pass a `pyrcel.InterpolatedUpdraft(ts=..., vs=...)` as `V`.
+* **Flexible output** — `output.to_pandas()`, `.to_xarray()`, `.to_netcdf()`, `.to_parquet()`.
+
+The differentiable core (`pyrcel.integrator`, `pyrcel.equilibrate`) is usable directly
+for `jit`/`grad`/`vmap`; `ParcelModel` is the interactive convenience layer (console
+output, progress meter, post-solve summary table).
 
 Installation
 ------------
 
-To get started with using `pyrcel`, complete the following steps:
+**From PyPI (recommended):**
 
-1. Set up a new Python environment; we recommend using [mambaforge](https://conda-forge.org/miniforge/):
-  
-``` shell
-  $ mamba create -n pyrcel_quick_start python=3.11
+```shell
+$ pip install pyrcel
 ```
 
-2. Activate the new Python environment and install the model and its dependencies. If you install the published version from PyPi (_recommended_), then you also need to install [Assimulo](http://www.jmodelica.org/assimulo) using the Mamba package manager - but no other manual dependency installation is necessary:
-  
-``` shell
-  $ mamba activate pyrcel_quick_start
-  $ pip install pyrcel
-  $ mamba install -c conda-forge assimulo
+JAX (CPU) is included by default. No extras needed for standard use.
+
+**From source:**
+
+```shell
+$ git clone https://github.com/darothen/pyrcel.git && cd pyrcel
+$ uv sync
+$ uv run python examples/basic_run.py
 ```
 
-3. Run a test simulation using the CLI tool and a sample YAML file from **pyrcel/examples/\*.yml** (you may want to clone the repository or download them locally):
-  
-``` shell
-  $ run_parcel simple.yml
+**GPU support (CUDA 12):**
+
+```shell
+$ pip install "pyrcel[gpu]"
 ```
-
-* Visualize the output NetCDF (should be in the directory you ran the CLI tool, at **output/simple.nc**)
-
-That's it! You should be able to import `pyrcel` into any script or program running in the
-environment you created.
-
 
 Requirements
 ------------
 
-**Required**
-
-* Python >= 3.9
-* [numba](http://numba.pydata.org)
-* [NumPy](http://www.numpy.org)
-* [SciPy](http://www.scipy.org)
-* [pandas](http://pandas.pydata.org)
-* [xarray](http://xarray.pydata.org/en/stable/)
-* [PyYAML](http://pyyaml.org/)
-
-Additionally, the following packages are used for better numerics (ODE solving)
-
-* [Assimulo](http://www.jmodelica.org/assimulo)
-
-The easiest way to satisfy the basic requirements for building and running the
-model is to use the [Anaconda](http://continuum.io/downloads) scientific Python
-distribution. Alternatively, a
-[miniconda environment](http://conda.pydata.org/docs/using/envs.html) is
-provided to quickly set-up and get running the model. Assimulo's dependency on
-the SUNDIALS library makes it a little bit tougher to install in an automated
-fashion, so it has not been included in the automatic setup provided here; you
-should refer to [Assimulo's documentation](http://www.jmodelica.org/assimulo_home/installation.html)
-for more information on its installation process. Note that many components of
-the model and package can be used without Assimulo.
+* Python >= 3.11
+* [JAX](https://docs.jax.dev/) >= 0.4.38
+* [diffrax](https://docs.kidger.site/diffrax/) >= 0.6.2
+* [equinox](https://docs.kidger.site/equinox/) >= 0.11.10
+* [optimistix](https://docs.kidger.site/optimistix/) >= 0.0.7
+* NumPy, SciPy, pandas, polars, xarray
 
 Development
 -----------
 
-[http://github.com/darothen/pyrcel]()
+Clone the repo and install with dev dependencies:
+
+```shell
+$ git clone https://github.com/darothen/pyrcel.git && cd pyrcel
+$ uv sync --extra test
+$ prek install   # installs the git pre-commit hook (requires prek: https://prek.j178.dev)
+```
+
+Run the fast test suite:
+
+```shell
+$ uv run pytest tests/ -m "not slow"
+```
+
+Lint and format are handled automatically by `prek` on commit, or run manually:
+
+```shell
+$ prek run --all-files
+```
 
 Please fork this repository if you intend to develop the model further so that the
 code's provenance can be maintained.
@@ -131,12 +137,11 @@ License / Usage
 
 [All scientific code should be licensed](http://www.astrobetter.com/the-whys-and-hows-of-licensing-scientific-code/). This code is released under the New BSD (3-clause) [license](LICENSE.md).
 
-You are free to use this code however you would like.
-If you use this for any scientific work resulting in a publication or citation, please
-cite our original publication detailing the model, and let the authors know:
+If you use this for any scientific work resulting in a publication, please cite our
+original publication detailing the model:
 
 ```
-@article { 
+@article {
       author = "Daniel Rothenberg and Chien Wang",
       title = "Metamodeling of Droplet Activation for Global Climate Models",
       journal = "Journal of the Atmospheric Sciences",
@@ -150,10 +155,13 @@ cite our original publication detailing the model, and let the authors know:
       url = "https://journals.ametsoc.org/view/journals/atsc/73/3/jas-d-15-0223.1.xml"
 }
 ```
-
+Additionally, please consider citing the bespoke DOI for the
+[specific release version of pyrcel](https://zenodo.org/records/20693507)
+that you used during your research (or the base version you modified). This
+allows us to track adoption and use of specific model versions over time.
 
 [author_email]: mailto:daniel@danielrothenberg.com
-[nenes2001]: http://nenes.eas.gatech.edu/Preprints/KinLimitations_TellusPP.pdf
+[nenes2001]: https://onlinelibrary.wiley.com/doi/abs/10.1034/j.1600-0889.2001.d01-12.x
 [pk2007]: http://www.atmos-chem-phys.net/7/1961/2007/acp-7-1961-2007.html
-[hplgit]: https://github.com/hplgit/odespy
 [diffrax]: https://docs.kidger.site/diffrax/
+[jax]: https://docs.jax.dev/

@@ -1,54 +1,57 @@
-""" Collection of classes for representing aerosol size distributions.
+"""Collection of classes for representing aerosol size distributions.
 
-Most commonly, one would use the :class:`Lognorm` distribution. However,
+Most commonly, one would use the [Lognorm][pyrcel.distributions.Lognorm] distribution. However,
 for the sake of completeness, other canonical distributions will be
 included here, with the notion that this package could be extended to
 describe droplet size distributions or other collections of objects.
 
 """
+
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from scipy.special import erf, erfinv
+
+from ._types import FloatND
 
 
 class BaseDistribution(metaclass=ABCMeta):
     """Interface for distributions, to ensure that they contain a pdf method."""
 
     @abstractmethod
-    def cdf(self, x):
+    def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function"""
 
     @abstractmethod
-    def pdf(self, x):
+    def pdf(self, x: FloatND) -> FloatND:
         """Distribution density function."""
 
-    @property
     @abstractmethod
-    def stats(self):
+    def stats(self) -> dict[str, float]:
         pass
 
     @abstractmethod
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Representation function."""
 
 
 class Gamma(BaseDistribution):
-    """Gamma size distribution"""
+    """Gamma size distribution — not yet implemented."""
 
-    # TODO: Implement Gamma size distribution
     pass
 
 
 class Lognorm(BaseDistribution):
     """Lognormal size distribution.
 
-    An instance of :class:`Lognorm` contains a construction of a lognormal distribution
+    An instance of [Lognorm][pyrcel.distributions.Lognorm] contains a construction of a lognormal distribution
     and the utilities necessary for computing statistical functions associated
     with that distribution. The parameters of the constructor are invariant with respect
     to what length and concentration unit you choose; that is, if you use meters for
     ``mu`` and cm**-3 for ``N``, then you should keep these in mind when evaluating
-    the :func:`pdf` and :func:`cdf` functions and when interpreting moments.
+    the `pdf` and `cdf` functions and when interpreting moments.
 
     Parameters
     ----------
@@ -61,8 +64,10 @@ class Lognorm(BaseDistribution):
 
     Attributes
     ----------
-    median, mean : float
-        Pre-computed statistical quantities
+    median : float
+        Geometric mean (= ``mu``).
+    mean : float
+        Arithmetic mean: ``mu * exp(0.5 * ln(sigma)**2)``.
 
     Methods
     -------
@@ -79,138 +84,146 @@ class Lognorm(BaseDistribution):
 
     """
 
-    def __init__(self, mu, sigma, N=1.0, base=np.e):
+    def __init__(self, mu: float, sigma: float, N: float = 1.0, base: float = np.e) -> None:
         self.mu = mu
         self.sigma = sigma
         self.N = N
 
-        self.base = np.e
-        self.log = np.log
-
-        # Compute moments
         self.median = self.mu
-        self.mean = self.mu * np.exp(0.5 * self.sigma**2)
+        # Arithmetic mean of the underlying normal: E[r] = mu * exp(0.5 * ln(sigma)^2)
+        self.mean = self.mu * np.exp(0.5 * np.log(self.sigma) ** 2)
 
-    def invcdf(self, y):
+    def invcdf(self, y: FloatND) -> FloatND:
         """Inverse of cumulative density function.
 
         Parameters
         ----------
         y : float
-            CDF value, between (0, 1)
+            CDF value, between 0 and ``N`` (cumulative number concentration).
 
         Returns
         -------
-        radius (same unit as mu) corresponding to given CDF value
+        float
+            Radius (same unit as ``mu``) corresponding to the given CDF value.
 
         """
 
-        if (np.any(y) < 0) or (np.any(y) > 1):
-            raise ValueError("y must be between (0, 1)")
+        if np.any(y < 0) or np.any(y > self.N):
+            raise ValueError(f"y must be between 0 and N={self.N}")
 
         erfinv_arg = 2.0 * y / self.N - 1.0
         return self.mu * np.exp(np.log(self.sigma) * np.sqrt(2.0) * erfinv(erfinv_arg))
 
-    def cdf(self, x):
+    def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function
 
-        .. math::
-            \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}(\\frac{\ln(x/\mu)}{\sqrt{2}\ln{\sigma}}) \\right)
+        $$
+        \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}\\left(\\frac{\\ln(x/\\mu)}{\\sqrt{2}\\ln{\\sigma}}\\right) \\right)
+        $$
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        cumulative concentration up to radius x
+        float
+            Cumulative concentration up to radius ``x``.
 
         """
         erf_arg = (np.log(x / self.mu)) / (np.sqrt(2.0) * np.log(self.sigma))
         return (self.N / 2.0) * (1.0 + erf(erf_arg))
 
-    def pdf(self, x):
-        """Distribution density function dN/dx (not logarithmic)
+    def pdf(self, x: FloatND) -> FloatND:
+        """Distribution density function dN/dx (not logarithmic).
 
-        .. math::
-            \\text{pdf} = \\frac{N}{\sqrt{2\pi}\ln(\sigma) x}\exp\\left( -\\frac{\ln^2(x/\mu)}{2\ln^2\sigma} \\right)
+        $$
+        \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln(\\sigma) x}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        distribution density value at radius x
+        float
+            Distribution density value at radius ``x``.
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * np.log(self.sigma))
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return (scaling / x) * np.exp(-exponent)
 
-    def pdfloge(self, x):
-        """Distribution density function dN/dln(x) (natural logarithm)
+    def pdfloge(self, x: FloatND) -> FloatND:
+        """Distribution density function dN/dln(x) (natural logarithm).
 
-        .. math::
-            \\text{pdf} = \\frac{N}{\sqrt{2\pi}\ln\sigma}\exp\\left( -\\frac{\ln^2(x/\mu)}{2\ln^2\sigma} \\right)
+        $$
+        \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        distribution logarithmic density value at radius x
+        float
+            Logarithmic distribution density value at radius ``x``.
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * np.log(self.sigma))
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return scaling * np.exp(-exponent)
 
-    def pdflog10(self, x):
-        """Distribution density function dN/dlog(x) (base 10 logarithm)
+    def pdflog10(self, x: FloatND) -> FloatND:
+        """Distribution density function dN/dlog(x) (base 10 logarithm).
 
-        .. math::
-            \\text{pdf} = \\frac{N\ln 10}{\sqrt{2\pi}\ln\sigma}\exp\\left( -\\frac{\ln^2(x/\mu)}{2\ln^2\sigma} \\right)
+        $$
+        \\text{pdf} = \\frac{N\\ln 10}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
 
         Parameters
         ----------
         x : float
-            Radius (must match unit of mu)
+            Radius (must match unit of ``mu``).
 
         Returns
         -------
-        distribution logarithmic density value at radius x
+        float
+            Base-10 logarithmic distribution density value at radius ``x``.
 
         """
         scaling = self.N / (np.sqrt(2.0 * np.pi) * np.log(self.sigma))
         exponent = ((np.log(x / self.mu)) ** 2) / (2.0 * (np.log(self.sigma)) ** 2)
         return np.log(10) * scaling * np.exp(-exponent)
 
-    def moment(self, k):
-        """Compute the k-th moment of the lognormal distribution
+    def moment(self, k: int | float) -> float:
+        """Compute the k-th moment of the lognormal distribution.
 
-        .. math::
-            F(k) = N\mu^k\exp\\left( \\frac{k^2}{2} \ln^2 \sigma \\right)
+        $$
+        F(k) = N\\mu^k\\exp\\left( \\frac{k^2}{2} \\ln^2 \\sigma \\right)
+        $$
 
         Parameters
         ----------
         k : int
-            Moment to evaluate
+            Moment to evaluate.
 
         Returns
         -------
-        moment of distribution
+        float
+            The k-th moment of the distribution.
 
         """
         scaling = (self.mu**k) * self.N
         exponent = ((k**2) / 2.0) * (np.log(self.sigma)) ** 2
         return scaling * np.exp(exponent)
 
-    def stats(self):
+    def stats(self) -> dict[str, float]:
         """Compute useful statistics for a lognormal distribution
 
         Returns
@@ -222,7 +235,7 @@ class Lognorm(BaseDistribution):
 
         """
         stats_dict = dict()
-        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * (np.log(self.sigma))**2)
+        stats_dict["mean_radius"] = self.mu * np.exp(0.5 * (np.log(self.sigma)) ** 2)
 
         stats_dict["total_diameter"] = self.N * stats_dict["mean_radius"]
         stats_dict["total_surface_area"] = 4.0 * np.pi * self.moment(2.0)
@@ -237,10 +250,8 @@ class Lognorm(BaseDistribution):
 
         return stats_dict
 
-    def __repr__(self):
-        return "Lognorm | mu = {:2.2e}, sigma = {:2.2e}, Total = {:2.2e} |".format(
-            self.mu, self.sigma, self.N
-        )
+    def __repr__(self) -> str:
+        return f"Lognorm | mu = {self.mu:2.2e}, sigma = {self.sigma:2.2e}, Total = {self.N:2.2e} |"
 
 
 class MultiModeLognorm(BaseDistribution):
@@ -250,7 +261,13 @@ class MultiModeLognorm(BaseDistribution):
     distribution.
     """
 
-    def __init__(self, mus, sigmas, Ns, base=np.e):
+    def __init__(
+        self,
+        mus: tuple[float, ...] | list[float],
+        sigmas: tuple[float, ...] | list[float],
+        Ns: tuple[float, ...] | list[float],
+        base: float = np.e,
+    ) -> None:
         dist_params = list(zip(mus, sigmas, Ns))
         from operator import itemgetter
 
@@ -265,26 +282,25 @@ class MultiModeLognorm(BaseDistribution):
             mode_dist = Lognorm(mu, sigma, N)
             self.lognorms.append(mode_dist)
 
-    def cdf(self, x):
+    def cdf(self, x: FloatND) -> FloatND:
         return np.sum([d.cdf(x) for d in self.lognorms], axis=0)
 
-    def pdf(self, x):
+    def pdf(self, x: FloatND) -> FloatND:
         return np.sum([d.pdf(x) for d in self.lognorms], axis=0)
 
-    def stats(self):
-        """Compute useful statistics for a multi-mode lognormal distribution
+    def stats(self) -> dict[str, float]:
+        """Not implemented for multi-mode distributions.
 
-        TODO: Implement multi-mode lognorm stats
+        Call ``lognorm.stats()`` on each constituent [Lognorm][pyrcel.distributions.Lognorm] mode
+        (accessible via ``self.lognorms``) and combine manually.
         """
         raise NotImplementedError()
 
-    def __repr__(self):
-        mus_str = "(" + ", ".join("%2.2e" % mu for mu in self.mus) + ")"
-        sigmas_str = "(" + ", ".join("%2.2e" % sigma for sigma in self.sigmas) + ")"
-        Ns_str = "(" + ", ".join("%2.2e" % N for N in self.Ns) + ")"
-        return "MultiModeLognorm| mus = {}, sigmas = {}, Totals = {} |".format(
-            mus_str, sigmas_str, Ns_str
-        )
+    def __repr__(self) -> str:
+        mus_str = "(" + ", ".join(f"{mu:2.2e}" for mu in self.mus) + ")"
+        sigmas_str = "(" + ", ".join(f"{sigma:2.2e}" for sigma in self.sigmas) + ")"
+        Ns_str = "(" + ", ".join(f"{N:2.2e}" for N in self.Ns) + ")"
+        return f"MultiModeLognorm| mus = {mus_str}, sigmas = {sigmas_str}, Totals = {Ns_str} |"
 
 
 #: Single mode aerosols

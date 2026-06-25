@@ -1,344 +1,868 @@
-# -*- coding: utf-8 -*-
-""" Interface to numerical ODE solvers.
+"""diffrax integrator for the v2 parcel model (design doc §4.4, §4.7).
+
+A single adaptive ``diffeqsolve`` with a stiff ESDIRK solver (``Kvaerno5``) and a
+``PIDController``, replacing the chunked Assimulo/CVode loop. Output at an arbitrary
+cadence comes from ``SaveAt(ts=...)`` via dense interpolation -- no manual
+``solver_dt`` chunking.
+
+Tolerances match the CVode setup from the legacy model
+(``rtol=1e-7`` and a per-component ``atol`` vector). ``Kvaerno5`` is A-/L-stable and
+stiffly accurate, the diffrax analog of CVode's BDF; its default ``VeryChord`` Newton
+root finder inherits these tolerances automatically.
+
+This is the differentiable/batchable numerical core: it is a pure function of
+``(y0, args)`` and is ``jit``/``vmap``/``grad``-friendly. Interactive niceties
+(progress meter, summary tables) are layered on separately (Phase 6).
 """
-import sys
 
-# Compatibility - timer functions
-# In Python 3, the more accurate `time.process_time()` method is available. But
-# for legacy support, can default instead to `time.clock()`
-import time
-import warnings
-from abc import ABCMeta, abstractmethod
+from __future__ import annotations
 
-import numpy as np
+import functools
+from typing import Any
 
-if sys.version_info[0] < 3:
-    timer = time.clock
-else:
-    timer = time.process_time
+import jax
 
-from . import constants as c
+jax.config.update("jax_enable_x64", True)
 
-available_integrators = ["odeint"]
+import diffrax as dfx  # noqa: E402
+import jax.numpy as jnp  # noqa: E402
+import numpy as np  # noqa: E402
+import optimistix as optx  # noqa: E402
+from jax import Array  # noqa: E402
+from jax.typing import ArrayLike  # noqa: E402
 
-try:
-    from odespy import Vode
-    from odespy.odepack import Lsoda, Lsode
+from .activation._common import _kohler_crit_approx  # noqa: E402
+from .parcel_aux import N_STATE_VARS, parcel_ode_sys  # noqa: E402
+from .updraft import ConstantV  # noqa: E402
 
-    available_integrators.extend(["lsode", "lsoda", "vode"])
-except ImportError:
-    warnings.warn(
-        "Could not import odespy package; "
-        "invoking the 'lsoda' or 'lsode' options will fail!"
+#: CVode-equivalent tolerances (see pyrcel/integrator.py).
+STATE_RTOL = 1e-7
+STATE_ATOL = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
+RADIUS_ATOL = 1e-12
+
+_TERM = dfx.ODETerm(parcel_ode_sys)
+
+
+def atol_vector(nr: int) -> Array:
+    """Build the per-component absolute tolerance vector for the ODE solver.
+
+    Parameters
+    ----------
+    nr : int
+        Number of aerosol radius bins.
+
+    Returns
+    -------
+    jnp.ndarray, shape ``(7 + nr,)``
+        Absolute tolerance vector: CVode-equivalent values for bulk state
+        variables followed by ``RADIUS_ATOL`` for each radius bin.
+    """
+    return jnp.asarray(STATE_ATOL + [RADIUS_ATOL] * int(nr))
+
+
+@functools.partial(jax.jit, static_argnames=("max_steps", "progress_meter"))
+def _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter=dfx.NoProgressMeter()):
+    controller = dfx.PIDController(rtol=rtol, atol=atol, dtmax=dtmax)
+    return dfx.diffeqsolve(
+        _TERM,
+        dfx.Kvaerno5(),
+        t0=ts[0],
+        t1=ts[-1],
+        dt0=None,
+        y0=y0,
+        args=args,
+        stepsize_controller=controller,
+        saveat=dfx.SaveAt(ts=ts),
+        max_steps=max_steps,
+        progress_meter=progress_meter,
+        throw=False,
     )
 
 
-try:
-    # from assimulo.solvers.odepack import LSODAR
-    from assimulo.exception import TimeLimitExceeded
-    from assimulo.problem import Explicit_Problem
-    from assimulo.solvers.sundials import CVode, CVodeError
+def integrate_parcel(
+    y0: ArrayLike,
+    args: tuple,
+    ts: ArrayLike,
+    *,
+    rtol: float = STATE_RTOL,
+    atol: ArrayLike | None = None,
+    dtmax: float | None = None,
+    max_steps: int = 100_000,
+    progress_meter: dfx.AbstractProgressMeter | None = None,
+) -> dfx.Solution:
+    """Integrate the parcel ODE and return the full ``diffrax`` solution.
 
-    available_integrators.extend(["cvode", "lsodar"])
-except ImportError:
-    warnings.warn("Could not import Assimulo; " "invoking the CVode solver will fail!")
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
+    ts : array, shape ``(n_out,)``
+        Output times (monotonic). Output is dense-interpolated at these times from a
+        single adaptive solve; ``ts[0]`` is ``t0`` and ``ts[-1]`` is ``t1``.
+    rtol, atol : float / array
+        Solver tolerances. ``atol`` defaults to the per-component CVode vector.
+    dtmax : float, optional
+        Maximum internal step. ``None`` lets the controller choose freely.
+    max_steps : int
+        Upper bound on adaptive steps (must be finite under ``jit``).
+    progress_meter : diffrax.AbstractProgressMeter, optional
+        Live progress reporting (e.g. ``diffrax.TextProgressMeter()``) for interactive
+        runs. Defaults to ``NoProgressMeter`` -- keep it that way under ``vmap``/large
+        batches and in the differentiable core to avoid per-element host syncs.
 
-
-__all__ = ["Integrator"]
-
-state_atol = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
-state_rtol = 1e-7
-
-
-class Integrator(metaclass=ABCMeta):
+    Returns
+    -------
+    diffrax.Solution
+        ``sol.ts``, ``sol.ys`` (shape ``(n_out, 7 + nr)``), ``sol.result``.
     """
-    Container class for the various integrators to use in the parcel model.
+    y0 = jnp.asarray(y0)
+    ts = jnp.asarray(ts)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+    if progress_meter is None:
+        progress_meter = dfx.NoProgressMeter()
+    return _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter)
 
-    All defined integrators should return a tuple whose first value ``x`` is either
-    ``None`` or vector containing the parcel state at all requested timestamps, and
-    whose second value is a boolean indicating whether the model run was successful.
 
+def integrate_parcel_arrays(
+    y0: ArrayLike, args: tuple, ts: ArrayLike, **kwargs: Any
+) -> tuple[Array, Array, bool]:
+    """Integrate the parcel ODE and return raw arrays.
+
+    Convenience wrapper around [integrate_parcel][pyrcel.integrator.integrate_parcel] that unpacks
+    the
+    ``diffrax`` solution object into plain arrays.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
+    ts : array, shape ``(n_out,)``
+        Output times (monotonic); see [integrate_parcel][pyrcel.integrator.integrate_parcel].
+    **kwargs
+        Forwarded to [integrate_parcel][pyrcel.integrator.integrate_parcel].
+
+    Returns
+    -------
+    ts : array
+        Output times.
+    ys : array, shape ``(n_out, 7 + nr)``
+        State trajectory.
+    success : bool
+        Whether the solve completed successfully.
     """
-
-    def __init__(self, rhs, output_dt, solver_dt, y0, args, t0=0.0, console=False):
-        self.output_dt = output_dt
-        self.solver_dt = solver_dt
-        self.y0 = y0
-        self.t0 = t0
-        self.console = console
-
-        self.args = args
-
-        def _user_rhs(t, y):
-            dode_dt = rhs(y, t, *self.args)
-            return dode_dt
-
-        self.rhs = _user_rhs
-
-    @abstractmethod
-    def integrate(self, t_end, **kwargs):
-        pass
-
-    @abstractmethod
-    def __repr__(self):
-        pass
-
-    @staticmethod
-    def solver(method):
-        """Maps a solver name to a function."""
-        solvers = {
-            # # SciPy interfaces
-            # 'odeint': Integrator._solve_odeint,
-            # # ODESPY interfaces
-            # 'lsoda': partial(Integrator._solve_with_odespy, method='lsoda'),
-            # 'lsode': partial(Integrator._solve_with_odespy, method='lsode'),
-            # 'vode': partial(Integrator._solve_with_odespy, method='vode'),
-            # # Assimulo interfaces
-            # 'cvode': partial(Integrator._solve_with_assimulo, method='cvode'),
-            # 'lsodar': partial(Integrator._solve_with_assimulo, method='lsodar'),
-            "cvode": CVODEIntegrator
-        }
-
-        if method in available_integrators:
-            return solvers[method]
-        else:
-            # solver name is not defined, or the module containing
-            # it is unavailable
-            raise ValueError("integrator for %s is not available" % method)
+    sol = integrate_parcel(y0, args, ts, **kwargs)
+    success = bool(sol.result == dfx.RESULTS.successful)
+    return sol.ts, sol.ys, success
 
 
-class ExtendedProblem(Explicit_Problem):
-    """This extension of the Assimulo 'Explicit_Problem' class
-    encodes some of the logic particular to the parcel model simulation,
-    specifically rules for terminating the simulation and detecting
-    events such as the maximum supersaturation occurring"""
-
-    name = "Parcel model ODEs"
-    sw0 = [True, False]  # Normal integration switch  # Past cut-off switch
-    t_cutoff = 1e5
-    dS_dt = 1.0
-
-    def __init__(self, rhs_fcn, rhs_args, terminate_depth, *args, **kwargs):
-        self.rhs_fcn = rhs_fcn
-        self.rhs_args = rhs_args
-        self.V = rhs_args[3]
-        self.terminate_time = terminate_depth / self.V
-        super(Explicit_Problem, self).__init__(*args, **kwargs)
-
-    def rhs(self, t, y, sw):
-        if not sw[1]:  # Normal integration before cutoff
-            dode_dt = self.rhs_fcn(t, y)  # FROM THE CVODEINTEGRATOR
-            self.dS_dt = dode_dt[c.N_STATE_VARS - 1]
-        else:
-            # There may be a bug here. I can't recall when this branch is ever run; it
-            # seems to zero out the state derivative, but to construct that array it
-            # should be looking at self.rhs_args, not self.args (which isn't saved).
-            # I'm going to comment out this line which I think is broken and replace it
-            # with the correct one for now, but leave a record of this change
-            # Daniel Rothenberg <daniel@danielrothenberg.com> - 2/15/2016
-            # dode_dt = np.zeros(c.N_STATE_VARS + self.args[0])  # FROM INIT ARGS
-            dode_dt = np.zeros(c.N_STATE_VARS + self.rhs_args[0])
-        return dode_dt
-
-    # The event function
-    def state_events(self, t, y, sw):
-        """Check whether an 'event' has occurred. We want to see if the
-        supersaturation is decreasing or not."""
-        if sw[0]:
-            smax_event = self.dS_dt
-        else:
-            smax_event = -1.0
-
-        t_cutoff_event = t - self.t_cutoff
-
-        return np.array([smax_event > 0, t_cutoff_event < 0])
-
-    # Event handling function
-    def handle_event(self, solver, event_info):
-        """Event handling. This function is called when Assimulo finds
-        an event as specified by the event function."""
-        event_info = event_info[0]  # Only state events, event_info[1] is time events
-        if event_info[0] != 0:
-            solver.sw[0] = False
-            self.t_cutoff = solver.t + self.terminate_time
-
-    def handle_result(self, solver, t, y):
-        if t < self.t_cutoff:
-            Explicit_Problem.handle_result(self, solver, t, y)
+# --- Differentiable diagnostics (design §5.3, §7.6) ------------------------------
 
 
-class CVODEIntegrator(Integrator):
-    kwargs = None  # Save the kwargs used for setting up the interface to CVODE!
+_S_IDX = 6
 
-    def __init__(
-        self,
-        rhs,
-        output_dt,
-        solver_dt,
-        y0,
-        args,
-        t0=0.0,
-        console=False,
-        terminate=False,
-        terminate_depth=100.0,
-        **kwargs
-    ):
-        self.terminate = terminate
-        super(CVODEIntegrator, self).__init__(
-            rhs, output_dt, solver_dt, y0, args, t0, console
+
+def _peak_from_trajectory(
+    ts: np.ndarray, ys: np.ndarray, args: tuple
+) -> tuple[float, float, np.ndarray]:
+    """Find S_max from a saved trajectory via Hermite cubic interpolation.
+
+    Constructs cubic Hermite polynomials over the two sub-intervals bracketing
+    the coarse argmax.  The ODE right-hand side supplies exact endpoint
+    derivatives — the same polynomial family that diffrax uses for its
+    ``SaveAt(dense=True)`` interpolant — applied post-hoc to the saved discrete
+    output without a second solve.
+
+    The cubic Hermite on ``[t0, t1]`` parameterised by ``u = (t-t0)/h``:
+
+    .. math::
+
+        p(u) = (2u^3-3u^2+1)S_0 + (-2u^3+3u^2)S_1
+               + h(u^3-2u^2+u)\\dot{S}_0 + h(u^3-u^2)\\dot{S}_1
+
+    The peak time is found analytically by solving ``dp/du = 0`` (a quadratic
+    in ``u``) over both sub-intervals and returning the larger interior maximum.
+
+    Cost: 3 ODE RHS evaluations; no second ODE solve.
+
+    Parameters
+    ----------
+    ts : ndarray, shape ``(n,)``
+        Output times (monotonically increasing).
+    ys : ndarray, shape ``(n, 7 + nr)``
+        State trajectory at those times.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` forwarded to ``parcel_ode_sys``.
+
+    Returns
+    -------
+    smax : float
+        Refined peak supersaturation.
+    t_smax : float
+        Refined peak time (s).
+    y_argmax : ndarray, shape ``(7 + nr,)``
+        State at the coarse argmax index (used for ``z_smax`` / activation).
+    """
+    ts_a = np.asarray(ts)
+    ys_a = np.asarray(ys)
+    S = ys_a[:, _S_IDX]
+    n = len(ts_a)
+    if n < 3:
+        si = int(np.argmax(S))
+        return float(S[si]), float(ts_a[si]), ys_a[si]
+    si_raw = int(np.argmax(S))
+    si = int(np.clip(si_raw, 1, n - 2))
+
+    # ODE RHS at the three bracket points — exact derivatives, no finite differences.
+    # Same information diffrax stores per solver step for its dense interpolant.
+    def _f_at(i: int) -> Array:
+        return parcel_ode_sys(float(ts_a[i]), jnp.asarray(ys_a[i]), args)
+
+    f_m, f_c, f_p = _f_at(si - 1), _f_at(si), _f_at(si + 1)
+    dS_m = float(f_m[_S_IDX])
+    dS_c = float(f_c[_S_IDX])
+    dS_p = float(f_p[_S_IDX])
+
+    # Build cubic Hermite interpolants over each sub-interval using diffrax's
+    # built-in class — the same polynomial family as SaveAt(dense=True).
+    # NOTE: ThirdOrderHermitePolynomialInterpolation expects k0, k1 as
+    # dp/du (normalized slopes), i.e. k = h * dy/dt, not dy/dt itself.
+    def _make_interp(
+        i0: int, i1: int, f0: Array, f1: Array
+    ) -> dfx.ThirdOrderHermitePolynomialInterpolation:
+        h = float(ts_a[i1]) - float(ts_a[i0])
+        return dfx.ThirdOrderHermitePolynomialInterpolation(
+            t0=float(ts_a[i0]),
+            t1=float(ts_a[i1]),
+            y0=jnp.asarray(ys_a[i0]),
+            y1=jnp.asarray(ys_a[i1]),
+            k0=h * f0,
+            k1=h * f1,
         )
 
-        # Setup solver
-        if terminate:
-            self.prob = ExtendedProblem(
-                self.rhs, self.args, terminate_depth, y0=self.y0
-            )
-        else:
-            self.prob = Explicit_Problem(self.rhs, self.y0)
+    def _hermite_peak(
+        interp: dfx.ThirdOrderHermitePolynomialInterpolation, dS0: float, dS1: float
+    ) -> tuple[float, float] | None:
+        """Peak of the cubic Hermite on the open interval (t0, t1), or None.
 
-        self.sim = self._setup_sim(**kwargs)
-
-        self.kwargs = kwargs
-
-    def _setup_sim(self, **kwargs):
-        """Create a simulation interface to Assimulo using CVODE, given
-        a problem definition
-
+        dS0, dS1 are the ODE dS/dt values at the endpoints, passed explicitly
+        to avoid the jax.jvp cost of interp.derivative().
         """
-
-        # Create Assimulo interface
-        sim = CVode(self.prob)
-        sim.discr = "BDF"
-        sim.maxord = 5
-
-        # Setup some default arguments for the ODE solver, or override
-        # if available. This is very hackish, but it's fine for now while
-        # the number of anticipated tuning knobs is small.
-        if "maxh" in kwargs:
-            sim.maxh = kwargs["maxh"]
+        t0, t1 = float(interp.t0), float(interp.t1)
+        h = t1 - t0
+        S0 = float(interp.evaluate(t0)[_S_IDX])
+        S1 = float(interp.evaluate(t1)[_S_IDX])
+        # dp/du = A·u² + B·u + C  (derivative of the cubic w.r.t. normalised u)
+        A = 6.0 * (S0 - S1) / h + 3.0 * (dS0 + dS1)
+        B = 6.0 * (S1 - S0) / h - 2.0 * (2.0 * dS0 + dS1)
+        C = dS0
+        if abs(A) < 1e-30:
+            u_roots = (-C / B,) if abs(B) > 1e-30 else ()
         else:
-            sim.maxh = np.min([0.1, self.output_dt])
+            disc = B * B - 4.0 * A * C
+            if disc < 0.0:
+                return None
+            sq = disc**0.5
+            u_roots = ((-B + sq) / (2.0 * A), (-B - sq) / (2.0 * A))
+        best: tuple[float, float] | None = None
+        for u in u_roots:
+            if not 0.0 < u < 1.0:
+                continue
+            if 2.0 * A * u + B >= 0.0:  # d²p/du² ≥ 0 → local minimum, skip
+                continue
+            S_pk = float(interp.evaluate(t0 + u * h)[_S_IDX])
+            if best is None or S_pk > best[0]:
+                best = (S_pk, t0 + u * h)
+        return best
 
-        if "minh" in kwargs:
-            sim.minh = kwargs["minh"]
-        # else: sim.minh = 0.001
+    r1 = _hermite_peak(_make_interp(si - 1, si, f_m, f_c), dS_m, dS_c)
+    r2 = _hermite_peak(_make_interp(si, si + 1, f_c, f_p), dS_c, dS_p)
+    candidates = [r for r in (r1, r2) if r is not None]
+    if candidates:
+        smax, t_smax = max(candidates, key=lambda x: x[0])
+    else:
+        # No interior peak found on either sub-interval (e.g. maximum lies exactly
+        # on a grid point or at a trajectory boundary).  Fall back to the raw grid
+        # maximum so boundary cases (si_raw != si) are handled correctly.
+        smax, t_smax = float(S[si_raw]), float(ts_a[si_raw])
 
-        if "iter" in kwargs:
-            sim.iter = kwargs["iter"]
-        else:
-            sim.iter = "Newton"
+    return float(smax), float(t_smax), ys_a[si_raw]
 
-        if "linear_solver" in kwargs:
-            sim.linear_solver = kwargs["linear_solver"]
 
-        if "max_steps" in kwargs:  # DIFFERENT NAME!!!!
-            sim.maxsteps = kwargs["max_steps"]
-        else:
-            sim.maxsteps = 1000
+def max_supersaturation(
+    y0: ArrayLike,
+    args: tuple,
+    ts: ArrayLike,
+    *,
+    rtol: float = STATE_RTOL,
+    atol: ArrayLike | None = None,
+    max_steps: int = 100_000,
+) -> Array:
+    """Peak supersaturation via Hermite cubic interpolation of the saved trajectory.
 
-        if "time_limit" in kwargs:
-            sim.time_limit = kwargs["time_limit"]
-            sim.report_continuously = True
-        else:
-            sim.time_limit = 0.0
+    Solves the parcel ODE with ``SaveAt(ts=ts)`` (the same kernel as
+    ``integrate_parcel``), then locates the supersaturation peak using cubic Hermite
+    interpolation over the two sub-intervals bracketing the coarse argmax.  The ODE
+    right-hand side supplies exact endpoint derivatives — the same polynomial family
+    diffrax uses for ``SaveAt(dense=True)`` — applied analytically to the saved
+    discrete output.
 
-        # Don't save the [t_-, t_+] around events
-        sim.store_event_points = False
+    The peak is found by:
 
-        # Setup tolerances
-        nr = self.args[0]
-        sim.rtol = state_rtol
-        sim.atol = state_atol + [1e-12] * nr
+    1. Argmax of ``sol.ys[:, S_IDX]`` → coarse bracket index (stop-gradient'd).
+    2. Three ``parcel_ode_sys`` evaluations at the three bracket points (``i-1``,
+       ``i``, ``i+1``) for exact endpoint derivatives ``dS/dt``.
+    3. Analytic solution of ``dp/du = 0`` (a quadratic in the normalised parameter
+       ``u``) over each sub-interval; the larger interior maximum wins.
+    4. Evaluate the Hermite polynomial at ``u*`` (stop-gradient'd).
 
-        if not self.console:
-            sim.verbosity = 50
-        else:
-            sim.verbosity = 40
-        # sim.report_continuously = False
+    By the envelope theorem, ``d(S_max)/dV = ∂S/∂V|_{u*}`` — the dependence of the
+    peak location on V drops out — so ``stop_gradient`` on ``u*`` is exact.  The
+    gradient flows through the diffrax adjoint via the endpoint state values and
+    their ODE derivatives.
 
-        # Save the Assimulo interface
-        return sim
+    Cost: one ODE solve (shared JIT kernel with ``integrate_parcel``) + 3 ODE RHS
+    evaluations.  No ``SaveAt(dense=True)`` second kernel; no vmap fine grid.
 
-    def integrate(self, t_end, **kwargs):
-        # Compute integration logic. We need to know:
-        # 1) How are we iterating the solver loop?
-        t_increment = self.solver_dt
-        # 2) How many points do we want to interpolate for output?
-        n_out = int(self.solver_dt / self.output_dt)
-        t_current = self.t0
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
+    ts : array, shape ``(n_out,)``
+        Output times (monotonic, must span the supersaturation peak).
+    rtol, atol : float or array, optional
+        Solver tolerances.
+    max_steps : int, optional
+        Upper bound on adaptive steps.
 
-        if self.console:
-            print()
-            print("Integration Loop")
-            print()
-            print("  step     time  walltime  Δwalltime |     z       T       S")
-            print(" " "------------------------------------|----------------------")
-            step_fmt = (
-                " {:5d} {:7.2f}s  {:7.2f}s  {:8.2f}s |" " {:5.1f} {:7.2f} {:6.2f}%"
+    Returns
+    -------
+    float
+        Maximum supersaturation ``S_max``.
+    """
+    y0 = jnp.asarray(y0)
+    ts = jnp.asarray(ts)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+
+    sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
+
+    # Coarse bracket: argmax of saved S values (no polynomial evaluations needed).
+    # i_pk locates the ±1-cell window; stop-gradient'd so discrete index ops are safe.
+    S_coarse = sol.ys[:, _S_IDX]
+    i_pk = jax.lax.stop_gradient(jnp.clip(jnp.argmax(S_coarse), 1, ts.shape[0] - 2))
+
+    # Extract bracket states via dynamic indexing (i_pk is stop-gradient'd).
+    t_m, t_c, t_p = ts[i_pk - 1], ts[i_pk], ts[i_pk + 1]
+    y_m = sol.ys[i_pk - 1]
+    y_c = sol.ys[i_pk]
+    y_p = sol.ys[i_pk + 1]
+
+    # ODE RHS at the three bracket points — exact dS/dt, no finite differences.
+    # Gradient flows through both the ODE adjoint (via y_m/y_c/y_p) and the
+    # explicit V-dependence in parcel_ode_sys.
+    f_m = parcel_ode_sys(t_m, y_m, args)
+    f_c = parcel_ode_sys(t_c, y_c, args)
+    f_p = parcel_ode_sys(t_p, y_p, args)
+
+    S_m, S_c, S_p = y_m[_S_IDX], y_c[_S_IDX], y_p[_S_IDX]
+    dS_m, dS_c, dS_p = f_m[_S_IDX], f_c[_S_IDX], f_p[_S_IDX]
+
+    # Hermite cubic on [t0, t1] parameterised by u = (t - t0) / h:
+    #   p(u) = h00(u)*S0 + h01(u)*S1 + h*h10(u)*dS0 + h*h11(u)*dS1
+    # Gradient flows through (S0, S1, dS0, dS1) at the stop-gradient'd u*.
+    def _S_at_u(S0, S1, dS0, dS1, h, u):
+        return (
+            (2 * u**3 - 3 * u**2 + 1) * S0
+            + (-2 * u**3 + 3 * u**2) * S1
+            + h * (u**3 - 2 * u**2 + u) * dS0
+            + h * (u**3 - u**2) * dS1
+        )
+
+    def _peak_u(S0, S1, dS0, dS1, h) -> Array:
+        """Stop-gradient'd interior peak u in (0,1), or boundary fallback."""
+        # All inputs are stop-gradient'd so u* carries no gradient.
+        S0s, S1s, dS0s, dS1s, hs = (jax.lax.stop_gradient(x) for x in (S0, S1, dS0, dS1, h))
+        A = 6.0 * (S0s - S1s) / hs + 3.0 * (dS0s + dS1s)
+        B = 6.0 * (S1s - S0s) / hs - 2.0 * (2.0 * dS0s + dS1s)
+        C = dS0s
+
+        # Quadratic roots (valid when |A| is non-negligible).
+        disc = B * B - 4.0 * A * C
+        sq = jnp.sqrt(jnp.maximum(disc, 0.0))
+        A_safe = jnp.where(jnp.abs(A) > 1e-30, A, 1.0)
+        u1 = (-B + sq) / (2.0 * A_safe)
+        u2 = (-B - sq) / (2.0 * A_safe)
+
+        # Linear root: when A ≈ 0, dp/du = Bu + C is linear with root u = -C/B.
+        # d²p/du² at the linear root ≈ B, so B < 0 is the maximum condition.
+        B_safe = jnp.where(jnp.abs(B) > 1e-30, B, 1.0)
+        u_lin = -C / B_safe
+
+        def _is_interior_max_quad(u):
+            return (
+                (disc >= 0.0)
+                & (jnp.abs(A) > 1e-30)
+                & (u > 0.0)
+                & (u < 1.0)
+                & (2.0 * A * u + B < 0.0)
             )
 
-        txs, xxs = [], []
-        n_steps = 1
-        total_walltime = 0.0
-        now = timer()
-        while t_current < t_end:
-            if self.console:
-                # Update timing estimates
-                delta_walltime = timer() - now
-                total_walltime += delta_walltime
+        v1, v2 = _is_interior_max_quad(u1), _is_interior_max_quad(u2)
+        v_lin = (
+            (jnp.abs(A) <= 1e-30) & (jnp.abs(B) > 1e-30) & (B < 0.0) & (u_lin > 0.0) & (u_lin < 1.0)
+        )
+        S1v = _S_at_u(S0s, S1s, dS0s, dS1s, hs, u1)
+        S2v = _S_at_u(S0s, S1s, dS0s, dS1s, hs, u2)
+        return jnp.where(
+            v1 & (~v2 | (S1v >= S2v)),
+            u1,
+            jnp.where(v2, u2, jnp.where(v_lin, u_lin, jnp.where(S0s >= S1s, 0.0, 1.0))),
+        )
 
-                # Grab state vars
-                state = self.y0 if n_steps == 1 else xxs[-1][-1]
-                _z = state[c.STATE_VAR_MAP["z"]]
-                _T = state[c.STATE_VAR_MAP["T"]]
-                _S = state[c.STATE_VAR_MAP["S"]] * 100
-                print(
-                    step_fmt.format(
-                        n_steps,
-                        t_current,
-                        total_walltime,
-                        delta_walltime,
-                        _z,
-                        _T,
-                        _S,
-                    )
-                )
-            try:
-                now = timer()
-                out_list = np.linspace(t_current, t_current + t_increment, n_out + 1)
-                tx, xx = self.sim.simulate(t_current + t_increment, 0, out_list)
-            except CVodeError as e:
-                raise ValueError("Something broke in CVode: %r" % e)
-            except TimeLimitExceeded:
-                raise ValueError("CVode took too long to complete")
+    # Find stop-gradient'd u* on each sub-interval.
+    h_lo = jax.lax.stop_gradient(t_c - t_m)
+    h_hi = jax.lax.stop_gradient(t_p - t_c)
+    u_lo = _peak_u(S_m, S_c, dS_m, dS_c, h_lo)
+    u_hi = _peak_u(S_c, S_p, dS_c, dS_p, h_hi)
 
-            if n_out == 1:
-                txs.append(tx[-1])
-                xxs.append(xx[-1])
-            else:
-                txs.extend(tx[:-1])
-                xxs.append(xx[:-1])
-            t_current = tx[-1]
+    # Evaluate S at each candidate peak (gradient flows here via envelope theorem).
+    S_lo = _S_at_u(S_m, S_c, dS_m, dS_c, h_lo, u_lo)
+    S_hi = _S_at_u(S_c, S_p, dS_c, dS_p, h_hi, u_hi)
 
-            # Has the max been found and can we terminate?
-            if self.terminate:
-                if not self.sim.sw[0]:
-                    if self.console:
-                        print("---- termination condition reached ----")
-                    break
+    # Take the sub-interval with the larger S_max (condition is stop-gradient'd).
+    use_lo = jax.lax.stop_gradient(jax.lax.stop_gradient(S_lo) >= jax.lax.stop_gradient(S_hi))
+    return jnp.where(use_lo, S_lo, S_hi)
 
-            n_steps += 1
-        if self.console:
-            print("---- end of integration loop ----")
 
-        # Determine output information
-        t = np.array(txs)
-        if n_out == 1:  # can just merge the outputs
-            x = np.array(xxs)
-        else:  # Need to concatenate lists of outputs
-            x = np.concatenate(xxs)
+def nd_from_parcel(
+    y0: ArrayLike,
+    args: tuple,
+    t_end: float,
+    *,
+    epsilon: float = 1e-8,
+    rtol: float = STATE_RTOL,
+    atol: ArrayLike | None = None,
+    max_steps: int = 100_000,
+) -> Array:
+    """Differentiable activated droplet number concentration via sigmoid soft threshold.
 
-        return x, t, True
+    Integrates the parcel ODE to ``t_end`` and evaluates:
 
-    def __repr__(self):
-        return "CVODE integrator - direct Assimulo interface"
+    $$
+    N_d^{\\text{soft}} = \\sum_i N_i \\cdot \\sigma\\!\\left(
+        \\frac{r_i(t_{\\text{end}}) - r_{\\text{crit},i}}{\\varepsilon}
+    \\right)
+    $$
+
+    where $\\sigma$ is the logistic sigmoid, $r_{\\text{crit},i}$ is
+    the approximate Köhler critical radius for bin *i*, and $\\varepsilon$
+    controls the sharpness of the threshold.
+
+    Unlike the hard-threshold [Nd][pyrcel.model_output.ModelOutput.Nd] diagnostic, this
+    function is fully differentiable with respect to ``y0`` and ``args`` via
+    ``diffrax``'s default ``RecursiveCheckpointAdjoint``::
+
+        dNd_dV = jax.grad(nd_from_parcel, argnums=1)(y0, args, t_end)[4].V
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
+        ``Nis`` must be in m⁻³ (the unit stored on ``AerosolSpecies.Nis``).
+    t_end : float
+        Integration time (s). Should extend past $S_{\\text{max}}$ so that
+        kinetically limited droplets have time to grow past their critical radius.
+    epsilon : float, optional
+        Sigmoid half-width (m). Controls the accuracy/smoothness trade-off:
+        smaller ``ε`` is more accurate but has a steeper gradient. Default
+        ``1e-8`` (≈ 10 nm, much smaller than a typical 100 nm critical radius).
+    rtol, atol : float or array, optional
+        Solver tolerances; defaults mirror the CVode-equivalent values.
+    max_steps : int, optional
+        Upper bound on adaptive ODE steps.
+
+    Returns
+    -------
+    Nd_soft : Array
+        Soft activated droplet number concentration (m⁻³) at ``t_end``.
+        In the limit ``ε → 0`` this converges to the hard-threshold count
+        using the approximate Köhler critical radius.
+    """
+    y0 = jnp.asarray(y0)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+
+    ts = jnp.stack([jnp.zeros((), dtype=jnp.float64), jnp.asarray(t_end, dtype=jnp.float64)])
+    sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
+
+    y_final = sol.ys[-1]  # shape (7 + nr,); T is state index 2
+    T_final = y_final[2]
+    rs_final = y_final[N_STATE_VARS:]  # wet radii (m), shape (nr,)
+
+    r_drys = jnp.asarray(args[0])
+    Nis = jnp.asarray(args[1])
+    kappas = jnp.asarray(args[2])
+
+    r_crits, _ = _kohler_crit_approx(T_final, r_drys, kappas)
+    return jnp.sum(Nis * jax.nn.sigmoid((rs_final - r_crits) / epsilon))
+
+
+# --- Event-based S_max termination (design §4.5 option A) -------------------------
+
+
+def _dS_dt(t, y, args, **kwargs):
+    """Continuous event condition: the supersaturation tendency dS/dt."""
+    return parcel_ode_sys(t, y, args)[6]
+
+
+@functools.partial(jax.jit, static_argnames=("max_steps",))
+def _solve_to_smax(y0, args, t_end, rtol, atol, max_steps):
+    # ``direction=False`` -> trigger only on a downward zero-crossing of dS/dt
+    # (the supersaturation maximum), not the (numerically possible) initial rise.
+    event = dfx.Event(_dS_dt, root_finder=optx.Newton(rtol=1e-8, atol=1e-12), direction=False)
+    controller = dfx.PIDController(rtol=rtol, atol=atol)
+    return dfx.diffeqsolve(
+        _TERM,
+        dfx.Kvaerno5(),
+        t0=0.0,
+        t1=t_end,
+        dt0=None,
+        y0=y0,
+        args=args,
+        stepsize_controller=controller,
+        saveat=dfx.SaveAt(t1=True),
+        event=event,
+        max_steps=max_steps,
+        throw=False,
+    )
+
+
+@functools.partial(jax.jit, static_argnames=("max_steps",))
+def _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps):
+    # Stop when altitude z (= y[0]) first rises through z_target. Works for any updraft
+    # (constant or V(t)); z is strictly increasing since dz/dt = V > 0.
+    def cond_fn(t, y, args, **kwargs):
+        return y[0] - z_target
+
+    event = dfx.Event(cond_fn, root_finder=optx.Newton(rtol=1e-8, atol=1e-10), direction=True)
+    controller = dfx.PIDController(rtol=rtol, atol=atol)
+    return dfx.diffeqsolve(
+        _TERM,
+        dfx.Kvaerno5(),
+        t0=0.0,
+        t1=t_end,
+        dt0=None,
+        y0=y0,
+        args=args,
+        stepsize_controller=controller,
+        saveat=dfx.SaveAt(t1=True),
+        event=event,
+        max_steps=max_steps,
+        throw=False,
+    )
+
+
+def find_smax(y0, args, t_end, *, rtol=STATE_RTOL, atol=None, max_steps=100_000):
+    """Precisely localize the supersaturation maximum via a ``dS/dt = 0`` event.
+
+    Unlike sampling a saved trajectory, ``t_smax`` is root-found rather than
+    quantized to the output cadence.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial (equilibrated) state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
+    t_end : float
+        Upper bound on integration time, s.
+    rtol, atol : float or array, optional
+        Solver tolerances.
+    max_steps : int, optional
+        Upper bound on adaptive steps.
+
+    Returns
+    -------
+    t_smax : float
+        Time of the supersaturation maximum, s.
+    smax : float
+        Peak supersaturation value.
+    y_smax : array, shape ``(7 + nr,)``
+        State vector at ``t_smax``.
+    activated : bool
+        ``False`` if no downward zero-crossing of ``dS/dt`` occurred before
+        ``t_end`` (the parcel never reached a maximum in the integration window).
+    """
+    y0 = jnp.asarray(y0)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+    sol = _solve_to_smax(y0, args, t_end, rtol, atol, max_steps)
+    t_smax = sol.ts[-1]
+    y_smax = sol.ys[-1]
+    smax = y_smax[6]
+    activated = bool(t_smax < t_end)
+    return t_smax, smax, y_smax, activated
+
+
+def terminate_cutoff_time(
+    y0,
+    args,
+    t_end,
+    *,
+    terminate_depth: float,
+    t_smax,
+    y_smax,
+    activated: bool,
+    rtol: float = STATE_RTOL,
+    atol=None,
+    max_steps: int = 100_000,
+) -> float:
+    """Compute the integration stop time for altitude-based cutoff past ``S_max``.
+
+    Parameters
+    ----------
+    y0 : array, shape ``(7 + nr,)``
+        Initial state vector.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
+    t_end : float
+        Upper bound on integration time, s.
+    terminate_depth : float
+        Extra vertical distance (m) past ``z_smax`` before stopping.
+    t_smax : float
+        Time of the supersaturation maximum, s.
+    y_smax : array
+        State vector at ``t_smax``.
+    activated : bool
+        If ``False``, returns ``t_end`` without any further integration.
+    rtol, atol : float or array, optional
+        Solver tolerances.
+    max_steps : int, optional
+        Upper bound on adaptive steps.
+
+    Returns
+    -------
+    float
+        Cutoff time, s. Always ``<= t_end``.
+    """
+    if not activated:
+        return float(t_end)
+    t_smax_f = float(t_smax)
+    V = args[4]
+    if isinstance(V, ConstantV):
+        return min(t_smax_f + terminate_depth / float(V.V), float(t_end))
+    if not callable(V):
+        return min(t_smax_f + terminate_depth / float(V), float(t_end))
+    z_target = float(y_smax[0]) + terminate_depth
+    nr = int(jnp.asarray(y0).shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+    sol_d = _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps)
+    return min(float(sol_d.ts[-1]), float(t_end))
+
+
+def integrate_parcel_terminated(
+    y0,
+    args,
+    t_end,
+    output_dt,
+    *,
+    terminate_depth: float = 100.0,
+    rtol: float = STATE_RTOL,
+    atol=None,
+    max_steps: int = 100_000,
+    progress_meter=None,
+    phase_timer=None,
+):
+    """Integrate, stopping ``terminate_depth`` metres past the supersaturation max.
+
+    Reproduces the ``master`` ``terminate=True`` semantics: locate ``S_max`` (via the
+    ``dS/dt`` event), then continue an extra ``terminate_depth`` metres
+    (``= terminate_depth / V`` seconds) and stop. Output is produced at ``output_dt``
+    cadence over ``[0, t_cutoff]`` from a single adaptive solve.
+
+    The cutoff is altitude-based (stop ``terminate_depth`` metres above ``z_smax``), so
+    it is correct for both a constant updraft and a time-varying ``V(t)``: for constant
+    ``V`` the cutoff time is computed analytically, otherwise it is root-found with a
+    second ``z``-crossing event.
+
+    This is the interactive / parity path: ``t_cutoff`` is data-dependent so the output
+    grid length is dynamic (the outer call runs eagerly; the solves are jitted). For
+    ``jit``/``vmap``/``grad`` use the fixed-horizon
+    [integrate_parcel][pyrcel.integrator.integrate_parcel] /
+    [find_smax][pyrcel.integrator.find_smax] /
+    [max_supersaturation][pyrcel.integrator.max_supersaturation] instead.
+
+    Returns ``(ts, ys, info)`` with ``ts``/``ys`` as numpy arrays and ``info`` a dict
+    of ``t_smax``, ``smax``, ``t_cutoff``, ``activated``, ``success``.
+    """
+    y0 = jnp.asarray(y0)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+
+    def _find():
+        return find_smax(y0, args, t_end, rtol=rtol, atol=atol, max_steps=max_steps)
+
+    if phase_timer is not None:
+        (t_smax, smax, y_smax, activated), _ = phase_timer.run(
+            ("smax", nr), "S_max event solve", _find
+        )
+    else:
+        t_smax, smax, y_smax, activated = _find()
+    t_smax_f = float(t_smax)
+    if not activated:
+        t_cutoff = float(t_end)
+    else:
+        t_cutoff = terminate_cutoff_time(
+            y0,
+            args,
+            t_end,
+            terminate_depth=terminate_depth,
+            t_smax=t_smax,
+            y_smax=y_smax,
+            activated=True,
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+        )
+
+    ts = np.append(np.arange(0.0, t_cutoff, output_dt), t_cutoff)
+    ts = jnp.asarray(ts)
+    if progress_meter is None:
+        progress_meter = dfx.NoProgressMeter()
+
+    def _traj():
+        return _solve(y0, args, ts, rtol, atol, None, max_steps, progress_meter)
+
+    if phase_timer is not None:
+        sol, _ = phase_timer.run(("traj", nr, len(ts)), "trajectory solve", _traj)
+    else:
+        sol = _traj()
+    info = {
+        "t_smax": t_smax_f,
+        "smax": float(smax),
+        "t_cutoff": t_cutoff,
+        "activated": activated,
+        "success": bool(sol.result == dfx.RESULTS.successful),
+        "z_smax": float(y_smax[0]),
+        "z_end": float(np.asarray(sol.ys)[-1, 0]),
+    }
+    return np.asarray(sol.ts), np.asarray(sol.ys), info
+
+
+def integrate_parcel_chunked(
+    y0,
+    args,
+    t_final,
+    output_dt,
+    *,
+    chunk_dt=10.0,
+    rtol: float = STATE_RTOL,
+    atol=None,
+    max_steps: int = 100_000,
+    on_step=None,
+):
+    """Interactive-only integration in ``chunk_dt`` slices with optional per-chunk callback.
+
+    Unlike [integrate_parcel][pyrcel.integrator.integrate_parcel], this runs a Python loop over
+    successive
+    ``diffeqsolve`` calls so host code can print live diagnostics between chunks. It is
+    **not** ``jit``/``vmap``/``grad``-safe and must not be used on the differentiable
+    path. Adaptive solver state is re-initialised at each chunk boundary (acceptable for
+    CLI feedback; see design doc §4.7).
+
+    Parameters
+    ----------
+    on_step : callable, optional
+        ``on_step(step, t, z, T, S_pct, wall_total, wall_delta)`` invoked immediately
+        before each chunk integrate (master ``CVODEIntegrator`` semantics).
+
+    Returns
+    -------
+    ts, ys, success
+        Concatenated output grid and whether every chunk reported success.
+    """
+    import time
+
+    y0 = jnp.asarray(y0)
+    t_final = float(t_final)
+    output_dt = float(output_dt)
+    chunk_dt = float(chunk_dt)
+    nr = int(y0.shape[0] - N_STATE_VARS)
+    if atol is None:
+        atol = atol_vector(nr)
+
+    y_curr = y0
+    t_curr = 0.0
+    ts_parts: list[np.ndarray] = []
+    ys_parts: list[np.ndarray] = []
+    step = 0
+    wall_total = 0.0
+    wall_prev = time.perf_counter()
+    success = True
+
+    while t_curr < t_final - 1e-12:
+        step += 1
+        t_next = min(t_curr + chunk_dt, t_final)
+        n_out = max(1, int(round((t_next - t_curr) / output_dt)))
+        chunk_ts = np.linspace(t_curr, t_next, n_out + 1)
+
+        if on_step is not None:
+            state = np.asarray(y_curr)
+            now = time.perf_counter()
+            wall_delta = now - wall_prev
+            wall_total += wall_delta
+            on_step(
+                step,
+                t_curr,
+                float(state[0]),
+                float(state[2]),
+                float(state[6]) * 100.0,
+                wall_total,
+                wall_delta,
+            )
+            wall_prev = now
+
+        sol = integrate_parcel(
+            y_curr,
+            args,
+            jnp.asarray(chunk_ts),
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+        )
+        jax.block_until_ready(sol.ys)
+        if not bool(sol.result == dfx.RESULTS.successful):
+            success = False
+            break
+
+        ts = np.asarray(sol.ts)
+        ys = np.asarray(sol.ys)
+        if ts_parts:
+            ts_parts.append(ts[1:])
+            ys_parts.append(ys[1:])
+        else:
+            ts_parts.append(ts)
+            ys_parts.append(ys)
+
+        assert sol.ys is not None
+        y_curr = sol.ys[-1]
+        t_curr = float(ts[-1])
+
+    if not ts_parts:
+        return np.array([0.0]), np.asarray(y0)[None, :], False
+    return np.concatenate(ts_parts), np.concatenate(ys_parts, axis=0), success

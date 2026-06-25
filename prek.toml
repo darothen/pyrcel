@@ -1,0 +1,42 @@
+# prek — Rust-native pre-commit hook runner (https://prek.j178.dev/)
+# Run `prek install` once after cloning to install the git hook.
+# Hooks run automatically on `git commit`; run manually with `prek run --all-files`.
+
+[[repos]]
+repo = "local"
+
+  [[repos.hooks]]
+  id = "ruff-format"
+  name = "ruff format"
+  language = "system"
+  entry = "ruff format"
+  types = ["python"]
+
+  [[repos.hooks]]
+  id = "ruff-check"
+  name = "ruff check"
+  language = "system"
+  entry = "ruff check --fix"
+  types = ["python"]
+
+  [[repos.hooks]]
+  id = "pyrefly"
+  name = "pyrefly"
+  language = "system"
+  entry = "uv run --extra test pyrefly check"
+  pass_filenames = false
+
+[[repos]]
+repo = "builtin"
+
+  [[repos.hooks]]
+  id = "trailing-whitespace"
+
+  [[repos.hooks]]
+  id = "end-of-file-fixer"
+
+  [[repos.hooks]]
+  id = "check-yaml"
+
+  [[repos.hooks]]
+  id = "check-toml"

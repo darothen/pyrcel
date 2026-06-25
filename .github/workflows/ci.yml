@@ -2,8 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches:
+      - master
+      - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -11,13 +14,47 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [py39, py310, py311, py312, py313, py314]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
-      - uses: prefix-dev/setup-pixi@v0.8.7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
         with:
-          environments: ${{ matrix.environment }}
+          enable-cache: true
 
-      - name: Install and test pyrcel simulation
-        run: pixi run -e ${{ matrix.environment }} ci
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }} --extra test --frozen
+
+      - name: Lint (ruff)
+        run: |
+          uvx ruff format --check pyrcel/ tests/ examples/ tools/
+          uvx ruff check pyrcel/ tests/ examples/ tools/
+
+      - name: Type check (pyrefly)
+        run: uv run pyrefly check
+
+      - name: Run fast tests
+        run: uv run pytest tests/ -m "not slow" -v
+
+  slow-tests:
+    runs-on: ubuntu-latest
+    # Run on the weekly schedule, manual dispatch, or pushes to the integration branch.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/v2-implementation'
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }} --extra test --frozen
+
+      - name: Run full test suite (including slow oracle tests)
+        run: uv run pytest tests/ -v
