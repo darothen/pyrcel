@@ -15,10 +15,24 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-jax.config.update("jax_enable_x64", True)
+from pyrcel.activation import arg2000 as arg2000_jax
+from pyrcel.activation import binned_activation, lognormal_activation, multi_mode_activation
+from pyrcel.aerosol import AerosolSpecies
+from pyrcel.distributions import Lognorm
+from pyrcel.legacy.activation import (
+    arg2000 as arg2000_legacy,
+)
+from pyrcel.legacy.activation import (
+    binned_activation as binned_leg,
+)
+from pyrcel.legacy.activation import (
+    lognormal_activation as lognormal_leg,
+)
+from pyrcel.legacy.activation import (
+    multi_mode_activation as multi_mode_leg,
+)
 
-from pyrcel.activation import arg2000 as arg2000_jax  # noqa: E402
-from pyrcel.legacy.activation import arg2000 as arg2000_legacy  # noqa: E402
+jax.config.update("jax_enable_x64", True)
 
 # ---------------------------------------------------------------------------
 # Test scenarios
@@ -242,24 +256,6 @@ def test_arg2000_class_repr():
 # ---------------------------------------------------------------------------
 # Cross-check: JAX binned/lognormal helpers vs legacy (approx=True)
 # ---------------------------------------------------------------------------
-
-
-from pyrcel.activation import (  # noqa: E402
-    binned_activation,
-    lognormal_activation,
-    multi_mode_activation,
-)
-from pyrcel.aerosol import AerosolSpecies  # noqa: E402
-from pyrcel.distributions import Lognorm  # noqa: E402
-from pyrcel.legacy.activation import (  # noqa: E402
-    binned_activation as binned_leg,
-)
-from pyrcel.legacy.activation import (
-    lognormal_activation as lognormal_leg,
-)
-from pyrcel.legacy.activation import (
-    multi_mode_activation as multi_mode_leg,
-)
 
 _T = 283.15
 _SMAX = 0.008
