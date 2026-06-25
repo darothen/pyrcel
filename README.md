@@ -6,7 +6,7 @@ pyrcel: cloud parcel model
 [![DOI](https://zenodo.org/badge/12927551.svg)](https://zenodo.org/badge/latestdoi/12927551)[![PyPI Version](https://badge.fury.io/py/pyrcel.svg)](https://badge.fury.io/py/pyrcel)[![CI](https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg)](https://github.com/darothen/pyrcel/actions/workflows/ci.yml)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](https://pyrcel.readthedocs.io/en/latest/)
 
 
-This is an implementation of a simple, adiabatic cloud parcel model for use in
+`pyrcel` is a simple, adiabatic cloud parcel model for use in
 aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.ametsoc.org/doi/full/10.1175/JAS-D-15-0223.1) discuss the model in detail and its improvements over [Nenes et al (2001)][nenes2001]:
 
 * Implementation of κ-Köhler theory for condensation physics ([Petters and Kreidenweis, 2007][pk2007])
@@ -142,7 +142,7 @@ original publication detailing the model:
 
 
 [author_email]: mailto:daniel@danielrothenberg.com
-[nenes2001]: http://nenes.eas.gatech.edu/Preprints/KinLimitations_TellusPP.pdf
+[nenes2001]: https://onlinelibrary.wiley.com/doi/abs/10.1034/j.1600-0889.2001.d01-12.x
 [pk2007]: http://www.atmos-chem-phys.net/7/1961/2007/acp-7-1961-2007.html
 [diffrax]: https://docs.kidger.site/diffrax/
 [jax]: https://docs.jax.dev/
