@@ -43,7 +43,6 @@ def configure_logging() -> None:
     handler.setFormatter(_PyrcelFormatter())
     log.addHandler(handler)
     log.setLevel(logging.INFO)
-    log.propagate = False
 
 
 def backend_banner() -> str:

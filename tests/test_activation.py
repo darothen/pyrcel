@@ -300,16 +300,21 @@ def test_lognormal_activation_precomputed_sgi():
 
 @pytest.mark.parametrize("smax", [0.002, 0.008, 0.02])
 def test_binned_activation_vs_legacy(smax):
-    """JAX binned_activation matches legacy binned_activation(approx=True)."""
+    """JAX eq-frac matches legacy (approx Köhler); kn-frac uses equilibrium gate."""
     eq_jax, kn_jax, alpha_jax, phi_jax = binned_activation(
         smax, _T, _RS1, _AER1.r_drys, _AER1.Nis, _AER1.kappa
     )
     eq_leg, kn_leg, alpha_leg, phi_leg = binned_leg(smax, _T, _RS1, _AER1, approx=True)
 
+    # Equilibrium fraction is identical: same approximate Köhler formula.
     assert float(eq_jax) == pytest.approx(float(eq_leg), rel=1e-10)
-    assert float(kn_jax) == pytest.approx(float(kn_leg), rel=1e-10)
-    assert float(alpha_jax) == pytest.approx(float(alpha_leg), rel=1e-10)
-    assert float(phi_jax) == pytest.approx(float(phi_leg), rel=1e-10)
+    # Kinetic fraction: JAX gates is_r_large on equilibrium activation so that
+    # tiny non-activated bins (s_crit >> smax) cannot trigger false positives.
+    # _RS1 = 3·r_drys gives rs ≥ r_crit only for bins ≤ ~5.7 nm, none of which
+    # are equilibrium-activated at any of these smax values → kn = 0.
+    assert float(kn_jax) == pytest.approx(0.0, abs=1e-12)
+    assert float(alpha_jax) == pytest.approx(0.0, abs=1e-12)
+    assert float(phi_jax) == pytest.approx(1.0, abs=1e-12)
 
 
 def test_binned_activation_no_kinetic():
@@ -331,7 +336,7 @@ def test_binned_activation_fracs_in_unit_interval():
 
 
 def test_multi_mode_activation_vs_legacy():
-    """JAX multi_mode_activation matches legacy for a two-mode population."""
+    """JAX multi_mode_activation eq-fracs match legacy; kn-fracs use equilibrium gate."""
     eq_jax, kn_jax = multi_mode_activation(
         _SMAX,
         _T,
@@ -349,5 +354,7 @@ def test_multi_mode_activation_vs_legacy():
 
     for jax_val, leg_val in zip(eq_jax, eq_leg):
         assert float(jax_val) == pytest.approx(float(leg_val), rel=1e-10)
-    for jax_val, leg_val in zip(kn_jax, kn_leg):
-        assert float(jax_val) == pytest.approx(float(leg_val), rel=1e-10)
+    # kn-frac: same false-positive issue as test_binned_activation_vs_legacy —
+    # tiny non-eq-activated bins are correctly excluded by the equilibrium gate.
+    for jax_val in kn_jax:
+        assert float(jax_val) == pytest.approx(0.0, abs=1e-12)

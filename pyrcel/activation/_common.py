@@ -80,6 +80,10 @@ def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tup
     A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
     r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
     s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kappa * r_dry**3))
+    # When r_crit_approx < r_dry the approximate Köhler curve has no maximum
+    # above the dry radius; the full curve also has no physical activation threshold.
+    # Return inf so kinetic activation comparisons (rs >= r_crits) are False.
+    r_crit = jnp.where(r_crit < r_dry, jnp.inf, r_crit)
     return r_crit, s_crit
 
 
@@ -211,9 +215,11 @@ def binned_activation(
     N_eq = jnp.sum(jnp.where(Smax >= s_crits, Nis, 0.0))
     eq_frac = N_eq / N_tot
 
-    # Kinetic activation: all bins at or above the smallest that has grown
-    # past its critical wet radius.
-    is_r_large = rs >= r_crits
+    # Kinetic activation: among equilibrium-activated bins only, find the
+    # smallest that has grown past its critical wet radius.  Gating on
+    # s_crits <= Smax prevents the approximate Köhler formula from triggering
+    # false positives for tiny particles near the r_crit ≈ r_dry transition.
+    is_r_large = (rs >= r_crits) & (s_crits <= Smax)
     any_large = jnp.any(is_r_large)
     first_large = jnp.argmax(is_r_large)  # 0 when all False (gated by any_large)
     kn_mask = (jnp.arange(Nis.shape[0]) >= first_large) & any_large
