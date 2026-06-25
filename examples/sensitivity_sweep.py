@@ -367,6 +367,8 @@ def _plot(data: dict, path: str) -> None:
     try:
         import matplotlib.colors as mcolors
         import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+        from matplotlib.ticker import FuncFormatter, NullLocator
     except ImportError:
         print("matplotlib not available; skipping plot")
         return
@@ -392,61 +394,101 @@ def _plot(data: dict, path: str) -> None:
             "num": data["dsmax_dV_mbn_num"] * pct,
         },
     ]
+
+    # --- Global colour limits -------------------------------------------------
+
+    # Exact and numerical share one plasma scale across all three rows.
+    all_grad = np.concatenate([
+        arr[np.isfinite(arr)]
+        for rdef in row_defs
+        for arr in (rdef["exact"], rdef["num"])
+    ])
+    grad_vmax = float(np.nanpercentile(np.abs(all_grad), 98))
+    grad_norm = mcolors.Normalize(vmin=0, vmax=grad_vmax)
+
+    # Error column: signed (exact − numerical), symmetric diverging scale.
+    all_err = np.concatenate([
+        (rdef["exact"] - rdef["num"])[
+            np.isfinite(rdef["exact"]) & np.isfinite(rdef["num"])
+        ]
+        for rdef in row_defs
+    ])
+    err_vlim = max(float(np.nanpercentile(np.abs(all_err), 98)), 1e-10)
+    err_norm = mcolors.TwoSlopeNorm(vmin=-err_vlim, vcenter=0.0, vmax=err_vlim)
+
+    # --- Layout: 3 rows × 6 columns [exact | num | cbar | gap | error | cbar] -
+    # The extra "gap" column (index 3) separates the two plot groups visually.
+    fig = plt.figure(figsize=(13, 9))
+    gs = GridSpec(
+        3, 6,
+        figure=fig,
+        hspace=0.28,
+        wspace=0.08,
+        width_ratios=[10, 10, 0.65, 0.8, 8, 0.65],
+        left=0.08, right=0.97, top=0.93, bottom=0.08,
+    )
+    # Plot axes: columns 0 (exact), 1 (numerical), 4 (error)
+    plot_axes = np.array(
+        [[fig.add_subplot(gs[i, j]) for j in (0, 1, 4)] for i in range(3)]
+    )
+    cax_grad = fig.add_subplot(gs[:, 2])  # gradient colorbar, spans all rows
+    cax_err = fig.add_subplot(gs[:, 5])   # error colorbar, spans all rows
+
     col_titles = [
         "Exact adjoint  (jax.grad)",
         "Numerical  (central diff, extended grid)",
+        r"Error  (exact $-$ numerical)",
     ]
 
-    fig, axes = plt.subplots(3, 2, figsize=(9, 9), squeeze=False)
-    fig.subplots_adjust(hspace=0.30, wspace=0.08)
+    # Decimal formatter for log-scale tick labels: "0.1", "1", "0.02", etc.
+    dec_fmt = FuncFormatter(lambda x, _: f"{x:g}")
 
     for i_row, rdef in enumerate(row_defs):
         exact = rdef["exact"]
         num = rdef["num"]
+        err = np.where(np.isfinite(exact) & np.isfinite(num), exact - num, np.nan)
 
-        # Shared colour limits: symmetric around 0, using finite values only
-        all_vals = np.concatenate([exact[np.isfinite(exact)], num[np.isfinite(num)]])
-        lim = np.nanpercentile(np.abs(all_vals), 98)
-        norm = mcolors.Normalize(vmin=0, vmax=lim)
-
-        for i_col, arr in enumerate([exact, num]):
-            ax = axes[i_row, i_col]
-            im = ax.pcolormesh(
-                V_grid,
-                mu_grid,
-                arr.T,
-                cmap="plasma",
-                norm=norm,
-                shading="auto",
-            )
+        for i_col, (arr, norm, cmap) in enumerate(
+            [(exact, grad_norm, "plasma"), (num, grad_norm, "plasma"), (err, err_norm, "RdBu_r")]
+        ):
+            ax = plot_axes[i_row, i_col]
+            ax.pcolormesh(V_grid, mu_grid, arr.T, cmap=cmap, norm=norm, shading="auto")
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.tick_params(labelsize=8)
+            ax.xaxis.set_minor_locator(NullLocator())
+            ax.yaxis.set_minor_locator(NullLocator())
+            ax.xaxis.set_major_formatter(dec_fmt)
 
             if i_row == 0:
-                ax.set_title(col_titles[i_col], fontsize=10, pad=7)
+                ax.set_title(col_titles[i_col], fontsize=9, pad=6)
             if i_row < 2:
-                ax.set_xticklabels([])
+                ax.tick_params(axis="x", labelbottom=False)
             else:
                 ax.set_xlabel("$V$ (m s$^{-1}$)", labelpad=4)
+
             if i_col == 0:
                 ax.set_ylabel(rdef["label"] + "\n$\\mu$ (µm)", labelpad=4)
+                ax.yaxis.set_major_formatter(dec_fmt)
             else:
-                ax.set_yticklabels([])
+                ax.tick_params(axis="y", labelleft=False)
 
-        cbar = fig.colorbar(
-            im,
-            ax=axes[i_row, :].tolist(),
-            location="right",
-            shrink=0.85,
-            pad=0.02,
-        )
-        cbar.set_label(
-            r"$\partial S_{\mathrm{max}}/\partial V$  (% (m s$^{-1}$)$^{-1}$)",
-            fontsize=9,
-            labelpad=8,
-        )
-        cbar.ax.tick_params(labelsize=8)
+    # --- Shared colorbars -----------------------------------------------------
+    sm_grad = plt.cm.ScalarMappable(norm=grad_norm, cmap="plasma")
+    cbar_grad = fig.colorbar(sm_grad, cax=cax_grad)
+    cbar_grad.set_label(
+        r"$\partial S_{\mathrm{max}}/\partial V$  (% (m s$^{-1}$)$^{-1}$)",
+        fontsize=9, labelpad=8,
+    )
+    cbar_grad.ax.tick_params(labelsize=8)
+
+    sm_err = plt.cm.ScalarMappable(norm=err_norm, cmap="RdBu_r")
+    cbar_err = fig.colorbar(sm_err, cax=cax_err)
+    cbar_err.set_label(
+        r"$\Delta\,\partial S_{\mathrm{max}}/\partial V$  (% (m s$^{-1}$)$^{-1}$)",
+        fontsize=9, labelpad=8,
+    )
+    cbar_err.ax.tick_params(labelsize=8)
 
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=150, bbox_inches="tight")
