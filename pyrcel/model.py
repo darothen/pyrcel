@@ -431,12 +431,8 @@ class ParcelModel:
         offset = 0
         for aer in self.aerosols:
             nr = aer.nr
-            eq, kn, _, _ = binned_activation(S_max, T_smax, rs_smax[offset : offset + nr], aer)
-            # Suppress numpy divide-by-zero warning from alpha=N_kn/N_eq when
-            # S_max is below all s_crits (N_eq=0). We only use kn_frac; alpha
-            # is discarded. The same edge case exists in the S_max snapshot call above.
-            with np.errstate(divide="ignore", invalid="ignore"):
-                _, nd_frac, _, _ = binned_activation(S_max, T_nd, rs_nd[offset : offset + nr], aer)
+            eq, kn, _, _ = binned_activation(S_max, T_smax, rs_smax[offset : offset + nr], aer.r_drys, aer.Nis, aer.kappa)
+            _, nd_frac, _, _ = binned_activation(S_max, T_nd, rs_nd[offset : offset + nr], aer.r_drys, aer.Nis, aer.kappa)
             offset += nr
             N = float(np.sum(aer.Nis))
             Nd_mode = float(nd_frac) * N
