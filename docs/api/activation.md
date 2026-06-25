@@ -18,11 +18,11 @@ compatible with `jax.grad` and `jax.vmap`.
 
 ## Helper functions
 
-::: pyrcel.activation.binned_activation
+::: pyrcel.activation.lognormal_activation
 
 ---
 
-::: pyrcel.activation.lognormal_activation
+::: pyrcel.activation.binned_activation
 
 ---
 

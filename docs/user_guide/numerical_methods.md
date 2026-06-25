@@ -26,7 +26,7 @@ properties $\boldsymbol{\theta} = (\mathbf{r}_\text{dry}, \mathbf{N}_i,
 \boldsymbol{\kappa}, \alpha_c, V)$ — is implemented as a single JAX-native
 array operation in `pyrcel.parcel_aux` and is `jax.jit`-compiled on first call.
 
-The bulk state equations follow [Nenes2001]_ and [Ghan2011]_; see
+The bulk state equations follow [[Nenes2001]](#Nenes2001) and [[Ghan2011]](#Ghan2011); see
 [Scientific Description](sci_descr.md) for the full derivation. The per-bin
 growth equation is
 
@@ -37,8 +37,8 @@ G_i = \left(\frac{\rho_w R T}{e_s D_v' M_w} + \frac{L \rho_w \bigl(\tfrac{L M_w}
 $$
 
 where $D_v'$ and $k_a'$ are the non-continuum-corrected vapour diffusivity and
-thermal conductivity [Seinfeld2006]\_, and $S_{\mathrm{eq},i}$ is the $\kappa$-Köhler
-equilibrium supersaturation [Petters2007]_.
+thermal conductivity [[Seinfeld2006]](#Seinfeld2006), and $S_{\mathrm{eq},i}$ is the $\kappa$-Köhler
+equilibrium supersaturation [[Petters2007]](#Petters2007).
 
 ---
 
@@ -50,7 +50,7 @@ The parcel ODE is mildly stiff near activation, where the rapid growth of
 critical-size droplets drives a fast $r_i$ relaxation that is coupled back to the
 supersaturation tendency $dS/dt$. The v1 backend used SUNDIALS CVode with a BDF
 scheme of order up to 5 and an internally adaptive Newton iteration. The v2
-backend uses `diffrax.Kvaerno5` [Kvaerno2004]_, an Explicit Singly Diagonally
+backend uses `diffrax.Kvaerno5` [[Kvaerno2004]](#Kvaerno2004), an Explicit Singly Diagonally
 Implicit Runge–Kutta (ESDIRK) method of order 5 with an embedded order-4
 error estimator.
 
@@ -135,7 +135,7 @@ sol = integrate_parcel(y0, args, ts, rtol=1e-8, atol=custom_atol)
 ## Step-size control
 
 The v2 backend uses `diffrax.PIDController` with proportional, integral, and
-derivative terms acting on the local error estimate [Soderlind2003]_:
+derivative terms acting on the local error estimate [[Soderlind2003]](#Soderlind2003):
 
 $$
 h_{n+1} = h_n \cdot \min\!\left(h_\text{max},\, \max\!\left(h_\text{min},\,
@@ -237,8 +237,8 @@ peak; a conservative choice is `ts = jnp.linspace(0, t_end, n_output)`.
 Reverse-mode differentiation through an ODE (the adjoint method) requires
 storing or recomputing intermediate trajectory values during the backward pass.
 `diffrax` implements this via its `adjoint` argument to `diffeqsolve`; the
-default in diffrax ≥ 0.4 is `RecursiveCheckpointAdjoint` [Chen2018]_
-[Kidger2021]_.
+default in diffrax ≥ 0.4 is `RecursiveCheckpointAdjoint` [[Chen2018]](#Chen2018)
+[[Kidger2021]](#Kidger2021).
 
 `RecursiveCheckpointAdjoint` uses a recursive binary tree of checkpoints along
 the forward trajectory: the trajectory is divided in half, and each half is
@@ -307,7 +307,7 @@ gradient computation fails.
 
 ## MBN2014 activation: gradient via the Implicit Function Theorem
 
-The Morales Betancourt & Nenes (2014) [MBN2014] activation parameterization
+The Morales Betancourt & Nenes (2014) [[MBN2014]](#MBN2014) activation parameterization
 finds $S_\text{max}$ as the root of a balance equation
 
 $$
@@ -376,7 +376,7 @@ at $\varepsilon = 10^{-8}$ m, with the residual discrepancy arising from the
 approximate vs. exact Köhler critical radius.
 
 The critical radius is computed with the approximate Köhler formula
-[Petters2007]_:
+[[Petters2007]](#Petters2007):
 
 $$
 r_{\text{crit},i} = \sqrt{\frac{3 \kappa_i r_{d,i}^3}{A}},
@@ -603,39 +603,39 @@ and updraft speeds.
 
 ## References
 
-[Nenes2001] Nenes, A., Ghan, S., Abdul-Razzak, H., Chuang, P. Y., & Seinfeld, J. H.
+<a id="Nenes2001"></a>**[[Nenes2001]](#Nenes2001)** Nenes, A., Ghan, S., Abdul-Razzak, H., Chuang, P. Y., & Seinfeld, J. H.
 (2001). Kinetic limitations on cloud droplet formation and impact on cloud albedo.
 *Tellus B*, **53**(2), 133–149. <https://doi.org/10.1034/j.1600-0889.2001.d01-12.x>
 
-[Ghan2011] Ghan, S. J., et al. (2011). Droplet nucleation: Physically-based
+<a id="Ghan2011"></a>**[[Ghan2011]](#Ghan2011)** Ghan, S. J., et al. (2011). Droplet nucleation: Physically-based
 parameterizations and comparative evaluation. *J. Adv. Model. Earth Syst.*, **3**,
 M10001. <https://doi.org/10.1029/2011MS000074>
 
-[Seinfeld2006] Seinfeld, J. H., & Pandis, S. N. (2006). *Atmospheric Chemistry and
+<a id="Seinfeld2006"></a>**[[Seinfeld2006]](#Seinfeld2006)** Seinfeld, J. H., & Pandis, S. N. (2006). *Atmospheric Chemistry and
 Physics: From Air Pollution to Climate Change* (2nd ed.). Wiley.
 
-[Petters2007] Petters, M. D., & Kreidenweis, S. M. (2007). A single parameter
+<a id="Petters2007"></a>**[[Petters2007]](#Petters2007)** Petters, M. D., & Kreidenweis, S. M. (2007). A single parameter
 representation of hygroscopic growth and cloud condensation nucleus activity.
 *Atmos. Chem. Phys.*, **7**, 1961–1971. <https://doi.org/10.5194/acp-7-1961-2007>
 
-[Kvaerno2004] Kvaernø, A. (2004). Singly diagonally implicit Runge–Kutta methods with
+<a id="Kvaerno2004"></a>**[[Kvaerno2004]](#Kvaerno2004)** Kvaernø, A. (2004). Singly diagonally implicit Runge–Kutta methods with
 an explicit first stage. *BIT Numerical Mathematics*, **44**(3), 489–502.
 <https://doi.org/10.1023/B:BITN.0000046811.70614.38>
 
-[Soderlind2003] Söderlind, G. (2003). Digital filters in adaptive time-stepping.
+<a id="Soderlind2003"></a>**[[Soderlind2003]](#Soderlind2003)** Söderlind, G. (2003). Digital filters in adaptive time-stepping.
 *ACM Trans. Math. Softw.*, **29**(1), 1–26. <https://doi.org/10.1145/641876.641877>
 
-[Chen2018] Chen, R. T. Q., Rubanova, Y., Bettencourt, J., & Duvenaud, D. (2018).
+<a id="Chen2018"></a>**[[Chen2018]](#Chen2018)** Chen, R. T. Q., Rubanova, Y., Bettencourt, J., & Duvenaud, D. (2018).
 Neural ordinary differential equations. *NeurIPS*, 6571–6583.
 <https://arxiv.org/abs/1806.07366>
 
-[Kidger2021] Kidger, P. (2021). *On Neural Differential Equations* (Ph.D. thesis).
+<a id="Kidger2021"></a>**[[Kidger2021]](#Kidger2021)** Kidger, P. (2021). *On Neural Differential Equations* (Ph.D. thesis).
 University of Oxford. <https://arxiv.org/abs/2202.02435>
 
-[MBN2014] Morales Betancourt, R., & Nenes, A. (2014). Droplet activation
+<a id="MBN2014"></a>**[[MBN2014]](#MBN2014)** Morales Betancourt, R., & Nenes, A. (2014). Droplet activation
 parameterization: the population-splitting concept revisited. *Geosci. Model Dev.*,
 **7**, 2345–2357. <https://doi.org/10.5194/gmd-7-2345-2014>
 
-[Rothenberg2016] Rothenberg, D., & Wang, C. (2016). Metamodeling of droplet
+<a id="Rothenberg2016"></a>**[[Rothenberg2016]](#Rothenberg2016)** Rothenberg, D., & Wang, C. (2016). Metamodeling of droplet
 activation for global climate models. *J. Atmos. Sci.*, **73**(4), 1255–1272.
 <https://doi.org/10.1175/JAS-D-15-0223.1>

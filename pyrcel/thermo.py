@@ -276,7 +276,7 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
 
     Notes
     -----
-    The full κ-Köhler equation [Petters2007]_:
+    The full κ-Köhler equation [Petters2007]:
 
     $$S_\mathrm{eq}(r) = \exp\!\left(\frac{A}{r}\right)
       \frac{r^3 - r_d^3}{r^3 - r_d^3(1 - \kappa)} - 1$$
@@ -284,6 +284,13 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
     where the Kelvin parameter is
 
     $$A = \frac{2 M_w \sigma_w(T)}{R T \rho_w}$$
+
+    References
+    ----------
+    [Petters2007] Petters, M. D., & Kreidenweis, S. M. (2007). A single
+    parameter representation of hygroscopic growth and cloud condensation
+    nucleus activity. *Atmos. Chem. Phys.*, **7**, 1961–1971.
+    doi:[10.5194/acp-7-1961-2007](https://doi.org/10.5194/acp-7-1961-2007)
 
     See Also
     --------

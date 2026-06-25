@@ -1,18 +1,16 @@
-"""JAX-native Morales Betancourt & Nenes (2014) activation parameterization.
+r"""JAX-native Morales Betancourt & Nenes (2014) activation parameterization.
 
 The scheme finds the maximum parcel supersaturation by solving the implicit
-equation :math:`F(s_\\text{max}, \\theta) = 0` via bisection, then computes
+equation $F(s_\text{max}, \theta) = 0$ via bisection, then computes
 per-mode activated fractions from lognormal statistics.  The bisection uses
 `jax.lax.while_loop` so it is JIT-compilable but not differentiable
 through the loop itself.  Differentiability with respect to the physical inputs
 is recovered by the **implicit function theorem** (IFT), implemented via
 `jax.custom_vjp`:
 
-.. math::
-
-    \\frac{\\partial s_\\text{max}}{\\partial \\theta}
-    = -\\frac{\\partial F / \\partial \\theta}{\\partial F / \\partial s_\\text{max}}
-    \\quad \\text{at } F(s_\\text{max},\\, \\theta) = 0
+$$\frac{\partial s_\text{max}}{\partial \theta}
+= -\frac{\partial F / \partial \theta}{\partial F / \partial s_\text{max}}
+\quad \text{at } F(s_\text{max},\, \theta) = 0$$
 
 Both partial derivatives are evaluated by applying `jax.grad` to the
 residual [_mbn_residual][], which is a plain differentiable JAX function
@@ -20,10 +18,10 @@ residual [_mbn_residual][], which is a plain differentiable JAX function
 
 References
 ----------
-.. [MBN2014] Morales Betancourt, R. and Nenes, A.: Droplet activation
-   parameterization: the population splitting concept revisited,
-   Geosci. Model Dev. Discuss., 7, 2903–2932,
-   doi:10.5194/gmdd-7-2903-2014, 2014.
+[MBN2014] Morales Betancourt, R., & Nenes, A. (2014). Droplet activation
+parameterization: the population-splitting concept revisited.
+*Geosci. Model Dev.*, **7**, 2345–2357.
+doi:[10.5194/gmd-7-2345-2014](https://doi.org/10.5194/gmd-7-2345-2014)
 """
 
 from __future__ import annotations
@@ -392,7 +390,7 @@ def mbn2014(
 
     A faithful JAX re-implementation of [pyrcel.legacy.activation.mbn2014][].
     The maximum parcel supersaturation is found by bisecting the implicit
-    equation derived in [MBN2014]_ using `jax.lax.while_loop`.
+    equation derived in [MBN2014] using `jax.lax.while_loop`.
     Gradients with respect to all physical inputs are available via `jax.grad`
     through the **implicit function theorem** (IFT).
 
@@ -426,10 +424,10 @@ def mbn2014(
 
     References
     ----------
-    .. [MBN2014] Morales Betancourt, R. and Nenes, A.: Droplet activation
-       parameterization: the population splitting concept revisited,
-       Geosci. Model Dev. Discuss., 7, 2903–2932,
-       doi:10.5194/gmdd-7-2903-2014, 2014.
+    [MBN2014] Morales Betancourt, R., & Nenes, A. (2014). Droplet activation
+    parameterization: the population-splitting concept revisited.
+    *Geosci. Model Dev.*, **7**, 2345–2357.
+    doi:[10.5194/gmd-7-2345-2014](https://doi.org/10.5194/gmd-7-2345-2014)
 
     See Also
     --------

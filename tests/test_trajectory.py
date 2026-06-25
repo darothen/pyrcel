@@ -73,7 +73,7 @@ def test_activated_fraction_matches_cvode(oracle, scenario_name):
     offset = 0
     for i, aer in enumerate(aerosols):
         nr = aer.nr
-        eq, kn, _, _ = binned_activation(Smax, T_smax, rs[offset : offset + nr], aer)
+        eq, kn, _, _ = binned_activation(Smax, T_smax, rs[offset : offset + nr], aer.r_drys, aer.Nis, aer.kappa)
         offset += nr
         assert abs(eq - float(oracle["act_eq"][i])) <= ACT_FRAC_ATOL, aer.species
         assert abs(kn - float(oracle["act_kn"][i])) <= ACT_FRAC_ATOL, aer.species
