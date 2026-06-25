@@ -1,6 +1,6 @@
 """Collection of classes for representing aerosol size distributions.
 
-Most commonly, one would use the [Lognorm][] distribution. However,
+Most commonly, one would use the [Lognorm][pyrcel.distributions.Lognorm] distribution. However,
 for the sake of completeness, other canonical distributions will be
 included here, with the notion that this package could be extended to
 describe droplet size distributions or other collections of objects.
@@ -46,12 +46,12 @@ class Gamma(BaseDistribution):
 class Lognorm(BaseDistribution):
     """Lognormal size distribution.
 
-    An instance of [Lognorm][] contains a construction of a lognormal distribution
+    An instance of [Lognorm][pyrcel.distributions.Lognorm] contains a construction of a lognormal distribution
     and the utilities necessary for computing statistical functions associated
     with that distribution. The parameters of the constructor are invariant with respect
     to what length and concentration unit you choose; that is, if you use meters for
     ``mu`` and cm**-3 for ``N``, then you should keep these in mind when evaluating
-    the [pdf][] and [cdf][] functions and when interpreting moments.
+    the `pdf` and `cdf` functions and when interpreting moments.
 
     Parameters
     ----------
@@ -286,7 +286,7 @@ class MultiModeLognorm(BaseDistribution):
     def stats(self) -> dict[str, float]:
         """Not implemented for multi-mode distributions.
 
-        Call ``lognorm.stats()`` on each constituent [Lognorm][] mode
+        Call ``lognorm.stats()`` on each constituent [Lognorm][pyrcel.distributions.Lognorm] mode
         (accessible via ``self.lognorms``) and combine manually.
         """
         raise NotImplementedError()

@@ -123,8 +123,9 @@ class AerosolSpecies:
         Molecular weight of the dry aerosol material (kg mol⁻¹).
     bins : int or array-like, optional
         Number of bins (int), or explicit bin-edge array in microns.
-        Required when ``distribution`` is a [Lognorm][] or
-        [MultiModeLognorm][]. If an array, those edges are used directly.
+        Required when ``distribution`` is a [Lognorm][pyrcel.distributions.Lognorm] or
+        [MultiModeLognorm][pyrcel.distributions.MultiModeLognorm]. If an array, those edges are used
+        directly.
     r_min, r_max : float, optional
         Override the auto-derived lower/upper radius bounds (microns) when
         computing log-spaced bins.
@@ -193,7 +194,7 @@ class AerosolSpecies:
                     rs.append(r**2.0 / rs[-1])
                 self.rs = np.array(rs) * 1e6
             else:
-                self.rs = None  # pyrefly: ignore[bad-assignment]  # monodisperse; no bin edges needed
+                self.rs = None  # pyrefly: ignore[bad-assignment]  # monodisperse; no bin edges
 
             self.Nis = np.array(distribution["Nis"])
 

@@ -6,9 +6,10 @@ state, which makes the RHS impure and awkward to ``jit``/``grad``. Here ``V`` is
 through ``jit``/``vmap``/``grad`` (its array fields become differentiable leaves) while
 keeping the vector field a pure function of time.
 
-* [ConstantV][] -- a fixed updraft speed (the common case).
-* [InterpolatedUpdraft][] -- a tabulated ``V(t)`` profile, piecewise-linearly
-  interpolated with [jax.numpy.interp][] (grad-friendly; no extra dependency, so we
+* [ConstantV][pyrcel.updraft.ConstantV] -- a fixed updraft speed (the common case).
+* [InterpolatedUpdraft][pyrcel.updraft.InterpolatedUpdraft] -- a tabulated ``V(t)`` profile,
+piecewise-linearly
+  interpolated with `jax.numpy.interp` (grad-friendly; no extra dependency, so we
   avoid pulling in ``interpax`` for the linear case).
 
 All updrafts are callables ``V(t) -> speed`` in m/s, which is exactly what
@@ -56,7 +57,7 @@ class InterpolatedUpdraft(AbstractUpdraft):
         Strictly increasing knot times (s).
     vs : array
         Updraft speeds (m/s) at ``ts``. Outside ``[ts[0], ts[-1]]`` the endpoint values
-        are held constant (the [jax.numpy.interp][] default).
+        are held constant (the `jax.numpy.interp` default).
     """
 
     ts: jax.Array
@@ -71,27 +72,30 @@ class InterpolatedUpdraft(AbstractUpdraft):
 
 
 def as_updraft(V) -> AbstractUpdraft:
-    """Coerce ``V`` to an [AbstractUpdraft][].
+    """Coerce ``V`` to an [AbstractUpdraft][pyrcel.updraft.AbstractUpdraft].
 
     Accepts an existing updraft (returned as-is) or a scalar (wrapped in
-    [ConstantV][]). Plain Python callables are *not* accepted here: model an
-    arbitrary profile as an [AbstractUpdraft][] so the vector field stays a pure,
+    [ConstantV][pyrcel.updraft.ConstantV]). Plain Python callables are *not* accepted here: model an
+    arbitrary profile as an [AbstractUpdraft][pyrcel.updraft.AbstractUpdraft] so the vector field
+    stays a pure,
     ``jit``-able pytree.
 
     Parameters
     ----------
     V : float or AbstractUpdraft
-        Updraft speed (m/s) or an existing [AbstractUpdraft][] instance.
+        Updraft speed (m/s) or an existing [AbstractUpdraft][pyrcel.updraft.AbstractUpdraft]
+        instance.
 
     Returns
     -------
     AbstractUpdraft
-        The original updraft, or ``V`` wrapped in [ConstantV][].
+        The original updraft, or ``V`` wrapped in [ConstantV][pyrcel.updraft.ConstantV].
 
     Raises
     ------
     TypeError
-        If ``V`` is a plain Python callable; use [InterpolatedUpdraft][] instead.
+        If ``V`` is a plain Python callable; use
+        [InterpolatedUpdraft][pyrcel.updraft.InterpolatedUpdraft] instead.
     """
     if isinstance(V, AbstractUpdraft):
         return V

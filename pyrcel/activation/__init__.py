@@ -7,15 +7,15 @@ compatibility.
 
 JAX-native
 ----------
-[arg2000][]
+`arg2000`
     Abdul-Razzak & Ghan (2000) — closed-form, fully differentiable.
-[ARG2000][]
-    Callable class wrapper around [arg2000][].
-[mbn2014][]
+[ARG2000][pyrcel.activation.ARG2000]
+    Callable class wrapper around `arg2000`.
+`mbn2014`
     Morales Betancourt & Nenes (2014) — bisection + IFT gradient.
-[MBN2014][]
-    Callable class wrapper around [mbn2014][].
-[ActivationScheme][]
+[MBN2014][pyrcel.activation.MBN2014]
+    Callable class wrapper around `mbn2014`.
+[ActivationScheme][pyrcel.activation.ActivationScheme]
     Abstract base class for all activation schemes.
 
 Legacy (NumPy/SciPy)

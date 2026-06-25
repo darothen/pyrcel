@@ -40,7 +40,7 @@ def arg2000(
 
     A faithful JAX re-implementation of [pyrcel.legacy.activation.arg2000][].
     All floating-point operations use `jax.numpy` so the computation is
-    fully traceable and differentiable via [jax.grad][].
+    fully traceable and differentiable via `jax.grad`.
 
     The non-unity accommodation correction follows Ghan et al. (2011), eq. (40).
 
@@ -61,7 +61,7 @@ def arg2000(
     kappas : array-like, shape (n_modes,)
         Hygroscopicity parameters.
     accom : float, optional
-        Condensation accommodation coefficient (default [pyrcel.constants.ac][]).
+        Condensation accommodation coefficient (default `pyrcel.constants.ac`).
 
     Returns
     -------
@@ -142,7 +142,7 @@ def arg2000(
 class ARG2000:
     """Abdul-Razzak & Ghan (2000) activation scheme.
 
-    A thin callable wrapper around [arg2000][] that satisfies the
+    A thin callable wrapper around `arg2000` that satisfies the
     [ActivationScheme][pyrcel.activation.ActivationScheme] interface.  Instantiate
     once; call repeatedly.
 

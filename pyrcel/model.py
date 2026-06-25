@@ -13,7 +13,8 @@ There are deliberately *two* presentation modes over the same numerical core (de
 core, while this class is the **interactive** layer -- an optional live progress meter and
 a post-solve summary table -- and is intentionally kept out of the differentiable path.
 
-[ParcelModel][] is a plain mutable Python class (per the locked decision); only the
+[ParcelModel][pyrcel.model.ParcelModel] is a plain mutable Python class (per the locked decision);
+only the
 inner vector field / updraft are Equinox modules.
 """
 
@@ -78,15 +79,15 @@ class ParcelModel:
     T0, S0, P0 : float
         Initial temperature (K), supersaturation (0.0 == 100% RH), pressure (Pa).
     accom : float, optional
-        Condensation/accommodation coefficient (default [pyrcel.constants.ac][]).
+        Condensation/accommodation coefficient (default `pyrcel.constants.ac`).
     console : bool, optional
         Print an initial-conditions and post-solve summary table.
-    device : [jax.Device][], str, or None, optional
+    device : `jax.Device`, str, or None, optional
         JAX device on which to run the integration.  ``None`` (default) uses
         JAX's current default device (typically the first available GPU when a
         CUDA-capable GPU is present, otherwise CPU).  Pass ``"gpu"`` or
-        ``"cpu"`` as a shorthand, or an explicit [jax.Device][] obtained
-        from [jax.devices][].
+        ``"cpu"`` as a shorthand, or an explicit `jax.Device` obtained
+        from `jax.devices`.
 
         Example::
 
@@ -96,8 +97,8 @@ class ParcelModel:
     Notes
     -----
     Equilibration runs at construction (like the legacy ``_setup_run``), so ``y0`` is
-    available immediately as [y0][].  All JAX computation — both equilibration and
-    integration — is dispatched to ``device``.  Output arrays ([x][], [time][])
+    available immediately as `y0`.  All JAX computation — both equilibration and
+    integration — is dispatched to ``device``.  Output arrays (`x`, `time`)
     are always returned as NumPy arrays on CPU regardless of ``device``.
     """
 
@@ -490,14 +491,15 @@ class ParcelModel:
         )
 
     def to_dataset(self) -> Any:
-        """Return a CF-flavoured [xarray.Dataset][].
+        """Return a CF-flavoured `xarray.Dataset`.
 
         Delegates to [to_xarray][pyrcel.model_output.ModelOutput.to_xarray].
         """
         return self._make_output().to_xarray()
 
     def save_netcdf(self, filename: str | Path) -> str | Path:
-        """Write the run to a NetCDF file (see [to_dataset][])."""
+        """Write the run to a NetCDF file (see
+        [to_dataset][pyrcel.model.ParcelModel.to_dataset])."""
         self._make_output().to_netcdf(filename)
         if self.console:
             from .console_report import configure_logging

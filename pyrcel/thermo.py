@@ -8,7 +8,7 @@ version these functions are ``jax``-traceable: they accept scalars or arrays,
 broadcast naturally, and are differentiable via ``jax.grad``/``jax.jacfwd``.
 
 float64 is **mandatory** for this model (radii ~1e-8 m and the ``r**3 - r_dry**3``
-cancellation in [Seq][]). We enable it at import time so the module is correct
+cancellation in [Seq][pyrcel.thermo.Seq]). We enable it at import time so the module is correct
 regardless of how it is first used; this is idempotent and matches the design doc
 (§6.1).
 """
@@ -98,7 +98,7 @@ def dv(T: ArrayLike, r: ArrayLike, P: ArrayLike, accom: ArrayLike = c.ac) -> Arr
     P : float
         Ambient pressure, Pa.
     accom : float, optional
-        Condensation coefficient (default [pyrcel.constants.ac][]).
+        Condensation coefficient (default `pyrcel.constants.ac`).
 
     Returns
     -------
@@ -328,7 +328,7 @@ def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -
 
     Notes
     -----
-    First-order expansion of [Seq][] valid when $A/r \ll 1$ and
+    First-order expansion of [Seq][pyrcel.thermo.Seq] valid when $A/r \ll 1$ and
     $\kappa r_d^3 / r^3 \ll 1$:
 
     $$S_\mathrm{eq}(r) \approx \frac{A}{r} - \kappa \frac{r_d^3}{r^3}$$

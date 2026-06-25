@@ -40,6 +40,8 @@ theme:
 
 plugins:
   - search
+  - autorefs:
+      resolve_closest: true
   - mkdocstrings:
       handlers:
         python:

@@ -3,10 +3,10 @@
 The scheme finds the maximum parcel supersaturation by solving the implicit
 equation :math:`F(s_\\text{max}, \\theta) = 0` via bisection, then computes
 per-mode activated fractions from lognormal statistics.  The bisection uses
-[jax.lax.while_loop][] so it is JIT-compilable but not differentiable
+`jax.lax.while_loop` so it is JIT-compilable but not differentiable
 through the loop itself.  Differentiability with respect to the physical inputs
 is recovered by the **implicit function theorem** (IFT), implemented via
-[jax.custom_vjp][]:
+`jax.custom_vjp`:
 
 .. math::
 
@@ -14,7 +14,7 @@ is recovered by the **implicit function theorem** (IFT), implemented via
     = -\\frac{\\partial F / \\partial \\theta}{\\partial F / \\partial s_\\text{max}}
     \\quad \\text{at } F(s_\\text{max},\\, \\theta) = 0
 
-Both partial derivatives are evaluated by applying [jax.grad][] to the
+Both partial derivatives are evaluated by applying `jax.grad` to the
 residual [_mbn_residual][], which is a plain differentiable JAX function
 (no while_loop).
 
@@ -82,7 +82,7 @@ def _erfp_jax(x: ArrayLike) -> Array:
 
     Used *only* inside the MBN2014 condensation integrals to match the
     published scheme exactly.  The final lognormal activation step uses
-    [jax.scipy.special.erfc][] (accurate).
+    `jax.scipy.special.erfc` (accurate).
     """
     AA = jnp.array([0.278393, 0.230389, 0.000972, 0.078108])
     y = jnp.abs(x)
@@ -392,8 +392,8 @@ def mbn2014(
 
     A faithful JAX re-implementation of [pyrcel.legacy.activation.mbn2014][].
     The maximum parcel supersaturation is found by bisecting the implicit
-    equation derived in [MBN2014]_ using [jax.lax.while_loop][].
-    Gradients with respect to all physical inputs are available via [jax.grad][]
+    equation derived in [MBN2014]_ using `jax.lax.while_loop`.
+    Gradients with respect to all physical inputs are available via `jax.grad`
     through the **implicit function theorem** (IFT).
 
     Parameters
@@ -413,7 +413,7 @@ def mbn2014(
     kappas : array-like, shape (n_modes,)
         Hygroscopicity parameters.
     accom : float, optional
-        Condensation accommodation coefficient (default [pyrcel.constants.ac][]).
+        Condensation accommodation coefficient (default `pyrcel.constants.ac`).
 
     Returns
     -------
@@ -468,7 +468,7 @@ def mbn2014(
 class MBN2014:
     """Morales Betancourt & Nenes (2014) activation scheme.
 
-    A thin callable wrapper around [mbn2014][] satisfying the
+    A thin callable wrapper around `mbn2014` satisfying the
     [ActivationScheme][pyrcel.activation.ActivationScheme] interface.
 
     Parameters

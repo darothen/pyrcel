@@ -49,9 +49,9 @@ _MAX_STEPS = 200
 def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
     """Analytic approximate Köhler critical radius and supersaturation.
 
-    Mirrors [pyrcel.legacy.thermo.kohler_crit][] with ``approx=True``. This
+    Mirrors `pyrcel.legacy.thermo.kohler_crit` with ``approx=True``. This
     approximation can return ``r_crit < r_dry`` for very small, low-κ particles,
-    so it is **not** used to bracket the equilibrium root — [kohler_crit][]
+    so it is **not** used to bracket the equilibrium root — `kohler_crit`
     is. Kept for reference and the analytic ``s_crit``.
 
     Parameters
@@ -225,7 +225,8 @@ def equilibrate_initial_state(
     Nis : array, shape ``(nr,)``
         Number concentrations, m^-3.
     **kwargs
-        Forwarded to [equilibrate_radii][] (``rtol``, ``atol``, ``max_steps``).
+        Forwarded to [equilibrate_radii][pyrcel.equilibrate.equilibrate_radii] (``rtol``, ``atol``,
+        ``max_steps``).
 
     Returns
     -------

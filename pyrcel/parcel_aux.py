@@ -125,7 +125,7 @@ class ParcelVectorField(eqx.Module):
     anyway -- ``eqx.Module`` is immutable).
 
     **Why wrap the fixed parameters in a Module at all** (the plain
-    [parcel_ode_sys][] ``(t, y, args)`` function is still the primary path):
+    `parcel_ode_sys` ``(t, y, args)`` function is still the primary path):
 
     1. *Named fields* instead of a positional 5-tuple, removing the ``args``/``rhs_args``
        indexing footgun in the master code.
