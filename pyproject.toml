@@ -21,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
@@ -124,7 +123,6 @@ select = ["E", "F", "I", "UP", "NPY"]
 "pyrcel/test/*.py" = ["F403", "F405", "F401", "UP031", "E501"]
 # --- non-package files ---
 # E402: import order is intentional (sys.path setup, warnings filter before imports)
-"docs/conf.py" = ["E402"]
 "tools/**/*.py" = ["E402", "E501"]
 
 [tool.pytest.ini_options]
