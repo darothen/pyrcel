@@ -39,8 +39,8 @@ jobs:
 
   slow-tests:
     runs-on: ubuntu-latest
-    # Run on the weekly schedule, manual dispatch, or pushes to the integration branch.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/feat/v2-implementation'
+    # Run on the weekly schedule, manual dispatch, or pushes to master.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master'
     strategy:
       fail-fast: false
       matrix:
