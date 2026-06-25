@@ -1,15 +1,20 @@
-"""Structured output container for a completed :class:`~pyrcel.model.ParcelModel` run.
+"""Structured output container for a completed [ParcelModel][pyrcel.model.ParcelModel] run.
 
-:class:`ModelOutput` is a plain Python dataclass (not a JAX pytree) that wraps the
+[ModelOutput][pyrcel.model_output.ModelOutput] is a plain Python dataclass (not a JAX pytree) that
+wraps the
 raw numpy arrays produced by the integrator and exposes them through a set of
 format-conversion methods:
 
-* :meth:`to_pandas` — ``(parcel_df, {species: aerosol_df})`` pandas DataFrames
-* :meth:`to_polars` — same structure in polars
-* :meth:`to_xarray` — ``xr.Dataset`` with CF-flavoured coordinates and metadata
-* :meth:`to_netcdf` — write the xarray Dataset to a NetCDF4 file
-* :meth:`to_csv` — write the flat parcel trajectory as CSV
-* :meth:`to_parquet` — write the flat parcel trajectory as Parquet
+* [to_pandas][pyrcel.model_output.ModelOutput.to_pandas] — ``(parcel_df, {species: aerosol_df})``
+pandas DataFrames
+* [to_polars][pyrcel.model_output.ModelOutput.to_polars] — same structure in polars
+* [to_xarray][pyrcel.model_output.ModelOutput.to_xarray] — ``xr.Dataset`` with CF-flavoured
+coordinates and metadata
+* [to_netcdf][pyrcel.model_output.ModelOutput.to_netcdf] — write the xarray Dataset to a NetCDF4
+file
+* [to_csv][pyrcel.model_output.ModelOutput.to_csv] — write the flat parcel trajectory as CSV
+* [to_parquet][pyrcel.model_output.ModelOutput.to_parquet] — write the flat parcel trajectory as
+Parquet
 """
 
 from __future__ import annotations
@@ -32,7 +37,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class ModelOutput:
-    """Output from a single :class:`~pyrcel.model.ParcelModel` run.
+    """Output from a single [ParcelModel][pyrcel.model.ParcelModel] run.
 
     Attributes
     ----------
@@ -40,14 +45,14 @@ class ModelOutput:
         Simulation time (s).
     state : np.ndarray, shape ``(n_time, 7 + nr)``
         Full state trajectory.  The first seven columns are the bulk parcel
-        variables (see :data:`pyrcel.constants.STATE_VARS`); the remaining
+        variables (see `pyrcel.constants.STATE_VARS`); the remaining
         columns are per-bin wet radii (m) ordered as in ``aerosols``.
-    aerosols : list of :class:`~pyrcel.aerosol.AerosolSpecies`
+    aerosols : list[pyrcel.aerosol.AerosolSpecies]
         Aerosol modes, in the same order as the radius columns in ``state``.
     summary : dict
         Post-solve diagnostics: ``S_max``, ``t_smax``, ``T_smax``, ``z_smax``,
         ``per_species`` (list of per-mode dicts), ``total_act_frac``.
-    V : float or :class:`~pyrcel.updraft.AbstractUpdraft`
+    V : float | pyrcel.updraft.AbstractUpdraft
         Updraft used for the run (stored for dataset metadata).
     T0, S0, P0, accom : float
         Initial conditions (stored for dataset metadata).
@@ -108,7 +113,8 @@ class ModelOutput:
 
     @property
     def nd_frac(self) -> float:
-        """Total activated fraction at the last trajectory step (see :attr:`Nd`)."""
+        """Total activated fraction at the last trajectory step (see
+        [Nd][pyrcel.model_output.ModelOutput.Nd])."""
         return float(self.summary["total_nd_frac"])
 
     # ------------------------------------------------------------------
@@ -140,7 +146,8 @@ class ModelOutput:
     def to_polars(self) -> tuple[pl.DataFrame, dict[str, pl.DataFrame]]:
         """Return ``(parcel_df, {species: aerosol_df})`` as polars DataFrames.
 
-        Columns and layout mirror :meth:`to_pandas`; the time index becomes an
+        Columns and layout mirror [to_pandas][pyrcel.model_output.ModelOutput.to_pandas]; the time
+        index becomes an
         explicit ``"time"`` column (polars does not have a named index).
         """
         import polars as pl
@@ -159,7 +166,7 @@ class ModelOutput:
         return parcel, aerosol
 
     def to_xarray(self) -> xr.Dataset:
-        """Return a CF-flavoured :class:`xarray.Dataset`.
+        """Return a CF-flavoured `xarray.Dataset`.
 
         Mirrors the variable layout of the legacy NetCDF writer: a ``time``
         coordinate, per-species ``<species>_bins`` coordinates with dry radii /

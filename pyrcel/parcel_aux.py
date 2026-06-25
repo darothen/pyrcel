@@ -125,7 +125,7 @@ class ParcelVectorField(eqx.Module):
     anyway -- ``eqx.Module`` is immutable).
 
     **Why wrap the fixed parameters in a Module at all** (the plain
-    :func:`parcel_ode_sys` ``(t, y, args)`` function is still the primary path):
+    `parcel_ode_sys` ``(t, y, args)`` function is still the primary path):
 
     1. *Named fields* instead of a positional 5-tuple, removing the ``args``/``rhs_args``
        indexing footgun in the master code.
@@ -139,7 +139,7 @@ class ParcelVectorField(eqx.Module):
 
     The instance is callable as ``field(t, y)`` (diffrax ``ODETerm`` convention, with an
     optional ignored ``args``) and exposes :pyattr:`args` to feed the tuple-based
-    integrator helpers in :mod:`pyrcel.integrator`.
+    integrator helpers in `pyrcel.integrator`.
     """
 
     r_drys: jax.Array

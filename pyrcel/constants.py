@@ -21,7 +21,7 @@ Symbol            Variable      Value      Units             Description
 :math:`K_a`       ``Ka``        0.02       J/m/s/K           thermal conductivity of air
 :math:`a_T`       ``at``        0.96       unitless          thermal accommodation
                                                              coefficient
-:math:`\epsilon`  ``epsilon``   0.622      unitless          ratio of :math:`M_w/M_a`
+:math:`\\epsilon`  ``epsilon``   0.622      unitless          ratio of :math:`M_w/M_a`
 ================= ============= ========== ==========        ======================
 
 Additionally, a reference table containing the
@@ -69,4 +69,4 @@ STATE_VAR_MAP = {var: i for i, var in enumerate(STATE_VARS)}
 
 # Read the standard atmosphere CSV file
 with files("pyrcel").joinpath("data/std_atm.csv").open("r") as _f:
-    std_atm = pd.read_csv(_f, sep="\s+")
+    std_atm = pd.read_csv(_f, sep=r"\s+")

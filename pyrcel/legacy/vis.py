@@ -41,5 +41,5 @@ def plot_distribution(aer, aer_kwargs={}, ax=None, **kwargs):
     ax.semilogx()
     ax.set_xlim([rl, rr])
 
-    ax.set_xlabel("$r$ ($\mu$m)")
+    ax.set_xlabel(r"$r$ ($\mu$m)")
     ax.set_ylabel("Number Concentration (cm$^{-3}$)")

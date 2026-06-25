@@ -101,9 +101,9 @@ class AerosolSpecies:
     object suitable for use as a parcel-model input. The constructor accepts
     three kinds of size distributions:
 
-    * :class:`~pyrcel.distributions.Lognorm` — a single log-normal mode; ``bins``
+    * [Lognorm][pyrcel.distributions.Lognorm] — a single log-normal mode; ``bins``
       must also be supplied.
-    * :class:`~pyrcel.distributions.MultiModeLognorm` — multiple log-normal modes;
+    * [MultiModeLognorm][pyrcel.distributions.MultiModeLognorm] — multiple log-normal modes;
       ``bins`` must also be supplied.
     * ``dict`` with keys ``"r_drys"`` (microns) and ``"Nis"`` (cm⁻³) — a
       pre-discretized distribution.
@@ -123,8 +123,9 @@ class AerosolSpecies:
         Molecular weight of the dry aerosol material (kg mol⁻¹).
     bins : int or array-like, optional
         Number of bins (int), or explicit bin-edge array in microns.
-        Required when ``distribution`` is a :class:`Lognorm` or
-        :class:`MultiModeLognorm`. If an array, those edges are used directly.
+        Required when ``distribution`` is a [Lognorm][pyrcel.distributions.Lognorm] or
+        [MultiModeLognorm][pyrcel.distributions.MultiModeLognorm]. If an array, those edges are used
+        directly.
     r_min, r_max : float, optional
         Override the auto-derived lower/upper radius bounds (microns) when
         computing log-spaced bins.
@@ -193,7 +194,7 @@ class AerosolSpecies:
                     rs.append(r**2.0 / rs[-1])
                 self.rs = np.array(rs) * 1e6
             else:
-                self.rs = None  # pyrefly: ignore[bad-assignment]  # monodisperse; no bin edges needed
+                self.rs = None  # pyrefly: ignore[bad-assignment]  # monodisperse; no bin edges
 
             self.Nis = np.array(distribution["Nis"])
 
@@ -242,7 +243,7 @@ class AerosolSpecies:
         -------
         dict
             Statistics from the underlying distribution (see
-            :meth:`~pyrcel.distributions.Lognorm.stats`). If ``rho`` was
+            [stats][pyrcel.distributions.Lognorm.stats]). If ``rho`` was
             supplied, mass-weighted quantities are added: ``total_mass``,
             ``mean_mass``, and ``specific_surface_area``.
 

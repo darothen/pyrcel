@@ -97,7 +97,7 @@ def integrate_parcel(
     y0 : array, shape ``(7 + nr,)``
         Initial (equilibrated) state vector.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
     ts : array, shape ``(n_out,)``
         Output times (monotonic). Output is dense-interpolated at these times from a
         single adaptive solve; ``ts[0]`` is ``t0`` and ``ts[-1]`` is ``t1``.
@@ -132,7 +132,8 @@ def integrate_parcel_arrays(
 ) -> tuple[Array, Array, bool]:
     """Integrate the parcel ODE and return raw arrays.
 
-    Convenience wrapper around :func:`integrate_parcel` that unpacks the
+    Convenience wrapper around [integrate_parcel][pyrcel.integrator.integrate_parcel] that unpacks
+    the
     ``diffrax`` solution object into plain arrays.
 
     Parameters
@@ -140,11 +141,11 @@ def integrate_parcel_arrays(
     y0 : array, shape ``(7 + nr,)``
         Initial (equilibrated) state vector.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
     ts : array, shape ``(n_out,)``
-        Output times (monotonic); see :func:`integrate_parcel`.
+        Output times (monotonic); see [integrate_parcel][pyrcel.integrator.integrate_parcel].
     **kwargs
-        Forwarded to :func:`integrate_parcel`.
+        Forwarded to [integrate_parcel][pyrcel.integrator.integrate_parcel].
 
     Returns
     -------
@@ -184,7 +185,7 @@ def max_supersaturation(
     y0 : array, shape ``(7 + nr,)``
         Initial (equilibrated) state vector.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
     ts : array, shape ``(n_out,)``
         Output times (monotonic). Must span the supersaturation peak.
     rtol, atol : float or array, optional
@@ -230,7 +231,7 @@ def nd_from_parcel(
     the approximate Köhler critical radius for bin *i*, and :math:`\\varepsilon`
     controls the sharpness of the threshold.
 
-    Unlike the hard-threshold :attr:`~pyrcel.model.ParcelModel.Nd` diagnostic, this
+    Unlike the hard-threshold [Nd][pyrcel.model_output.ModelOutput.Nd] diagnostic, this
     function is fully differentiable with respect to ``y0`` and ``args`` via
     ``diffrax``'s default ``RecursiveCheckpointAdjoint``::
 
@@ -241,7 +242,7 @@ def nd_from_parcel(
     y0 : array, shape ``(7 + nr,)``
         Initial (equilibrated) state vector.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
         ``Nis`` must be in m⁻³ (the unit stored on ``AerosolSpecies.Nis``).
     t_end : float
         Integration time (s). Should extend past :math:`S_{\\text{max}}` so that
@@ -348,7 +349,7 @@ def find_smax(y0, args, t_end, *, rtol=STATE_RTOL, atol=None, max_steps=100_000)
     y0 : array, shape ``(7 + nr,)``
         Initial (equilibrated) state vector.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
     t_end : float
         Upper bound on integration time, s.
     rtol, atol : float or array, optional
@@ -400,7 +401,7 @@ def terminate_cutoff_time(
     y0 : array, shape ``(7 + nr,)``
         Initial state vector.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)`` for :func:`parcel_ode_sys`.
+        ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
     t_end : float
         Upper bound on integration time, s.
     terminate_depth : float
@@ -464,8 +465,10 @@ def integrate_parcel_terminated(
 
     This is the interactive / parity path: ``t_cutoff`` is data-dependent so the output
     grid length is dynamic (the outer call runs eagerly; the solves are jitted). For
-    ``jit``/``vmap``/``grad`` use the fixed-horizon :func:`integrate_parcel` /
-    :func:`find_smax` / :func:`max_supersaturation` instead.
+    ``jit``/``vmap``/``grad`` use the fixed-horizon
+    [integrate_parcel][pyrcel.integrator.integrate_parcel] /
+    [find_smax][pyrcel.integrator.find_smax] /
+    [max_supersaturation][pyrcel.integrator.max_supersaturation] instead.
 
     Returns ``(ts, ys, info)`` with ``ts``/``ys`` as numpy arrays and ``info`` a dict
     of ``t_smax``, ``smax``, ``t_cutoff``, ``activated``, ``success``.
@@ -539,7 +542,8 @@ def integrate_parcel_chunked(
 ):
     """Interactive-only integration in ``chunk_dt`` slices with optional per-chunk callback.
 
-    Unlike :func:`integrate_parcel`, this runs a Python loop over successive
+    Unlike [integrate_parcel][pyrcel.integrator.integrate_parcel], this runs a Python loop over
+    successive
     ``diffeqsolve`` calls so host code can print live diagnostics between chunks. It is
     **not** ``jit``/``vmap``/``grad``-safe and must not be used on the differentiable
     path. Adaptive solver state is re-initialised at each chunk boundary (acceptable for

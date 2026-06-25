@@ -10,7 +10,7 @@ state vector ``y0 = [z, P, T, wv, wc, wi, S, r0_0 ... r0_{nr-1}]``.
 
 Differences from ``master`` (and why they don't matter for fidelity):
 
-* ``scipy.optimize.bisect`` -> :class:`optimistix.Bisection` (same bracketing
+* ``scipy.optimize.bisect`` -> [optimistix.Bisection][] (same bracketing
   method, kept in the JAX ecosystem; ``vmap``-ed over bins).
 * The upper bracket is the **analytic** approximate Köhler critical radius rather
   than ``scipy.optimize.fminbound`` on ``-Seq``. The root ``r0`` is independent of
@@ -49,9 +49,9 @@ _MAX_STEPS = 200
 def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
     """Analytic approximate Köhler critical radius and supersaturation.
 
-    Mirrors :func:`pyrcel.legacy.thermo.kohler_crit` with ``approx=True``. This
+    Mirrors `pyrcel.legacy.thermo.kohler_crit` with ``approx=True``. This
     approximation can return ``r_crit < r_dry`` for very small, low-κ particles,
-    so it is **not** used to bracket the equilibrium root — :func:`kohler_crit`
+    so it is **not** used to bracket the equilibrium root — `kohler_crit`
     is. Kept for reference and the analytic ``s_crit``.
 
     Parameters
@@ -225,7 +225,8 @@ def equilibrate_initial_state(
     Nis : array, shape ``(nr,)``
         Number concentrations, m^-3.
     **kwargs
-        Forwarded to :func:`equilibrate_radii` (``rtol``, ``atol``, ``max_steps``).
+        Forwarded to [equilibrate_radii][pyrcel.equilibrate.equilibrate_radii] (``rtol``, ``atol``,
+        ``max_steps``).
 
     Returns
     -------

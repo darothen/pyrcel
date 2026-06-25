@@ -1,18 +1,13 @@
-# .readthedocs.yaml
-# Read the Docs configuration file
-
-# Required
 version: 2
 
-# Set the version of Python and other tools you might need
 build:
-  os: ubuntu-22.04
+  os: ubuntu-24.04
   tools:
-    python: "mambaforge-22.9"
-
-# Build documentation in the docs/ directory with Sphinx
-sphinx:
-  configuration: docs/conf.py
-
-conda:
-  environment: docs/environment.yml
+    python: "3.11"
+  commands:
+    - pip install uv
+    - uv pip install --system -e ".[docs]"
+    # DOCS_EXECUTE is intentionally omitted: figures and console outputs are
+    # pre-committed to docs/assets/ and used directly.  To regenerate them,
+    # run `DOCS_EXECUTE=1 uv run mkdocs build` locally and commit the results.
+    - MPLBACKEND=Agg NO_MKDOCS_2_WARNING=1 mkdocs build --site-dir $READTHEDOCS_OUTPUT/html --no-strict

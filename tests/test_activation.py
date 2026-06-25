@@ -15,10 +15,24 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-jax.config.update("jax_enable_x64", True)
+from pyrcel.activation import arg2000 as arg2000_jax
+from pyrcel.activation import binned_activation, lognormal_activation, multi_mode_activation
+from pyrcel.aerosol import AerosolSpecies
+from pyrcel.distributions import Lognorm
+from pyrcel.legacy.activation import (
+    arg2000 as arg2000_legacy,
+)
+from pyrcel.legacy.activation import (
+    binned_activation as binned_leg,
+)
+from pyrcel.legacy.activation import (
+    lognormal_activation as lognormal_leg,
+)
+from pyrcel.legacy.activation import (
+    multi_mode_activation as multi_mode_leg,
+)
 
-from pyrcel.activation import arg2000 as arg2000_jax  # noqa: E402
-from pyrcel.legacy.activation import arg2000 as arg2000_legacy  # noqa: E402
+jax.config.update("jax_enable_x64", True)
 
 # ---------------------------------------------------------------------------
 # Test scenarios
@@ -237,3 +251,103 @@ def test_arg2000_class_repr():
 
     r = repr(ARG2000())
     assert "ARG2000" in r
+
+
+# ---------------------------------------------------------------------------
+# Cross-check: JAX binned/lognormal helpers vs legacy (approx=True)
+# ---------------------------------------------------------------------------
+
+_T = 283.15
+_SMAX = 0.008
+
+# Two aerosol modes reused across several tests.
+_AER1 = AerosolSpecies("mode1", Lognorm(mu=0.05, sigma=2.0, N=300.0), bins=20, kappa=0.6)
+_AER2 = AerosolSpecies("mode2", Lognorm(mu=0.10, sigma=2.0, N=100.0), bins=20, kappa=0.3)
+# Rough wet radii: 3× dry radius puts most bins past their critical wet radius.
+_RS1 = _AER1.r_drys * 3.0
+_RS2 = _AER2.r_drys * 3.0
+
+
+def test_lognormal_activation_vs_legacy():
+    """JAX lognormal_activation matches legacy (approx Köhler) to float64 round-off."""
+    mu = _AER1.r_drys[10]  # a single representative dry radius
+    sigma = 2.0
+    N = 300.0
+    kappa = 0.6
+
+    N_act_jax, frac_jax = lognormal_activation(_SMAX, mu, sigma, N, kappa, T=_T)
+    N_act_leg, frac_leg = lognormal_leg(_SMAX, mu, sigma, N, kappa, T=_T, approx=True)
+
+    assert float(N_act_jax) == pytest.approx(float(N_act_leg), rel=1e-12)
+    assert float(frac_jax) == pytest.approx(float(frac_leg), rel=1e-12)
+
+
+def test_lognormal_activation_precomputed_sgi():
+    """Passing sgi directly gives the same result as letting T drive the computation."""
+    from pyrcel.activation._common import _kohler_crit_approx
+
+    mu = _AER1.r_drys[10]
+    kappa = 0.6
+    sigma = 2.0
+    N = 300.0
+    _, sgi = _kohler_crit_approx(_T, mu, kappa)
+
+    N_act_T, _ = lognormal_activation(_SMAX, mu, sigma, N, kappa, T=_T)
+    N_act_sgi, _ = lognormal_activation(_SMAX, mu, sigma, N, kappa, sgi=sgi)
+
+    assert float(N_act_T) == pytest.approx(float(N_act_sgi), rel=1e-12)
+
+
+@pytest.mark.parametrize("smax", [0.002, 0.008, 0.02])
+def test_binned_activation_vs_legacy(smax):
+    """JAX binned_activation matches legacy binned_activation(approx=True)."""
+    eq_jax, kn_jax, alpha_jax, phi_jax = binned_activation(
+        smax, _T, _RS1, _AER1.r_drys, _AER1.Nis, _AER1.kappa
+    )
+    eq_leg, kn_leg, alpha_leg, phi_leg = binned_leg(smax, _T, _RS1, _AER1, approx=True)
+
+    assert float(eq_jax) == pytest.approx(float(eq_leg), rel=1e-10)
+    assert float(kn_jax) == pytest.approx(float(kn_leg), rel=1e-10)
+    assert float(alpha_jax) == pytest.approx(float(alpha_leg), rel=1e-10)
+    assert float(phi_jax) == pytest.approx(float(phi_leg), rel=1e-10)
+
+
+def test_binned_activation_no_kinetic():
+    """When no bin has grown past its critical radius, kinetic fraction is zero."""
+    # Use dry radii as wet radii: no bin has grown at all.
+    eq, kn, alpha, phi = binned_activation(
+        _SMAX, _T, _AER1.r_drys, _AER1.r_drys, _AER1.Nis, _AER1.kappa
+    )
+    assert float(kn) == pytest.approx(0.0, abs=1e-12)
+    assert float(phi) == pytest.approx(1.0, rel=1e-12)
+
+
+def test_binned_activation_fracs_in_unit_interval():
+    """eq_frac and kn_frac must lie in [0, 1]."""
+    for smax in [0.001, 0.005, 0.02]:
+        eq, kn, _, _ = binned_activation(smax, _T, _RS1, _AER1.r_drys, _AER1.Nis, _AER1.kappa)
+        assert 0.0 <= float(eq) <= 1.0
+        assert 0.0 <= float(kn) <= 1.0
+
+
+def test_multi_mode_activation_vs_legacy():
+    """JAX multi_mode_activation matches legacy for a two-mode population."""
+    eq_jax, kn_jax = multi_mode_activation(
+        _SMAX,
+        _T,
+        [_RS1, _RS2],
+        [_AER1.r_drys, _AER2.r_drys],
+        [_AER1.Nis, _AER2.Nis],
+        [_AER1.kappa, _AER2.kappa],
+    )
+    eq_leg, kn_leg = multi_mode_leg(
+        _SMAX,
+        _T,
+        [_AER1, _AER2],
+        [_RS1, _RS2],
+    )
+
+    for jax_val, leg_val in zip(eq_jax, eq_leg):
+        assert float(jax_val) == pytest.approx(float(leg_val), rel=1e-10)
+    for jax_val, leg_val in zip(kn_jax, kn_leg):
+        assert float(jax_val) == pytest.approx(float(leg_val), rel=1e-10)

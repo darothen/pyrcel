@@ -48,9 +48,9 @@ def dv(T, r, P, accom=ac):
 
     .. math::
         \\begin{equation}
-        D_v = 10^{-4}\\frac{0.211}{P}\left(\\frac{T}{273}\\right)^{1.94}
+        D_v = 10^{-4}\\frac{0.211}{P}\\left(\\frac{T}{273}\\right)^{1.94}
               \\tag{SP2006, 17.61}
-        \end{equation}
+        \\end{equation}
 
     where :math:`P` is in atm [SP2006]. Aerosols much smaller than the mean free path
     of the  air surrounding them (:math:`K_n >> 1`) perturb the flow around them
@@ -60,8 +60,8 @@ def dv(T, r, P, accom=ac):
     .. math::
         \\begin{equation}
         D'_v = \\frac{D_v}{1+ \\frac{D_v}{\\alpha_c r}
-                \left(\\frac{2\pi M_w}{RT}\\right)^{1/2}} \\tag{SP2006, 17.62}
-        \end{equation}
+                \\left(\\frac{2\\pi M_w}{RT}\\right)^{1/2}} \\tag{SP2006, 17.62}
+        \\end{equation}
 
     where :math:`\\alpha_c` is the condensation coefficient (:const:`constants.ac`).
 
@@ -105,7 +105,7 @@ def rho_air(T, P, RH=1.0):
     .. math::
         \\begin{equation}
         \\rho_a = \\frac{P}{R_d T_v}
-        \end{equation}
+        \\end{equation}
 
     where :math:`T_v = T(1 + 0.61w)` and :math:`w` is the water vapor mixing ratio.
 
@@ -140,13 +140,13 @@ def rho_air(T, P, RH=1.0):
 def es(T_c):
     """Calculates the saturation vapor pressure over water for a given temperature.
 
-    Uses an empirical fit [Bolton1980], which is accurate to :math:`0.1\%` over the
-    temperature range :math:`-30^oC \leq T \leq 35^oC`,
+    Uses an empirical fit [Bolton1980], which is accurate to :math:`0.1\\%` over the
+    temperature range :math:`-30^oC \\leq T \\leq 35^oC`,
 
     .. math::
         \\begin{equation}
-        e_s(T) = 611.2 \exp\left(\\frac{17.67T}{T + 243.5}\\right) \\tag{RY1989, 2.17}
-        \end{equation}
+        e_s(T) = 611.2 \\exp\\left(\\frac{17.67T}{T + 243.5}\\right) \\tag{RY1989, 2.17}
+        \\end{equation}
 
     where :math:`e_s` is in Pa and :math:`T` is in degrees C.
 
@@ -204,7 +204,7 @@ def ka(T, rho, r):
     .. math::
         \\begin{equation}
         k_a = 10^{-3}(4.39 + 0.071T) \\tag{SP2006, 17.71}
-        \end{equation}
+        \\end{equation}
 
     Modification to account for non-continuum effects (small aerosol/droplet
     size) yields the equation
@@ -212,8 +212,8 @@ def ka(T, rho, r):
     .. math::
         \\begin{equation}
         k'_a = \\frac{k_a}{1 + \\frac{k_a}{\\alpha_t r_p \\rho C_p}
-               \\frac{2\pi M_a}{RT}^{1/2}} \\tag{SP2006, 17.72}
-        \end{equation}
+               \\frac{2\\pi M_a}{RT}^{1/2}} \\tag{SP2006, 17.72}
+        \\end{equation}
 
     where :math:`\\alpha_t` is a thermal accommodation coefficient
     (:const:`constants.at`).
@@ -253,8 +253,8 @@ def sigma_w(T):
 
     .. math::
         \\begin{equation}
-        \sigma_w = 0.0761 - 1.55\\times 10^{-4}(T - 273.15)
-        \end{equation}
+        \\sigma_w = 0.0761 - 1.55\\times 10^{-4}(T - 273.15)
+        \\end{equation}
 
     Parameters
     ----------
@@ -264,7 +264,7 @@ def sigma_w(T):
     Returns
     -------
     float
-        :math:`\sigma_w(T)` in J/m^2
+        :math:`\\sigma_w(T)` in J/m^2
 
     """
     return 0.0761 - 1.55e-4 * (T - 273.15)
@@ -282,17 +282,17 @@ def Seq(r, r_dry, T, kappa):
 
     Following the technique of [PK2007], classical
     Kohler theory can be modified to account for the hygroscopicity of an aerosol
-    particle using a single parameter, :math:`\kappa`. The modified theory predicts
+    particle using a single parameter, :math:`\\kappa`. The modified theory predicts
     that the supersaturation with respect to a given aerosol particle is,
 
     .. math::
-        S_\\text{eq} &= a_w \exp \\left( \\frac{2\sigma_{w} M_w}{RT\\rho_w r} \\right)\\\\
-        a_w &= \\left(1 + \kappa\\left(\\frac{r_d}{r}^3\\right) \\right)^{-1}
+        S_\\text{eq} &= a_w \\exp \\left( \\frac{2\\sigma_{w} M_w}{RT\\rho_w r} \\right)\\\\
+        a_w &= \\left(1 + \\kappa\\left(\\frac{r_d}{r}^3\\right) \\right)^{-1}
 
     with the relevant thermodynamic properties of water defined elsewhere in this
     module, :math:`r_d` is the particle dry radius (``r_dry``), :math:`r` is the
     radius of the droplet containing the particle (``r``), :math:`T` is the temperature
-    of the environment (``T``), and :math:`\kappa` is the hygroscopicity parameter
+    of the environment (``T``), and :math:`\\kappa` is the hygroscopicity parameter
     of the particle (``kappa``).
 
 
@@ -340,7 +340,7 @@ def Seq_approx(r, r_dry, T, kappa):
     derived by Taylor-expanding the original equation,
 
     .. math::
-        S_\\text{eq} = \\frac{2\sigma_{w} M_w}{RT\\rho_w r} - \kappa\\frac{r_d^3}{r^3}
+        S_\\text{eq} = \\frac{2\\sigma_{w} M_w}{RT\\rho_w r} - \\kappa\\frac{r_d^3}{r^3}
 
     which is valid when the equilibrium supersaturation is small, i.e. in
     most terrestrial atmosphere applications.
@@ -402,7 +402,7 @@ def kohler_crit(T, r_dry, kappa, approx=False):
     Returns
     -------
     (r_crit, s_crit) : tuple of floats
-        Tuple of :math:`(r_\\text{crit},\, S_\\text{crit})`, the critical radius (m)
+        Tuple of :math:`(r_\\text{crit},\\, S_\\text{crit})`, the critical radius (m)
         and supersaturation of the aerosol droplet.
 
     See Also
@@ -477,8 +477,8 @@ def r_eff(rho, wc, Ni):
 
     .. math::
         \\begin{equation}
-        r_{\\text{eff}} = \left(\\frac{3 \\rho_a w_c}{4 \pi N_i \\rho_w}\\right)^{1/3}
-        \end{equation}
+        r_{\\text{eff}} = \\left(\\frac{3 \\rho_a w_c}{4 \\pi N_i \\rho_w}\\right)^{1/3}
+        \\end{equation}
 
     Parameters
     ----------

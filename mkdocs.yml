@@ -1,0 +1,127 @@
+site_name: pyrcel
+site_description: Adiabatic cloud parcel model — differentiable, GPU-capable, JAX-native
+site_author: Daniel Rothenberg
+site_url: https://pyrcel.readthedocs.io/en/latest/
+repo_url: https://github.com/darothen/pyrcel
+repo_name: darothen/pyrcel
+edit_uri: edit/master/docs/
+copyright: Copyright &copy; 2012–2026 Daniel Rothenberg
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Source Sans 3
+    code: Fira Code
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+
+plugins:
+  - search
+  - autorefs:
+      resolve_closest: true
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            docstring_section_style: table
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 80
+            members_order: source
+            merge_init_into_class: true
+            show_if_no_docstring: false
+            filters:
+              - "!^_"
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.snippets:
+      base_path: ["."]
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+hooks:
+  - docs/hooks.py
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting_started/installation.md
+    - Quick Start: getting_started/quickstart.md
+  - User Guide:
+    - Scientific Description: user_guide/sci_descr.md
+    - Migration Guide (v1→v2): user_guide/migration.md
+    - Numerical Methods: user_guide/numerical_methods.md
+    - GPU Setup: user_guide/gpu.md
+  - Examples:
+    - Basic Run: examples/basic_run.md
+    - Live Integration: examples/live_run.md
+    - Updraft Ensemble: examples/updraft_ensemble.md
+    - Sensitivity Analysis: examples/differentiable_smax.md
+    - Activation Comparison: examples/activation_comparison.md
+    - Sensitivity Sweep: examples/sensitivity_sweep.md
+  - API Reference:
+    - Core:
+      - ParcelModel: api/model.md
+      - ModelOutput: api/model_output.md
+    - Aerosol Population:
+      - AerosolSpecies: api/aerosol.md
+      - Distributions: api/distributions.md
+    - Activation: api/activation.md
+    - Updraft: api/updraft.md
+    - Ensemble: api/ensemble.md
+    - Advanced:
+      - Integrator: api/integrator.md
+      - Equilibrate: api/equilibrate.md
+      - Thermodynamics: api/thermo.md

@@ -1,0 +1,72 @@
+/* ── Custom colour palette ────────────────────────────────────────────────── */
+
+/* Light scheme: warm off-white background, deep crimson header */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:        #8B2232;
+  --md-primary-fg-color--light: #AE3345;
+  --md-primary-fg-color--dark:  #611826;
+  --md-primary-bg-color:        #ffffff;
+  --md-primary-bg-color--light: hsla(0, 0%, 100%, 0.7);
+
+  /* White page background */
+  --md-default-bg-color:          #ffffff;
+  --md-default-bg-color--light:   #ffffff;
+  --md-default-bg-color--lighter: #ffffff;
+  --md-default-bg-color--lightest: #ffffff;
+}
+
+/* Dark scheme: same crimson works well on slate */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #C2344A;
+  --md-primary-fg-color--light: #D65568;
+  --md-primary-fg-color--dark:  #8B2232;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+
+/* Bump body text up ~1-2pt from Material default (0.8rem) */
+.md-typeset {
+  font-size: 0.875rem;
+}
+
+/* Match navigation font size to body text */
+.md-nav__link,
+.md-nav__title {
+  font-size: 0.875rem;
+}
+
+/* ── Admonitions and callout boxes ───────────────────────────────────────── */
+
+/* Ensure admonition body text matches body font size */
+.md-typeset .admonition,
+.md-typeset details {
+  font-size: inherit;
+}
+
+/* ── API parameter/return tables ─────────────────────────────────────────── */
+
+/* Material sets .md-typeset table:not([class]) { font-size: .64rem }.
+   mkdocstrings tables are classless, so we must out-specificate it. */
+.md-typeset .doc-contents table:not([class]) {
+  font-size: 0.875rem;
+}
+
+/* ── API docs: prevent horizontal overflow ────────────────────────────────── */
+
+/* Wrap signatures rendered as code blocks by mkdocstrings */
+.doc-heading code,
+.doc-signature,
+.doc-signature pre,
+.doc-signature code {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+/* Wrap code examples inside docstring bodies */
+.doc-contents .highlight pre,
+.doc-contents .highlight code {
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
