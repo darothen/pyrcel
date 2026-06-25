@@ -181,20 +181,27 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     dsmax_dV_mbn_num = np.gradient(smax_mbn, V_grid, axis=0)
 
     # ── Parcel model ──────────────────────────────────────────────────────────
-    # Use generous t_end; the event-based solver stops at S_max automatically.
-    t_end = 5.0 * 300.0 / _V_MIN
-    ts_global = jnp.linspace(0.0, t_end, max(600, int(t_end)))
-
     # accom is a physical constant, same for every model build.
     from pyrcel import constants as _c
 
     _accom = _c.ac
 
-    # Explicit-arg JIT: shapes are fixed across all (V, μ) calls so the kernel
-    # is compiled once on the first call and reused for all 100 evaluations.
-    def _smax_parcel(V_val, y0, r_drys, Nis, kappas_arr):
+    # Scale t_end with V so the solver reaches ~1500 m altitude for every grid
+    # point without running on past S_max. A fixed global t_end (e.g. 15000 s)
+    # forces high-V runs to integrate for tens of kilometres of ascent, exhausting
+    # max_steps and producing NaN before the output grid is complete.
+    # N_TS is fixed so all ts arrays share the same shape → JIT compiles once.
+    _N_TS = 600
+
+    def _ts_for_V(V_val: float) -> jnp.ndarray:
+        t_end = max(200.0, min(1500.0 / float(V_val), 15000.0))
+        return jnp.linspace(0.0, t_end, _N_TS)
+
+    # ts is passed as an explicit arg so it can vary per grid point while the
+    # JIT-compiled kernel is reused (shape is always (_N_TS,)).
+    def _smax_parcel(V_val, y0, r_drys, Nis, kappas_arr, ts):
         return max_supersaturation(
-            y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts_global
+            y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts
         )
 
     _fwd = jax.jit(_smax_parcel)
@@ -222,6 +229,7 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
 
         for i_V, V_val in enumerate(V_grid):
             V_j = jnp.float64(V_val)
+            ts_j = _ts_for_V(V_val)
             cold = done == 0
 
             label = f"  [{done + 1:03d}/{total}] V={V_val:.2f} m/s  μ={mu_val:.4f} µm"
@@ -231,8 +239,8 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
             t0 = time.perf_counter()
 
             try:
-                s = float(jax.block_until_ready(_fwd(V_j, y0_j, rd_j, ni_j, ka_j)))
-                g = float(jax.block_until_ready(_grad(V_j, y0_j, rd_j, ni_j, ka_j)))
+                s = float(jax.block_until_ready(_fwd(V_j, y0_j, rd_j, ni_j, ka_j, ts_j)))
+                g = float(jax.block_until_ready(_grad(V_j, y0_j, rd_j, ni_j, ka_j, ts_j)))
             except Exception as exc:
                 print(f"  ✗ ({exc.__class__.__name__})")
                 s, g = np.nan, np.nan
