@@ -240,7 +240,13 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     # By the envelope theorem, d(S_max)/d(t_end) = 0 whenever the supersaturation
     # peak is strictly interior to [t0, t_end] — which _ts_for_V guarantees — so
     # the ∂S_max/∂t_end · dt_end/dV coupling term vanishes identically.
-    _N_TS = 600
+    # N_TS=3000 ensures the output spacing dt ≤ 5 s even at V=0.1 m/s
+    # (t_end=15 000 s → dt=5 s).  The Hermite cubic peak finder in
+    # max_supersaturation has O(h⁴) gradient accuracy; at the old N_TS=600
+    # the 25 s spacing at low V produced >20 % adjoint/FD errors in the
+    # bottom-left corner of the (V, μ) grid.  N_TS is fixed so all calls
+    # share one JIT-compiled kernel.
+    _N_TS = 3000
 
     def _ts_for_V(V_val: float) -> jnp.ndarray:
         t_end = max(200.0, min(1500.0 / float(V_val), 15000.0))
