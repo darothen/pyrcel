@@ -250,17 +250,32 @@ def max_supersaturation(
     i_pk = jax.lax.stop_gradient(jnp.clip(i_pk, 1, ts.shape[0] - 2))
 
     # Refine: evaluate the continuous interpolant at _N_REFINE points in the
-    # ±1 grid-cell bracket.  Reduces aliasing from ±dt to ±dt/_N_REFINE.
+    # ±1 grid-cell bracket to get a close initial estimate.
     t_lo = jax.lax.stop_gradient(ts[i_pk - 1])
     t_hi = jax.lax.stop_gradient(ts[i_pk + 1])
     t_fine = jnp.linspace(t_lo, t_hi, _N_REFINE)
     S_fine = jax.vmap(lambda t: sol.evaluate(t)[_S_IDX])(t_fine)
+    i_fine = jax.lax.stop_gradient(jnp.argmax(S_fine))
+
+    # Newton correction: one step of t -= (dS/dt) / (d²S/dt²) drives the
+    # residual dS/dt error from ±dt_fine to near machine precision.  We use the
+    # ODE RHS for dS/dt (exact) and second-order FD for d²S/dt² from S_fine.
+    # All quantities are stop-gradient'd — only the final evaluate carries gradient.
+    i_c = jax.lax.stop_gradient(jnp.clip(i_fine, 1, _N_REFINE - 2))
+    dt_f = jax.lax.stop_gradient(t_fine[1] - t_fine[0])
+    d2S = jax.lax.stop_gradient(
+        (S_fine[i_c + 1] - 2.0 * S_fine[i_c] + S_fine[i_c - 1]) / (dt_f * dt_f)
+    )
+    t_est = jax.lax.stop_gradient(t_fine[i_c])
+    y_est = jax.lax.stop_gradient(sol.evaluate(t_est))
+    dS_dt = jax.lax.stop_gradient(parcel_ode_sys(t_est, y_est, args)[_S_IDX])
+    t_newton = jax.lax.stop_gradient(
+        jnp.where(jnp.abs(d2S) > 1e-20, t_est - dS_dt / d2S, t_est)
+    )
+    t_peak = jax.lax.stop_gradient(jnp.clip(t_newton, t_lo, t_hi))
 
     # Envelope theorem: gradient of S_max w.r.t. V is ∂S/∂V evaluated at the
     # peak time, so stop_gradient on t_peak is exact (not an approximation).
-    i_fine = jax.lax.stop_gradient(jnp.argmax(S_fine))
-    t_peak = jax.lax.stop_gradient(t_fine[i_fine])
-
     return sol.evaluate(t_peak)[_S_IDX]
 
 
