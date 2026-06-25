@@ -148,7 +148,7 @@ def es(T_c: ArrayLike) -> Array:
 
 
 def ka_cont(T: ArrayLike) -> Array:
-    """Thermal conductivity of air, neglecting non-continuum effects.
+    r"""Thermal conductivity of air, neglecting non-continuum effects.
 
     Parameters
     ----------

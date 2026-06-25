@@ -10,4 +10,4 @@ build:
     # DOCS_EXECUTE is intentionally omitted: figures and console outputs are
     # pre-committed to docs/assets/ and used directly.  To regenerate them,
     # run `DOCS_EXECUTE=1 uv run mkdocs build` locally and commit the results.
-    - MPLBACKEND=Agg mkdocs build --site-dir $READTHEDOCS_OUTPUT/html --no-strict
+    - MPLBACKEND=Agg NO_MKDOCS_2_WARNING=1 mkdocs build --site-dir $READTHEDOCS_OUTPUT/html --no-strict

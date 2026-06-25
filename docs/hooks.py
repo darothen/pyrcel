@@ -11,7 +11,7 @@ Figures and console outputs are committed under ``docs/assets/`` and used
 directly by the RTD build (which does NOT set ``DOCS_EXECUTE``).  To regenerate
 them after changing an example script, run locally::
 
-    DOCS_EXECUTE=1 uv run mkdocs build
+    DOCS_EXECUTE=1 NO_MKDOCS_2_WARNING=1 uv run mkdocs build
 
 then commit the updated files in ``docs/assets/figures/`` and
 ``docs/assets/output/`` before pushing.  The sensitivity sweep writes a cache

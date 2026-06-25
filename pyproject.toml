@@ -62,6 +62,7 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.25",
     "pymdown-extensions>=10.7",
+    "ruff>=0.4",
     "matplotlib>=3.5",
     "jax[cpu]>=0.4.38",
     "diffrax>=0.6.2",

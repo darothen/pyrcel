@@ -164,7 +164,7 @@ def multi_mode_activation(Smax, T, aerosols, rss):
         Environmental maximum supersaturation.
     T : float
         Environmental temperature.
-    aerosol : array of :class:`AerosolSpecies`
+    aerosols : array of :class:`AerosolSpecies`
         The characterizations of the dry aerosols.
     rss : array of arrays of floats
         Wet radii corresponding to each aerosol/droplet population.
@@ -566,11 +566,11 @@ def arg2000(
     for non-unity condensation coefficient [GHAN2011].
 
     To deal with multiple aerosol modes, the scheme includes an expression
-    trained on the mode std deviations, :math:`\sigma_i`
+    trained on the mode std deviations, :math:`\\sigma_i`
 
     .. math::
 
-        S_\\text{max} = 1 \\bigg/ \sqrt{\sum \\frac{1}{S^2_\text{mi}}\left[H(f_i, g_i)\right]}
+        S_\\text{max} = 1 \\bigg/ \\sqrt{\\sum \\frac{1}{S^2_\text{mi}}\\left[H(f_i, g_i)\right]}
 
     This effectively combines the supersaturation maximum for each mode into
     a single value representing competition between modes. An alternative approach,
