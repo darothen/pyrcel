@@ -1,7 +1,7 @@
 pyrcel: cloud parcel model
 ==========================
 
-![sample parcel model run](docs/assets/figures/basic_run.png)
+![sample parcel model run](https://raw.githubusercontent.com/darothen/pyrcel/master/docs/assets/figures/basic_run.png)
 
 [![DOI](https://zenodo.org/badge/12927551.svg)](https://zenodo.org/badge/latestdoi/12927551)[![PyPI Version](https://badge.fury.io/py/pyrcel.svg)](https://badge.fury.io/py/pyrcel)[![CI](https://github.com/darothen/pyrcel/actions/workflows/ci.yml/badge.svg)](https://github.com/darothen/pyrcel/actions/workflows/ci.yml)[![Documentation Status](https://readthedocs.org/projects/pyrcel/badge/?version=stable)](https://pyrcel.readthedocs.io/en/latest/)
 
