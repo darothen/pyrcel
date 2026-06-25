@@ -235,7 +235,8 @@ def _peak_from_trajectory(
     if n < 3:
         si = int(np.argmax(S))
         return float(S[si]), float(ts_a[si]), ys_a[si]
-    si = int(np.clip(np.argmax(S), 1, n - 2))
+    si_raw = int(np.argmax(S))
+    si = int(np.clip(si_raw, 1, n - 2))
 
     # ODE RHS at the three bracket points — exact derivatives, no finite differences.
     # Same information diffrax stores per solver step for its dense interpolant.
@@ -246,7 +247,6 @@ def _peak_from_trajectory(
     dS_m = float(f_m[_S_IDX])
     dS_c = float(f_c[_S_IDX])
     dS_p = float(f_p[_S_IDX])
-    t_m, t_c, t_p = float(ts_a[si - 1]), float(ts_a[si]), float(ts_a[si + 1])
 
     # Build cubic Hermite interpolants over each sub-interval using diffrax's
     # built-in class — the same polynomial family as SaveAt(dense=True).
@@ -306,9 +306,12 @@ def _peak_from_trajectory(
     if candidates:
         smax, t_smax = max(candidates, key=lambda x: x[0])
     else:
-        smax, t_smax = float(S[si]), t_c
+        # No interior peak found on either sub-interval (e.g. maximum lies exactly
+        # on a grid point or at a trajectory boundary).  Fall back to the raw grid
+        # maximum so boundary cases (si_raw != si) are handled correctly.
+        smax, t_smax = float(S[si_raw]), float(ts_a[si_raw])
 
-    return float(smax), float(t_smax), ys_a[si]
+    return float(smax), float(t_smax), ys_a[si_raw]
 
 
 def max_supersaturation(

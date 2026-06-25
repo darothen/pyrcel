@@ -325,20 +325,23 @@ class ParcelModel:
                     live_printer.finish()
                 ts, ys = np.asarray(ts), np.asarray(ys)
                 if not terminate:
-                    # Post-hoc S_max from the saved trajectory: 3-point quadratic
-                    # interpolation + one Newton step using the ODE RHS.  No second
-                    # ODE solve — two RHS evaluations are enough for near-machine-
-                    # precision accuracy (same approach as max_supersaturation Stage 3).
-                    smax, t_smax_f, y_smax = _peak_from_trajectory(ts, ys, self.args)
+                    # Post-hoc S_max from the saved trajectory via Hermite cubic
+                    # interpolation — no second ODE solve required.
+                    smax, t_smax_f, _ = _peak_from_trajectory(ts, ys, self.args)
                     activated = True
                     peak = (smax, t_smax_f)
+                    # Height at the refined peak time via linear interpolation of
+                    # the saved trajectory (more accurate than the coarse-grid state).
+                    z_smax = float(np.interp(t_smax_f, ts, ys[:, c.STATE_VAR_MAP["z"]]))
+                else:
+                    z_smax = float("nan")
                 run_info = {
                     "success": success,
                     "activated": activated,
                     "t_smax": t_smax_f,
                     "smax": smax,
                     "t_cutoff": float(ts[-1]) if len(ts) else t_final,
-                    "z_smax": float(y_smax[0]) if y_smax is not None else float("nan"),
+                    "z_smax": z_smax,
                     "z_end": float(ys[-1, c.STATE_VAR_MAP["z"]]) if len(ys) else float("nan"),
                 }
             elif terminate:
@@ -413,14 +416,12 @@ class ParcelModel:
     def _compute_summary(self, peak: object = None) -> dict:
         assert self.x is not None
         assert self.time is not None
-        S = self.x[:, c.STATE_VAR_MAP["S"]]
         if peak is not None:
             # Event-localized or caller-supplied precise S_max/t_smax.
             S_max, t_smax = float(peak[0]), float(peak[1])
             si = int(np.argmin(np.abs(self.time - t_smax)))
         else:
-            # Quadratic interpolation + Newton step on the saved trajectory —
-            # same accuracy as the live-path post-hoc finder, no second solve.
+            # Post-hoc Hermite cubic peak finder — no second solve.
             S_max, t_smax, _ = _peak_from_trajectory(self.time, self.x, self.args)
             si = int(np.argmin(np.abs(self.time - t_smax)))
         T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
