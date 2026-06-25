@@ -269,9 +269,7 @@ def max_supersaturation(
     t_est = jax.lax.stop_gradient(t_fine[i_c])
     y_est = jax.lax.stop_gradient(sol.evaluate(t_est))
     dS_dt = jax.lax.stop_gradient(parcel_ode_sys(t_est, y_est, args)[_S_IDX])
-    t_newton = jax.lax.stop_gradient(
-        jnp.where(jnp.abs(d2S) > 1e-20, t_est - dS_dt / d2S, t_est)
-    )
+    t_newton = jax.lax.stop_gradient(jnp.where(jnp.abs(d2S) > 1e-20, t_est - dS_dt / d2S, t_est))
     t_peak = jax.lax.stop_gradient(jnp.clip(t_newton, t_lo, t_hi))
 
     # Envelope theorem: gradient of S_max w.r.t. V is ∂S/∂V evaluated at the

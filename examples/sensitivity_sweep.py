@@ -242,9 +242,7 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     # ts is passed as an explicit arg so it can vary per grid point while the
     # JIT-compiled kernel is reused (shape is always (_N_TS,)).
     def _smax_parcel(V_val, y0, r_drys, Nis, kappas_arr, ts):
-        return max_supersaturation(
-            y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts
-        )
+        return max_supersaturation(y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts)
 
     _fwd = jax.jit(_smax_parcel)
     _grad = jax.jit(jax.grad(_smax_parcel, argnums=0))
@@ -303,10 +301,10 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
 
     # Build list of outer-ring (ext_i, ext_j, V_val, mu_val) to evaluate.
     outer: list[tuple[int, int, float, float]] = []
-    for j, mu_val in enumerate(mu_ext):          # top + bottom rows
+    for j, mu_val in enumerate(mu_ext):  # top + bottom rows
         outer.append((0, j, float(V_ext[0]), float(mu_val)))
         outer.append((n_V + 1, j, float(V_ext[-1]), float(mu_val)))
-    for i, V_val in enumerate(V_grid):            # left + right columns (no corners)
+    for i, V_val in enumerate(V_grid):  # left + right columns (no corners)
         outer.append((i + 1, 0, float(V_val), float(mu_ext[0])))
         outer.append((i + 1, n_mu + 1, float(V_val), float(mu_ext[-1])))
 
@@ -336,9 +334,7 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
             print(f"  {time.perf_counter() - t0:.1f}s")
         smax_parcel_ext[ext_i, ext_j] = s
 
-    dsmax_dV_parcel_num = _num_grad_log_interp(
-        smax_parcel_ext, V_ext, mu_ext, V_grid, mu_grid
-    )
+    dsmax_dV_parcel_num = _num_grad_log_interp(smax_parcel_ext, V_ext, mu_ext, V_grid, mu_grid)
 
     return {
         "V_grid": V_grid,
