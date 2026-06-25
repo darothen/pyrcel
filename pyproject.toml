@@ -10,12 +10,12 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE.md" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE.md"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: Unix",
     "Programming Language :: Python :: 3.11",
@@ -75,9 +75,6 @@ run_parcel = "pyrcel.scripts.run_parcel:run_parcel"
 [project.urls]
 Documentation = "https://pyrcel.readthedocs.io/en/latest/"
 Repository = "https://github.com/darothen/pyrcel"
-
-[tools.setuptools]
-packages = ["pyrcel"]
 
 [tool.setuptools.packages]
 find = {namespaces = false}
