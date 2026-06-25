@@ -187,6 +187,133 @@ _S_IDX = 6
 _N_REFINE = 64  # dense evaluations within the peak bracket for sub-grid accuracy
 
 
+def _peak_from_trajectory(
+    ts: np.ndarray, ys: np.ndarray, args: tuple
+) -> tuple[float, float, np.ndarray]:
+    """Find S_max from a saved trajectory via Hermite cubic interpolation.
+
+    Constructs cubic Hermite polynomials over the two sub-intervals bracketing
+    the coarse argmax.  The ODE right-hand side supplies exact endpoint
+    derivatives — the same polynomial family that diffrax uses for its
+    ``SaveAt(dense=True)`` interpolant — applied post-hoc to the saved discrete
+    output without a second solve.
+
+    The cubic Hermite on ``[t0, t1]`` parameterised by ``u = (t-t0)/h``:
+
+    .. math::
+
+        p(u) = (2u^3-3u^2+1)S_0 + (-2u^3+3u^2)S_1
+               + h(u^3-2u^2+u)\\dot{S}_0 + h(u^3-u^2)\\dot{S}_1
+
+    The peak time is found analytically by solving ``dp/du = 0`` (a quadratic
+    in ``u``) over both sub-intervals and returning the larger interior maximum.
+
+    Cost: 3 ODE RHS evaluations; no second ODE solve.
+
+    Parameters
+    ----------
+    ts : ndarray, shape ``(n,)``
+        Output times (monotonically increasing).
+    ys : ndarray, shape ``(n, 7 + nr)``
+        State trajectory at those times.
+    args : tuple
+        ``(r_drys, Nis, kappas, accom, V)`` forwarded to ``parcel_ode_sys``.
+
+    Returns
+    -------
+    smax : float
+        Refined peak supersaturation.
+    t_smax : float
+        Refined peak time (s).
+    y_argmax : ndarray, shape ``(7 + nr,)``
+        State at the coarse argmax index (used for ``z_smax`` / activation).
+    """
+    ts_a = np.asarray(ts)
+    ys_a = np.asarray(ys)
+    S = ys_a[:, _S_IDX]
+    n = len(ts_a)
+    if n < 3:
+        si = int(np.argmax(S))
+        return float(S[si]), float(ts_a[si]), ys_a[si]
+    si_raw = int(np.argmax(S))
+    si = int(np.clip(si_raw, 1, n - 2))
+
+    # ODE RHS at the three bracket points — exact derivatives, no finite differences.
+    # Same information diffrax stores per solver step for its dense interpolant.
+    def _f_at(i: int) -> Array:
+        return parcel_ode_sys(float(ts_a[i]), jnp.asarray(ys_a[i]), args)
+
+    f_m, f_c, f_p = _f_at(si - 1), _f_at(si), _f_at(si + 1)
+    dS_m = float(f_m[_S_IDX])
+    dS_c = float(f_c[_S_IDX])
+    dS_p = float(f_p[_S_IDX])
+
+    # Build cubic Hermite interpolants over each sub-interval using diffrax's
+    # built-in class — the same polynomial family as SaveAt(dense=True).
+    # NOTE: ThirdOrderHermitePolynomialInterpolation expects k0, k1 as
+    # dp/du (normalized slopes), i.e. k = h * dy/dt, not dy/dt itself.
+    def _make_interp(
+        i0: int, i1: int, f0: Array, f1: Array
+    ) -> dfx.ThirdOrderHermitePolynomialInterpolation:
+        h = float(ts_a[i1]) - float(ts_a[i0])
+        return dfx.ThirdOrderHermitePolynomialInterpolation(
+            t0=float(ts_a[i0]),
+            t1=float(ts_a[i1]),
+            y0=jnp.asarray(ys_a[i0]),
+            y1=jnp.asarray(ys_a[i1]),
+            k0=h * f0,
+            k1=h * f1,
+        )
+
+    def _hermite_peak(
+        interp: dfx.ThirdOrderHermitePolynomialInterpolation, dS0: float, dS1: float
+    ) -> tuple[float, float] | None:
+        """Peak of the cubic Hermite on the open interval (t0, t1), or None.
+
+        dS0, dS1 are the ODE dS/dt values at the endpoints, passed explicitly
+        to avoid the jax.jvp cost of interp.derivative().
+        """
+        t0, t1 = float(interp.t0), float(interp.t1)
+        h = t1 - t0
+        S0 = float(interp.evaluate(t0)[_S_IDX])
+        S1 = float(interp.evaluate(t1)[_S_IDX])
+        # dp/du = A·u² + B·u + C  (derivative of the cubic w.r.t. normalised u)
+        A = 6.0 * (S0 - S1) / h + 3.0 * (dS0 + dS1)
+        B = 6.0 * (S1 - S0) / h - 2.0 * (2.0 * dS0 + dS1)
+        C = dS0
+        if abs(A) < 1e-30:
+            u_roots = (-C / B,) if abs(B) > 1e-30 else ()
+        else:
+            disc = B * B - 4.0 * A * C
+            if disc < 0.0:
+                return None
+            sq = disc**0.5
+            u_roots = ((-B + sq) / (2.0 * A), (-B - sq) / (2.0 * A))
+        best: tuple[float, float] | None = None
+        for u in u_roots:
+            if not 0.0 < u < 1.0:
+                continue
+            if 2.0 * A * u + B >= 0.0:  # d²p/du² ≥ 0 → local minimum, skip
+                continue
+            S_pk = float(interp.evaluate(t0 + u * h)[_S_IDX])
+            if best is None or S_pk > best[0]:
+                best = (S_pk, t0 + u * h)
+        return best
+
+    r1 = _hermite_peak(_make_interp(si - 1, si, f_m, f_c), dS_m, dS_c)
+    r2 = _hermite_peak(_make_interp(si, si + 1, f_c, f_p), dS_c, dS_p)
+    candidates = [r for r in (r1, r2) if r is not None]
+    if candidates:
+        smax, t_smax = max(candidates, key=lambda x: x[0])
+    else:
+        # No interior peak found on either sub-interval (e.g. maximum lies exactly
+        # on a grid point or at a trajectory boundary).  Fall back to the raw grid
+        # maximum so boundary cases (si_raw != si) are handled correctly.
+        smax, t_smax = float(S[si_raw]), float(ts_a[si_raw])
+
+    return float(smax), float(t_smax), ys_a[si_raw]
+
+
 def max_supersaturation(
     y0: ArrayLike,
     args: tuple,

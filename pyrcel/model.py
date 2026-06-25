@@ -42,6 +42,7 @@ from .console_report import (
 from .equilibrate import equilibrate_initial_state
 from .integrator import (
     STATE_RTOL,
+    _peak_from_trajectory,
     find_smax,
     integrate_parcel,
     integrate_parcel_chunked,
@@ -323,13 +324,24 @@ class ParcelModel:
                 if live_printer is not None:
                     live_printer.finish()
                 ts, ys = np.asarray(ts), np.asarray(ys)
+                if not terminate:
+                    # Post-hoc S_max from the saved trajectory via Hermite cubic
+                    # interpolation — no second ODE solve required.
+                    smax, t_smax_f, _ = _peak_from_trajectory(ts, ys, self.args)
+                    activated = True
+                    peak = (smax, t_smax_f)
+                    # Height at the refined peak time via linear interpolation of
+                    # the saved trajectory (more accurate than the coarse-grid state).
+                    z_smax = float(np.interp(t_smax_f, ts, ys[:, c.STATE_VAR_MAP["z"]]))
+                else:
+                    z_smax = float("nan")
                 run_info = {
                     "success": success,
                     "activated": activated,
                     "t_smax": t_smax_f,
                     "smax": smax,
                     "t_cutoff": float(ts[-1]) if len(ts) else t_final,
-                    "z_smax": float(y_smax[0]) if y_smax is not None else float("nan"),
+                    "z_smax": z_smax,
                     "z_end": float(ys[-1, c.STATE_VAR_MAP["z"]]) if len(ys) else float("nan"),
                 }
             elif terminate:
@@ -404,16 +416,14 @@ class ParcelModel:
     def _compute_summary(self, peak: object = None) -> dict:
         assert self.x is not None
         assert self.time is not None
-        S = self.x[:, c.STATE_VAR_MAP["S"]]
         if peak is not None:
-            # Use the event-localized (precise) S_max/t_smax; take droplet radii from
-            # the nearest output sample for the activation diagnostics.
+            # Event-localized or caller-supplied precise S_max/t_smax.
             S_max, t_smax = float(peak[0]), float(peak[1])
             si = int(np.argmin(np.abs(self.time - t_smax)))
         else:
-            si = int(np.argmax(S))
-            S_max = float(S[si])
-            t_smax = float(self.time[si])
+            # Post-hoc Hermite cubic peak finder — no second solve.
+            S_max, t_smax, _ = _peak_from_trajectory(self.time, self.x, self.args)
+            si = int(np.argmin(np.abs(self.time - t_smax)))
         T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
         rs_smax = self.x[si, c.N_STATE_VARS :]
 

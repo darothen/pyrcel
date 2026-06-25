@@ -15,6 +15,20 @@ aerosol-cloud interaction studies. [Rothenberg and Wang (2016)](http://journals.
 
 [Detailed documentation is available](https://pyrcel.readthedocs.io/en/latest/), including a [scientific description](https://pyrcel.readthedocs.io/en/latest/user_guide/sci_descr/), [installation details](https://pyrcel.readthedocs.io/en/latest/getting_started/installation/), and a [basic example](https://pyrcel.readthedocs.io/en/latest/examples/basic_run/).
 
+> [!WARNING]
+> **Version 2.0 Notice**
+>
+> This is **pyrcel v2.0**, a major new release with more features, greater flexibility, and a JAX-based differentiable kernel. However, there are several **breaking changes** compared to version 1.3.x.
+>
+> Please review the [migration guide](https://pyrcel.readthedocs.io/en/latest/user_guide/migration/) to update your code.
+>
+> If you wish to continue using the legacy (v1.3.x) model, you can install it from PyPI by pinning the version:
+>
+> ```shell
+> pip install "pyrcel<2"
+> ```
+
+
 Quick Start
 -----------
 
@@ -37,9 +51,11 @@ import pyrcel as pm
 sulfate = pm.AerosolSpecies(
     "sulfate", pm.Lognorm(mu=0.05, sigma=2.0, N=1000.0), kappa=0.54, bins=50
 )
-model = pm.ParcelModel([sulfate], V=1.0, T0=283.15, S0=-0.02, P0=85000.0, console=True)
-output = model.run(t_end=200.0, output_dt=1.0, terminate=True)
-print(output.summary["S_max"])
+model = pm.ParcelModel([sulfate], V=1.0, T0=283.0, S0=-0.02, P0=85000.0, console=True)
+output = model.run(t_end=300.0, output_dt=10.0, terminate=True, live=True)
+
+print(f"S_max  = {output.summary['S_max']*100:.3f} %")
+print(f"N_act  = {output.Nd:.3e} m⁻³")
 ```
 
 Key capabilities:
@@ -139,7 +155,10 @@ original publication detailing the model:
       url = "https://journals.ametsoc.org/view/journals/atsc/73/3/jas-d-15-0223.1.xml"
 }
 ```
-
+Additionally, please consider citing the bespoke DOI for the
+[specific release version of pyrcel](https://zenodo.org/records/20693507)
+that you used during your research (or the base version you modified). This
+allows us to track adoption and use of specific model versions over time.
 
 [author_email]: mailto:daniel@danielrothenberg.com
 [nenes2001]: https://onlinelibrary.wiley.com/doi/abs/10.1034/j.1600-0889.2001.d01-12.x

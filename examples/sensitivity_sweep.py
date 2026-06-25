@@ -397,51 +397,51 @@ def _plot(data: dict, path: str) -> None:
 
     # --- Global colour limits -------------------------------------------------
 
-    all_grad = np.concatenate([
-        arr[np.isfinite(arr)]
-        for rdef in row_defs
-        for arr in (rdef["exact"], rdef["num"])
-    ])
+    all_grad = np.concatenate(
+        [arr[np.isfinite(arr)] for rdef in row_defs for arr in (rdef["exact"], rdef["num"])]
+    )
     grad_vmax = float(np.nanpercentile(np.abs(all_grad), 98))
     grad_norm = mcolors.Normalize(vmin=0, vmax=grad_vmax)
 
-    all_err = np.concatenate([
-        (rdef["exact"] - rdef["num"])[
-            np.isfinite(rdef["exact"]) & np.isfinite(rdef["num"])
+    all_err = np.concatenate(
+        [
+            (rdef["exact"] - rdef["num"])[np.isfinite(rdef["exact"]) & np.isfinite(rdef["num"])]
+            for rdef in row_defs
         ]
-        for rdef in row_defs
-    ])
+    )
     err_vlim = max(float(np.nanpercentile(np.abs(all_err), 98)), 1e-10)
     err_norm = mcolors.TwoSlopeNorm(vmin=-err_vlim, vcenter=0.0, vmax=err_vlim)
 
     # --- Font sizes -----------------------------------------------------------
-    FS_TICK  = 11
+    FS_TICK = 11
     FS_LABEL = 13
     FS_TITLE = 11
 
     # --- Layout: 3×4 [exact | num | gap | error]; colorbars below as h-bars --
     fig = plt.figure(figsize=(13, 10))
     gs = GridSpec(
-        3, 4,
+        3,
+        4,
         figure=fig,
         hspace=0.28,
         wspace=0.12,
         width_ratios=[10, 10, 1.5, 8],
-        left=0.09, right=0.95, top=0.93, bottom=0.22,
+        left=0.09,
+        right=0.95,
+        top=0.93,
+        bottom=0.22,
     )
-    plot_axes = np.array(
-        [[fig.add_subplot(gs[i, j]) for j in (0, 1, 3)] for i in range(3)]
-    )
+    plot_axes = np.array([[fig.add_subplot(gs[i, j]) for j in (0, 1, 3)] for i in range(3)])
 
     # Horizontal colorbars: derive position from the numerical column bbox.
     pos_num = gs[0, 1].get_position(fig)
     cbar_cx = (pos_num.x0 + pos_num.x1) / 2
-    cbar_w  = (pos_num.x1 - pos_num.x0) * 1.4   # column width + 40%
+    cbar_w = (pos_num.x1 - pos_num.x0) * 1.4  # column width + 40%
     cbar_x0 = cbar_cx - cbar_w / 2
-    cbar_h  = 0.028
+    cbar_h = 0.028
 
     cax_grad = fig.add_axes([cbar_x0, 0.13, cbar_w, cbar_h])  # above
-    cax_err  = fig.add_axes([cbar_x0, 0.05, cbar_w, cbar_h])  # below
+    cax_err = fig.add_axes([cbar_x0, 0.05, cbar_w, cbar_h])  # below
 
     col_titles = [
         "Exact adjoint  (jax.grad)",
@@ -450,21 +450,23 @@ def _plot(data: dict, path: str) -> None:
     ]
 
     # Tick positions: explicit decimals, minor ticks suppressed.
-    x_ticks = [t for t in [0.1, 0.2, 0.5, 1, 2, 3]
-                if V_grid.min() * 0.99 <= t <= V_grid.max() * 1.01]
-    y_ticks = [t for t in [0.02, 0.03, 0.05, 0.1, 0.2, 0.3]
-                if mu_grid.min() * 0.99 <= t <= mu_grid.max() * 1.01]
+    x_ticks = [
+        t for t in [0.1, 0.2, 0.5, 1, 2, 3] if V_grid.min() * 0.99 <= t <= V_grid.max() * 1.01
+    ]
+    y_ticks = [
+        t
+        for t in [0.02, 0.03, 0.05, 0.1, 0.2, 0.3]
+        if mu_grid.min() * 0.99 <= t <= mu_grid.max() * 1.01
+    ]
     dec_fmt = FuncFormatter(lambda x, _: f"{x:g}")
 
     for i_row, rdef in enumerate(row_defs):
         exact = rdef["exact"]
-        num   = rdef["num"]
-        err   = np.where(np.isfinite(exact) & np.isfinite(num), exact - num, np.nan)
+        num = rdef["num"]
+        err = np.where(np.isfinite(exact) & np.isfinite(num), exact - num, np.nan)
 
         for i_col, (arr, norm, cmap) in enumerate(
-            [(exact, grad_norm, "plasma"),
-             (num,   grad_norm, "plasma"),
-             (err,   err_norm,  "RdBu_r")]
+            [(exact, grad_norm, "plasma"), (num, grad_norm, "plasma"), (err, err_norm, "RdBu_r")]
         ):
             ax = plot_axes[i_row, i_col]
             ax.pcolormesh(V_grid, mu_grid, arr.T, cmap=cmap, norm=norm, shading="auto")
@@ -487,8 +489,7 @@ def _plot(data: dict, path: str) -> None:
             if i_col == 0:
                 ax.yaxis.set_major_locator(FixedLocator(y_ticks))
                 ax.yaxis.set_major_formatter(dec_fmt)
-                ax.set_ylabel(rdef["label"] + "\n$\\mu$ (µm)",
-                              fontsize=FS_LABEL, labelpad=4)
+                ax.set_ylabel(rdef["label"] + "\n$\\mu$ (µm)", fontsize=FS_LABEL, labelpad=4)
             else:
                 ax.tick_params(axis="y", labelleft=False)
 
@@ -497,7 +498,8 @@ def _plot(data: dict, path: str) -> None:
     cbar_grad = fig.colorbar(sm_grad, cax=cax_grad, orientation="horizontal")
     cbar_grad.set_label(
         r"$\partial S_{\mathrm{max}}/\partial V$  (% (m s$^{-1}$)$^{-1}$)",
-        fontsize=FS_LABEL - 1, labelpad=5,
+        fontsize=FS_LABEL - 1,
+        labelpad=5,
     )
     cbar_grad.ax.tick_params(labelsize=FS_TICK)
 
@@ -505,7 +507,8 @@ def _plot(data: dict, path: str) -> None:
     cbar_err = fig.colorbar(sm_err, cax=cax_err, orientation="horizontal")
     cbar_err.set_label(
         r"$\Delta\,\partial S_{\mathrm{max}}/\partial V$  (% (m s$^{-1}$)$^{-1}$)",
-        fontsize=FS_LABEL - 1, labelpad=5,
+        fontsize=FS_LABEL - 1,
+        labelpad=5,
     )
     cbar_err.ax.tick_params(labelsize=FS_TICK)
 

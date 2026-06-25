@@ -179,6 +179,16 @@ diagnostics, at the cost of JIT overhead per chunk and incompatibility with
 `jax.grad`. See the [migration guide](migration.md) for the full display-option
 comparison (`progress`, `live`, `trajectory_table`).
 
+For interactive runs without early termination (`terminate=False`), $S_\text{max}$
+is located post-hoc from the saved trajectory rather than by a second ODE solve.
+The interactive layer constructs cubic Hermite polynomials over the two
+sub-intervals bracketing the discrete argmax, using `parcel_ode_sys` to supply
+the exact endpoint derivatives $\dot{S}$ — the same polynomial family diffrax
+stores per solver step when `SaveAt(dense=True)` is used — and finds the
+analytic maximum by solving the resulting quadratic $dp/du = 0$. The cost is
+three RHS evaluations; the accuracy is O($\Delta t^4$) where $\Delta t$ is the
+output spacing.
+
 ---
 
 ## Supersaturation-maximum event detection
@@ -216,7 +226,7 @@ through a data-dependent control-flow decision. As a result,
 instead:
 
 ```python
-# Differentiable: fixed t_end, S_max found as argmax over output grid
+# Differentiable: dense interpolant + Newton refinement (exact via envelope theorem)
 from pyrcel.integrator import max_supersaturation
 smax = max_supersaturation(y0, args, ts)
 grad_smax = jax.grad(max_supersaturation, argnums=(0, 1))(y0, args, ts)
@@ -228,7 +238,111 @@ grad_nd = jax.grad(nd_from_parcel, argnums=(0, 1))(y0, args, t_end)
 ```
 
 The `ts` array passed to `max_supersaturation` must span the supersaturation
-peak; a conservative choice is `ts = jnp.linspace(0, t_end, n_output)`.
+peak; see [Differentiable $S_\text{max}$](#differentiable-s_max-dense-interpolation-and-newton-refinement)
+below for guidance on sizing and scaling `ts`.
+
+---
+
+## Differentiable $S_\text{max}$: dense interpolation and Newton refinement
+
+Computing a gradient-accurate $S_\text{max}$ requires more than returning
+`jnp.max(sol.ys[:, 6])`. The adaptive solver takes slightly different internal
+step structures for slightly different parameter values (especially updraft
+speed $V$). With a discrete output grid, the argmax occasionally jumps by one
+time step as $V$ varies, producing an aliased, non-monotone $S_\text{max}(V)$
+curve with alternating-sign gradient kinks of $\sim 10^{-3}$ relative
+amplitude. Quadratic correction at the argmax is roughly $10^3$ times too
+small to close this gap.
+
+`max_supersaturation` eliminates the aliasing with a three-stage peak-finding
+procedure on the solver's continuous **Hermite polynomial interpolant**
+(`SaveAt(dense=True)`).
+
+### Stage 1 — coarse bracket on the dense solution
+
+The solve stores a full piecewise-polynomial interpolant $\widetilde{S}(t)$
+over the integration interval rather than a discrete trajectory. The
+caller-supplied `ts` is used only as a *probe array* to locate the approximate
+peak bin:
+
+$$
+i^\ast = \operatorname{argmax}_{j}\, \widetilde{S}(t_j), \qquad
+t_j \in \mathbf{ts}
+$$
+
+$i^\ast$ is `stop_gradient`'d and used solely to define the bracket
+$[t_{i^\ast - 1},\, t_{i^\ast + 1}]$.
+
+### Stage 2 — fine-grid refinement
+
+Within that two-cell bracket, $N_\text{refine} = 64$ equally-spaced
+evaluations of the same continuous interpolant narrow the bracket to
+$2\,\Delta t / N_\text{refine}$. For a 600-point output grid spanning 1500 s,
+this is $\lesssim 0.09$ s.
+
+### Stage 3 — Newton correction
+
+One Newton step using the exact ODE right-hand side for $dS/dt$ and
+second-order finite differences for $d^2S/dt^2$ from the fine grid drives the
+peak-time residual to near machine precision:
+
+$$
+t_\text{peak} \leftarrow t_\text{fine} - \frac{(dS/dt)\big|_{t_\text{fine}}}{(d^2S/dt^2)\big|_{t_\text{fine}}}
+$$
+
+where $(dS/dt)|_t = \mathbf{f}(t, \mathbf{y}(t), \boldsymbol{\theta})[6]$ is
+read directly from `parcel_ode_sys` (exact, not finite-differenced). All three
+stages operate entirely under `jax.lax.stop_gradient`.
+
+### Why `stop_gradient` on $t_\text{peak}$ is exact
+
+Treating $t_\text{peak}$ as a non-differentiable constant is not an
+approximation. By the **envelope theorem**, at a smooth interior maximum
+
+$$
+\frac{dS_\text{max}}{d\theta} = \frac{\partial S}{\partial \theta}\bigg|_{t_\text{peak}}
+$$
+
+the implicit dependence of $t_\text{peak}$ on $\theta$ drops out identically.
+Gradient flows correctly through the diffrax adjoint from the single
+`sol.evaluate(t_peak)` call, with no contribution from the bracket-finding
+logic.
+
+### Output-grid sizing and $t_\text{end}$ scaling
+
+Because the dense interpolant is evaluated at `ts` only for the coarse bracket,
+the grid need not be fine — it must only be dense enough to contain the
+supersaturation peak.
+
+**Rule 1 — ensure the peak lies in the interior.** `ts[-1]` must extend past
+$S_\text{max}$ with at least one grid point beyond the peak. For a parcel
+ascending from cloud base, the peak occurs at altitude
+$z \approx z_0 + V \cdot t_\text{peak}$. A robust horizon choice is
+
+$$
+t_\text{end} \approx \frac{1500\,\text{m}}{V},
+\qquad \text{clamped to } [200\,\text{s},\, 15000\,\text{s}]
+$$
+
+which guarantees the solver reaches $\sim 1500$ m above cloud base regardless
+of updraft speed.
+
+**Rule 2 — fix the array shape across $V$ for JIT reuse.** All calls with the
+same `ts.shape[0]` reuse the same compiled XLA kernel. Scale only `t_end` with
+$V$, keeping the number of output points constant:
+
+```python
+_N_TS = 600  # fixed; triggers one JIT compilation
+
+def ts_for_V(V: float) -> jnp.ndarray:
+    t_end = max(200.0, min(1500.0 / V, 15000.0))
+    return jnp.linspace(0.0, t_end, _N_TS)
+```
+
+**Rule 3 — `t_end(V)` does not bias the adjoint.** Because $S_\text{max}$ is
+at an interior maximum, the envelope theorem also gives
+$\partial S_\text{max}/\partial t_\text{end} = 0$, so the $t_\text{end} \propto
+1/V$ coupling introduces no gradient error.
 
 ---
 
