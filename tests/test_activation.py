@@ -243,7 +243,6 @@ def test_arg2000_class_repr():
 # Cross-check: JAX binned/lognormal helpers vs legacy (approx=True)
 # ---------------------------------------------------------------------------
 
-import numpy as np  # noqa: E402 (already imported above, kept for clarity)
 
 from pyrcel.activation import (  # noqa: E402
     binned_activation,
@@ -254,7 +253,11 @@ from pyrcel.aerosol import AerosolSpecies  # noqa: E402
 from pyrcel.distributions import Lognorm  # noqa: E402
 from pyrcel.legacy.activation import (  # noqa: E402
     binned_activation as binned_leg,
+)
+from pyrcel.legacy.activation import (
     lognormal_activation as lognormal_leg,
+)
+from pyrcel.legacy.activation import (
     multi_mode_activation as multi_mode_leg,
 )
 
