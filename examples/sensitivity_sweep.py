@@ -5,8 +5,10 @@ For each of three methods, computes ∂Smax/∂V two ways on a 10×10 grid of
 updraft speed V and lognormal median radius μ:
 
   * Exact adjoint  — jax.grad propagated through the full computation.
-  * Numerical      — central finite differences via numpy.gradient on the
-                     pre-computed Smax grid.
+  * Numerical      — central differences on an extended (V, μ) grid (one extra
+                     log-spaced node in each direction) so every original node
+                     uses a central difference; values are interpolated back via
+                     bilinear interpolation in log(V) × log(μ) space.
 
 For the parameterizations (ARG2000, MBN2014) both paths are cheap; for the
 parcel model the adjoint is obtained by calling jax.grad at each grid point
@@ -392,7 +394,7 @@ def _plot(data: dict, path: str) -> None:
     ]
     col_titles = [
         "Exact adjoint  (jax.grad)",
-        r"Numerical  (np.gradient on grid)",
+        "Numerical  (central diff, extended grid)",
     ]
 
     fig, axes = plt.subplots(3, 2, figsize=(9, 9), squeeze=False)

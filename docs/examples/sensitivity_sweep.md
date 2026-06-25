@@ -68,32 +68,52 @@ dS_dV_exact = jax.grad(smax_arg, argnums=0)(1.0, 0.05)
 ```
 
 For the parcel model, the adjoint is computed the same way but the function
-wraps the ODE integrator.  To reuse a single JAX compilation across the full
-grid, all array-valued inputs are passed as explicit arguments (not closed
-over):
+wraps the ODE integrator.  The output time grid `ts` varies with `V` (to keep
+the integration horizon near ~1500 m for every grid point), so it is passed as
+an explicit argument alongside the other inputs so the JIT-compiled kernel is
+reused across the grid:
 
 ```python
 from pyrcel.integrator import max_supersaturation
 from pyrcel.updraft import ConstantV
 
-def smax_parcel(V_val, y0, r_drys, Nis, kappas_arr):
+def smax_parcel(V_val, y0, r_drys, Nis, kappas_arr, ts):
     return max_supersaturation(
         y0, (r_drys, Nis, kappas_arr, accom, ConstantV(V_val)), ts
     )
 
 grad_parcel = jax.jit(jax.grad(smax_parcel, argnums=0))
-dS_dV_exact = grad_parcel(V_val, y0, r_drys, Nis, kappas_arr)
+dS_dV_exact = grad_parcel(V_val, y0, r_drys, Nis, kappas_arr, ts)
 ```
 
 The JIT compilation happens once on the first call; all subsequent grid points
-reuse the compiled kernel.
+reuse the compiled kernel.  Passing `ts` as an argument does not bias the
+gradient: by the envelope theorem, `d(S_max)/d(t_end) = 0` whenever the
+supersaturation peak is strictly interior to `[t0, t_end]`, so the
+`∂S_max/∂t_end · dt_end/dV` coupling term vanishes identically.
 
-The numerical approximation is then identical for every method:
+### Numerical gradient
+
+The numerical approximation is computed on an extended grid — one extra
+log-spaced node in each direction beyond the original (V, μ) grid — so that
+every original node uses a central difference rather than a one-sided estimate.
+The gradient values are then interpolated back to the original grid using
+bilinear interpolation in log(V) × log(μ) space:
 
 ```python
 import numpy as np
+from scipy.interpolate import RegularGridInterpolator
 
-dsmax_dV_num = np.gradient(smax_grid, V_grid, axis=0)
+# Evaluate S_max on the extended grid, then take central differences.
+dsmax_dV_ext = np.gradient(smax_ext, V_ext, axis=0)
+
+# Interpolate back to original nodes in log-space.
+interp = RegularGridInterpolator(
+    (np.log10(V_ext), np.log10(mu_ext)),
+    dsmax_dV_ext, method="linear",
+)
+coords = np.array([[np.log10(V), np.log10(mu)] for V in V_grid for mu in mu_grid])
+dsmax_dV_num = interp(coords).reshape(len(V_grid), len(mu_grid))
 ```
 
 ## Output figure
@@ -102,19 +122,23 @@ dsmax_dV_num = np.gradient(smax_grid, V_grid, axis=0)
 
 **Layout:** 3 rows × 2 columns. Each row is one method; the left column shows
 the exact adjoint gradient and the right column shows the numerical
-finite-difference estimate. Colorbars are shared within each row so that
-discrepancies between exact and numerical are immediately visible.
+central-difference estimate on the extended grid. Colorbars are shared within
+each row so that discrepancies between exact and numerical are immediately
+visible.
 
-**Parcel model (row 1).** The adjoint gradient is obtained by backpropagating
-through the full ODE solver — an expensive but exact operation. The numerical
-estimate (right) recovers the same broad pattern from the forward-pass grid
-alone.  Discrepancies are largest near steep gradients at the boundaries of the
-domain, where the 10-point grid is coarsest.
+**Parcel model (row 1).** The adjoint is obtained by backpropagating through
+the full ODE solver via the diffrax continuous-output interpolant, which
+eliminates the discrete-argmax aliasing that would otherwise corrupt the
+gradient when the adaptive integrator's step structure shifts with V. The
+numerical estimate (right) recovers the same broad spatial pattern; remaining
+differences reflect the finite 10-point grid resolution.
 
 **ARG2000 (row 2).** The closed-form parameterization is fully differentiable
-at negligible cost. For this method the exact and numerical gradients agree
-closely across the entire domain, providing a useful sanity check for the
-grid-based approach.
+at negligible cost. Exact and numerical gradients agree closely across the
+entire domain, providing a useful sanity check.
 
-**MBN2014 (row 3).** Similar to ARG2000. Any residual mismatch between columns
-reflects the finite grid spacing rather than errors in either gradient method.
+**MBN2014 (row 3).** Uses a `jax.custom_vjp` wrapper over a `while_loop`
+bisection, with the implicit function theorem (IFT) supplying the backward
+pass. Gradients are available across the full parameter range, including the
+"critical" population-splitting regime (large μ, large V) that previously
+produced NaN due to a `sqrt(max(x, 0))` anti-pattern in the backward pass.
