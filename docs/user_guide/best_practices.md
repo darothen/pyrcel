@@ -28,14 +28,32 @@ The XLA kernel is respecialised whenever `ts.shape[0]` changes. Keep
 `n_output` constant and vary only `t_end`:
 
 ```python
-N_TS = 600   # constant: one JIT compilation for all V
+N_TS = 3000  # constant: one JIT compilation for all V
 
 def ts_for_V(V: float) -> jnp.ndarray:
     t_end = float(max(200.0, min(1500.0 / V, 15000.0)))
     return jnp.linspace(0.0, t_end, N_TS)
 ```
 
-**3. `t_end ∝ 1/V` does not bias gradients.**
+**3. Keep the output spacing ≲ 5 s for accurate gradients.**
+`max_supersaturation` finds the peak via a cubic Hermite polynomial on the
+saved output grid, with O(h⁴) gradient accuracy where h is the grid spacing.
+At low updraft speeds V the integration horizon t_end grows as 1/V (Rule 1),
+so a *fixed* N_TS can produce very coarse spacing: at V = 0.1 m/s and
+N_TS = 600, h = 25 s, which degrades adjoint accuracy by ~10⁴× relative to
+h = 2.5 s. Use N_TS ≥ t_end / 5 s as a lower bound, or target
+`N_TS = ceil(t_end_max / 5)` at the lowest V in your sweep:
+
+```python
+# Rule of thumb: target h ≤ 5 s across the full V range
+t_end_max = 1500.0 / V_min          # e.g. 15 000 s at V_min = 0.1 m/s
+N_TS = max(600, int(t_end_max / 5))  # → 3 000 at V_min = 0.1 m/s
+```
+
+Increasing N_TS beyond 3 000 rarely improves forward accuracy, but the
+compilation cost is paid only once.
+
+**4. `t_end ∝ 1/V` does not bias gradients.**
 By the envelope theorem, $\partial S_\text{max}/\partial t_\text{end} = 0$
 whenever the peak is in the interior, so scaling `t_end` with $V$ introduces
 no gradient error.
@@ -48,7 +66,7 @@ no gradient error.
 |---|---|---|
 | Forward simulation + trajectory | `integrate_parcel` / `integrate_parcel_arrays` | Returns full state history |
 | Interactive run with termination | `ParcelModel.run(terminate=True)` | Uses event detection; not differentiable |
-| Differentiable $S_\text{max}$ | `max_supersaturation(y0, args, ts)` | Dense interpolant + Newton; `jax.grad`-able |
+| Differentiable $S_\text{max}$ | `max_supersaturation(y0, args, ts)` | Hermite cubic peak finder; `jax.grad`-able |
 | Differentiable $N_d$ | `nd_from_parcel(y0, args, t_end)` | Sigmoid soft threshold; `jax.grad`-able |
 | Precise $t_{S_\text{max}}$ location | `find_smax(y0, args, t_end)` | Event-based; **not** differentiable |
 | MBN2014 parameterisation gradient | `mbn2014_smax(...)` | IFT custom VJP; exact gradient |
@@ -78,8 +96,8 @@ y0 = equilibrate_initial_state(T0, S0, P0, r_drys, kappas, Nis)
 V  = pm.ConstantV(v_val)
 args = (r_drys, Nis, kappas, accom, V)
 
-# 3. Choose ts: fixed shape, t_end past S_max
-ts = jnp.linspace(0.0, 1500.0 / v_val, 600)
+# 3. Choose ts: fixed shape, t_end past S_max, h ≤ 5 s for gradient accuracy
+ts = jnp.linspace(0.0, 1500.0 / v_val, 3000)
 
 # 4. Warm up JIT (first call compiles; subsequent calls are fast)
 _ = jax.block_until_ready(max_supersaturation(y0, args, ts))

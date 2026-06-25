@@ -137,9 +137,11 @@ the saved discrete trajectory (`SaveAt(ts=ts)`).  The ODE right-hand side
 supplies exact endpoint derivatives at the three bracket points, and the
 supersaturation peak is located analytically by solving the resulting quadratic
 `dp/du = 0` — eliminating the aliasing that arises when the adaptive
-integrator's step structure shifts with V.  The error column shows a roughly
-structured residual — mostly blue (exact < numerical) at small μ and low V —
-reflecting coarse-grid truncation error in the numerical estimate.
+integrator's step structure shifts with V.  The error column shows light blue
+across most of the domain (exact slightly < numerical), reflecting the O(h⁴)
+truncation error in the Hermite peak finder at the ~5 s output spacing, with
+warm tones at large μ where the S_max surface is very flat and the coarse
+extended-grid numerical estimate has poor signal-to-noise.
 
 **ARG2000 (row 2).** The closed-form parameterization is fully differentiable
 at negligible cost. The error column is nearly white across most of the domain,
