@@ -228,7 +228,7 @@ through a data-dependent control-flow decision. As a result,
 instead:
 
 ```python
-# Differentiable: dense interpolant + Newton refinement (exact via envelope theorem)
+# Differentiable: Hermite cubic peak finder (exact via envelope theorem)
 from pyrcel.integrator import max_supersaturation
 smax = max_supersaturation(y0, args, ts)
 grad_smax = jax.grad(max_supersaturation, argnums=(0, 1))(y0, args, ts)
