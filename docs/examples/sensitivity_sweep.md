@@ -8,14 +8,13 @@ central-difference** approximation — for each of three methods:
 |--------|---------------|-----------|
 | Parcel model | Full ODE (JAX/diffrax) | `jax.grad` through the integrator (adjoint) |
 | ARG2000 | Closed-form | `jax.grad` (analytical) |
-| MBN2014 | Iterative | `jax.grad` (analytical) |
+| MBN2014 | Iterative | `jax.grad` via implicit function theorem (IFT) |
 
-The numerical gradient is computed identically for all three methods:
-`numpy.gradient` applied to the pre-computed $S_\text{max}$ grid.  Comparing
-the two columns reveals where finite-difference approximation on a coarse grid
-diverges from the true gradient — and highlights why differentiable
-parameterizations are valuable even when a grid-based approximation seems
-sufficient.
+The figure has three columns per row: the exact adjoint, the numerical central-difference
+estimate on an extended grid, and the signed error (exact − numerical).
+Comparing the first two columns reveals where finite-difference approximation on a
+coarse grid diverges from the true gradient; the third column makes the discrepancy
+explicit and symmetric.
 
 **Script:** [`examples/sensitivity_sweep.py`](https://github.com/darothen/pyrcel/blob/master/examples/sensitivity_sweep.py)
 
@@ -120,25 +119,35 @@ dsmax_dV_num = interp(coords).reshape(len(V_grid), len(mu_grid))
 
 ![Exact vs numerical ∂Smax/∂V for parcel model, ARG2000, and MBN2014](../assets/figures/sensitivity_sweep.png)
 
-**Layout:** 3 rows × 2 columns. Each row is one method; the left column shows
-the exact adjoint gradient and the right column shows the numerical
-central-difference estimate on the extended grid. Colorbars are shared within
-each row so that discrepancies between exact and numerical are immediately
-visible.
+**Layout:** 3 rows × 3 columns. Each row is one method.
+
+| Column | Content | Colormap |
+|--------|---------|----------|
+| Left | Exact adjoint (`jax.grad`) | plasma (0 → max) |
+| Centre | Numerical (central diff, extended grid) | plasma, shared scale |
+| Right | Signed error: exact − numerical | RdBu_r, symmetric about 0 |
+
+Two horizontal colorbars are shown below the grid: one shared plasma scale for
+the left and centre columns, and one symmetric diverging scale for the error
+column.  Both scales are global across all three rows.
 
 **Parcel model (row 1).** The adjoint is obtained by backpropagating through
-the full ODE solver via the diffrax continuous-output interpolant, which
-eliminates the discrete-argmax aliasing that would otherwise corrupt the
-gradient when the adaptive integrator's step structure shifts with V. The
-numerical estimate (right) recovers the same broad spatial pattern; remaining
-differences reflect the finite 10-point grid resolution.
+the full ODE solver via the diffrax continuous-output (dense) interpolant.
+Locating the supersaturation peak on the continuous polynomial rather than the
+discrete saved-point grid eliminates the aliasing that arises when the adaptive
+integrator's step structure shifts with V.  The error column shows a roughly
+structured residual — mostly blue (exact < numerical) at small μ and low V —
+reflecting coarse-grid truncation error in the numerical estimate.
 
 **ARG2000 (row 2).** The closed-form parameterization is fully differentiable
-at negligible cost. Exact and numerical gradients agree closely across the
-entire domain, providing a useful sanity check.
+at negligible cost. The error column is nearly white across most of the domain,
+confirming that the two methods agree closely and providing a sanity check for
+both the adjoint and the extended-grid numerical approach.
 
 **MBN2014 (row 3).** Uses a `jax.custom_vjp` wrapper over a `while_loop`
 bisection, with the implicit function theorem (IFT) supplying the backward
-pass. Gradients are available across the full parameter range, including the
-"critical" population-splitting regime (large μ, large V) that previously
-produced NaN due to a `sqrt(max(x, 0))` anti-pattern in the backward pass.
+pass. Gradients are available across the full (V, μ) range, including the
+"critical" population-splitting regime (large μ) that previously produced NaN
+due to a `sqrt(max(x, 0))` anti-pattern in the backward pass. The error column
+shows the largest signed residuals along the critical-branch boundary, where
+both the IFT gradient and the coarse-grid numerical estimate are least smooth.
