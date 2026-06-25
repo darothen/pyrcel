@@ -6,13 +6,13 @@ employing a detailed description of the condensation of ambient water vapor onto
 droplets, these models accurately describe the activation of a subset of the aerosol
 population by predicting how the aerosols modify the maximum supersaturation achieved as
 the parcel rises. These models also serve as the theoretical basis for parameterizations
-of droplet activation included in modern general circulation models [Ghan2011].
+of droplet activation included in modern general circulation models [[Ghan2011](#Ghan2011)].
 
 ## Model Formulation
 
 The adiabatic cloud parcel model implemented here is based on models described in the
-literature [Nenes2001, SP2006] with modifications and improvements; for a full
-description see [Rothenberg2016]. The conservation of heat in a parcel rising at constant
+literature [[Nenes2001](#Nenes2001), [SP2006](#SP2006)] with modifications and improvements; for a full
+description see [[Rothenberg2016](#Rothenberg2016)]. The conservation of heat in a parcel rising at constant
 velocity $V$ without entrainment is:
 
 $$
@@ -50,7 +50,7 @@ $$
 
 Droplet growth is modulated by the difference between the environmental supersaturation
 $S$ and the droplet equilibrium supersaturation $S_{\text{eq}}$ from Köhler theory. The
-$\kappa$-Köhler parameterization [PK2007] describes hygroscopicity with a single
+$\kappa$-Köhler parameterization [[PK2007](#PK2007)] describes hygroscopicity with a single
 parameter $\kappa$ relating the water activity of an aqueous solution to the ratio of
 solute to water volumes:
 
@@ -122,7 +122,7 @@ represented as sums of lognormal modes.
 The model discretizes each continuous distribution into $n$ size bins. If no explicit
 bounds are specified, $n$ log-spaced bins are placed over $[\mu_g / 10\sigma_g,\,
 10\sigma_g \mu_g]$. Typical runs use 100–200 bins per mode; the model shows little
-sensitivity to the bin density [Rothenberg2016].
+sensitivity to the bin density [[Rothenberg2016](#Rothenberg2016)].
 
 A single $\kappa$ value is prescribed per mode, but the model tracks hygroscopicity
 per bin, allowing size-dependent composition and external mixing states.
@@ -146,21 +146,21 @@ adjoint differentiation is in the [Numerical Methods](numerical_methods.md) guid
 
 ## References
 
-[Nenes2001] Nenes, A., Ghan, S., Abdul-Razzak, H., Chuang, P. Y., & Seinfeld, J. H.
+<a id="Nenes2001"></a>**[Nenes2001]** Nenes, A., Ghan, S., Abdul-Razzak, H., Chuang, P. Y., & Seinfeld, J. H.
 (2001). Kinetic limitations on cloud droplet formation and impact on cloud albedo.
 *Tellus B*, **53**(2), 133–149. doi:[10.1034/j.1600-0889.2001.d01-12.x](https://doi.org/10.1034/j.1600-0889.2001.d01-12.x)
 
-[SP2006] Seinfeld, J. H., & Pandis, S. N. (2006). *Atmospheric Chemistry and Physics:
+<a id="SP2006"></a>**[SP2006]** Seinfeld, J. H., & Pandis, S. N. (2006). *Atmospheric Chemistry and Physics:
 From Air Pollution to Climate Change* (2nd ed.). Wiley.
 
-[Rothenberg2016] Rothenberg, D., & Wang, C. (2016). Metamodeling of droplet activation
+<a id="Rothenberg2016"></a>**[Rothenberg2016]** Rothenberg, D., & Wang, C. (2016). Metamodeling of droplet activation
 for global climate models. *J. Atmos. Sci.*, **73**(4), 1255–1272.
 doi:[10.1175/JAS-D-15-0223.1](https://doi.org/10.1175/JAS-D-15-0223.1)
 
-[PK2007] Petters, M. D., & Kreidenweis, S. M. (2007). A single parameter
+<a id="PK2007"></a>**[PK2007]** Petters, M. D., & Kreidenweis, S. M. (2007). A single parameter
 representation of hygroscopic growth and cloud condensation nucleus activity.
 *Atmos. Chem. Phys.*, **7**(8), 1961–1971. doi:[10.5194/acp-7-1961-2007](https://doi.org/10.5194/acp-7-1961-2007)
 
-[Ghan2011] Ghan, S. J., et al. (2011). Droplet nucleation: Physically-based
+<a id="Ghan2011"></a>**[Ghan2011]** Ghan, S. J., et al. (2011). Droplet nucleation: Physically-based
 parameterizations and comparative evaluation. *J. Adv. Model. Earth Syst.*,
 **3**(4), M10001. doi:[10.1029/2011MS000074](https://doi.org/10.1029/2011MS000074)

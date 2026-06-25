@@ -35,6 +35,25 @@
   font-size: 0.875rem;
 }
 
+/* ── Admonitions and callout boxes ───────────────────────────────────────── */
+
+/* Ensure admonition body text matches body font size */
+.md-typeset .admonition,
+.md-typeset details {
+  font-size: inherit;
+}
+
+/* ── API parameter/return tables ─────────────────────────────────────────── */
+
+/* mkdocstrings renders numpy-style sections as tables; inherit body size */
+.doc-contents table,
+.doc-contents table th,
+.doc-contents table td,
+.doc-md-description,
+.doc-section {
+  font-size: inherit;
+}
+
 /* ── API docs: prevent horizontal overflow ────────────────────────────────── */
 
 /* Wrap signatures rendered as code blocks by mkdocstrings */

@@ -71,9 +71,9 @@ class ParcelModel:
 
     Parameters
     ----------
-    aerosols : sequence of [pyrcel.aerosol.AerosolSpecies][]
+    aerosols : Sequence[pyrcel.aerosol.AerosolSpecies]
         The aerosol population in the parcel.
-    V : float or [pyrcel.updraft.AbstractUpdraft][]
+    V : float | pyrcel.updraft.AbstractUpdraft
         Updraft speed (m/s). A scalar is a constant updraft; pass a
         [InterpolatedUpdraft][pyrcel.updraft.InterpolatedUpdraft] for a time-varying ``V(t)``.
     T0, S0, P0 : float
@@ -82,7 +82,7 @@ class ParcelModel:
         Condensation/accommodation coefficient (default `pyrcel.constants.ac`).
     console : bool, optional
         Print an initial-conditions and post-solve summary table.
-    device : `jax.Device`, str, or None, optional
+    device : jax.Device | str | None, optional
         JAX device on which to run the integration.  ``None`` (default) uses
         JAX's current default device (typically the first available GPU when a
         CUDA-capable GPU is present, otherwise CPU).  Pass ``"gpu"`` or

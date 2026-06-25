@@ -47,12 +47,12 @@ class ModelOutput:
         Full state trajectory.  The first seven columns are the bulk parcel
         variables (see `pyrcel.constants.STATE_VARS`); the remaining
         columns are per-bin wet radii (m) ordered as in ``aerosols``.
-    aerosols : list of [AerosolSpecies][pyrcel.aerosol.AerosolSpecies]
+    aerosols : list[pyrcel.aerosol.AerosolSpecies]
         Aerosol modes, in the same order as the radius columns in ``state``.
     summary : dict
         Post-solve diagnostics: ``S_max``, ``t_smax``, ``T_smax``, ``z_smax``,
         ``per_species`` (list of per-mode dicts), ``total_act_frac``.
-    V : float or [AbstractUpdraft][pyrcel.updraft.AbstractUpdraft]
+    V : float | pyrcel.updraft.AbstractUpdraft
         Updraft used for the run (stored for dataset metadata).
     T0, S0, P0, accom : float
         Initial conditions (stored for dataset metadata).
