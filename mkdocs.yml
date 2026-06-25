@@ -99,31 +99,32 @@ hooks:
 nav:
   - Home: index.md
   - Getting Started:
-    - Installation: getting_started/installation.md
-    - Quick Start: getting_started/quickstart.md
+      - Installation: getting_started/installation.md
+      - Quick Start: getting_started/quickstart.md
   - User Guide:
-    - Scientific Description: user_guide/sci_descr.md
-    - Migration Guide (v1→v2): user_guide/migration.md
-    - Numerical Methods: user_guide/numerical_methods.md
-    - GPU Setup: user_guide/gpu.md
+      - Scientific Description: user_guide/sci_descr.md
+      - Migration Guide (v1→v2): user_guide/migration.md
+      - Numerical Methods: user_guide/numerical_methods.md
+      - Best Practices: user_guide/best_practices.md
+      - GPU Setup: user_guide/gpu.md
   - Examples:
-    - Basic Run: examples/basic_run.md
-    - Live Integration: examples/live_run.md
-    - Updraft Ensemble: examples/updraft_ensemble.md
-    - Sensitivity Analysis: examples/differentiable_smax.md
-    - Activation Comparison: examples/activation_comparison.md
-    - Sensitivity Sweep: examples/sensitivity_sweep.md
+      - Basic Run: examples/basic_run.md
+      - Live Integration: examples/live_run.md
+      - Updraft Ensemble: examples/updraft_ensemble.md
+      - Sensitivity Analysis: examples/differentiable_smax.md
+      - Activation Comparison: examples/activation_comparison.md
+      - Sensitivity Sweep: examples/sensitivity_sweep.md
   - API Reference:
-    - Core:
-      - ParcelModel: api/model.md
-      - ModelOutput: api/model_output.md
-    - Aerosol Population:
-      - AerosolSpecies: api/aerosol.md
-      - Distributions: api/distributions.md
-    - Activation: api/activation.md
-    - Updraft: api/updraft.md
-    - Ensemble: api/ensemble.md
-    - Advanced:
-      - Integrator: api/integrator.md
-      - Equilibrate: api/equilibrate.md
-      - Thermodynamics: api/thermo.md
+      - Core:
+          - ParcelModel: api/model.md
+          - ModelOutput: api/model_output.md
+      - Aerosol Population:
+          - AerosolSpecies: api/aerosol.md
+          - Distributions: api/distributions.md
+      - Activation: api/activation.md
+      - Updraft: api/updraft.md
+      - Ensemble: api/ensemble.md
+      - Advanced:
+          - Integrator: api/integrator.md
+          - Equilibrate: api/equilibrate.md
+          - Thermodynamics: api/thermo.md

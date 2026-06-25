@@ -42,6 +42,7 @@ from .console_report import (
 from .equilibrate import equilibrate_initial_state
 from .integrator import (
     STATE_RTOL,
+    _peak_from_trajectory,
     find_smax,
     integrate_parcel,
     integrate_parcel_chunked,
@@ -323,6 +324,14 @@ class ParcelModel:
                 if live_printer is not None:
                     live_printer.finish()
                 ts, ys = np.asarray(ts), np.asarray(ys)
+                if not terminate:
+                    # Post-hoc S_max from the saved trajectory: 3-point quadratic
+                    # interpolation + one Newton step using the ODE RHS.  No second
+                    # ODE solve — two RHS evaluations are enough for near-machine-
+                    # precision accuracy (same approach as max_supersaturation Stage 3).
+                    smax, t_smax_f, y_smax = _peak_from_trajectory(ts, ys, self.args)
+                    activated = True
+                    peak = (smax, t_smax_f)
                 run_info = {
                     "success": success,
                     "activated": activated,
@@ -406,14 +415,14 @@ class ParcelModel:
         assert self.time is not None
         S = self.x[:, c.STATE_VAR_MAP["S"]]
         if peak is not None:
-            # Use the event-localized (precise) S_max/t_smax; take droplet radii from
-            # the nearest output sample for the activation diagnostics.
+            # Event-localized or caller-supplied precise S_max/t_smax.
             S_max, t_smax = float(peak[0]), float(peak[1])
             si = int(np.argmin(np.abs(self.time - t_smax)))
         else:
-            si = int(np.argmax(S))
-            S_max = float(S[si])
-            t_smax = float(self.time[si])
+            # Quadratic interpolation + Newton step on the saved trajectory —
+            # same accuracy as the live-path post-hoc finder, no second solve.
+            S_max, t_smax, _ = _peak_from_trajectory(self.time, self.x, self.args)
+            si = int(np.argmin(np.abs(self.time - t_smax)))
         T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
         rs_smax = self.x[si, c.N_STATE_VARS :]
 
