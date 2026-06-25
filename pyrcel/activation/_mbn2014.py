@@ -139,9 +139,11 @@ def _sintegral_jax(
     ratio_c = (1.0 / sqrtwo) + (2e7 / 3.0) * A * (smax**-0.3824 - zeta_c**-0.3824)
     ssplt2_c = smax * jnp.minimum(ratio_c, 1.0)
 
-    # Non-critical branch: roots of the quartic, eq. (B10)
-    safe_delta = jnp.maximum(delta, 0.0)
-    sqrt_delta = jnp.sqrt(safe_delta)
+    # Non-critical branch: roots of the quartic, eq. (B10).
+    # Guard sqrt with jnp.where (not jnp.maximum) so the backward pass never
+    # evaluates d/dx sqrt(x) at x=0, which gives 0*inf=NaN via jnp.maximum.
+    safe_delta = jnp.where(critical, jnp.ones_like(delta), delta)
+    sqrt_delta = jnp.where(critical, jnp.zeros_like(delta), jnp.sqrt(safe_delta))
     ssplt2_nc = jnp.sqrt(0.5 * (1.0 + sqrt_delta)) * smax
     # ssplt1 could be 0 when delta → 0; guard the log below
     safe_ssplt1_sq = jnp.maximum(0.5 * (1.0 - sqrt_delta), 0.0)

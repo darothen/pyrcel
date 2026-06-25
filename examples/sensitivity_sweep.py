@@ -126,10 +126,50 @@ def _cache_valid(cached, V_grid, mu_grid, a) -> bool:
         return False
 
 
+def _extend_grid_log(grid: np.ndarray) -> np.ndarray:
+    """Extend a log-spaced 1-D grid by one node at each end, preserving spacing."""
+    log_g = np.log10(grid)
+    d = log_g[1] - log_g[0]
+    return 10 ** np.concatenate([[log_g[0] - d], log_g, [log_g[-1] + d]])
+
+
+def _num_grad_log_interp(
+    smax_ext: np.ndarray,
+    V_ext: np.ndarray,
+    mu_ext: np.ndarray,
+    V_grid: np.ndarray,
+    mu_grid: np.ndarray,
+) -> np.ndarray:
+    """d(Smax)/d(V) via central FD on extended grid, log-bilinear interp to original nodes.
+
+    Central differences on the (n_V+2)×(n_μ+2) extended grid give second-order
+    accuracy at every original node (none sit on a boundary any more).
+    Interpolation is bilinear in log(V)×log(μ) space, matching the log-spaced grids.
+    """
+    from scipy.interpolate import RegularGridInterpolator
+
+    dsmax_dV_ext = np.gradient(smax_ext, V_ext, axis=0)
+    interp = RegularGridInterpolator(
+        (np.log10(V_ext), np.log10(mu_ext)),
+        dsmax_dV_ext,
+        method="linear",
+        bounds_error=False,
+        fill_value=None,
+    )
+    coords = np.array([[np.log10(V), np.log10(mu)] for V in V_grid for mu in mu_grid])
+    return interp(coords).reshape(len(V_grid), len(mu_grid))
+
+
 def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     n_V, n_mu = len(V_grid), len(mu_grid)
     V_jax = jnp.asarray(V_grid, dtype=jnp.float64)
     mu_jax = jnp.asarray(mu_grid, dtype=jnp.float64)
+
+    # Extended grids (one extra node in each direction) for numerical FD.
+    V_ext = _extend_grid_log(V_grid)
+    mu_ext = _extend_grid_log(mu_grid)
+    V_ext_jax = jnp.asarray(V_ext, dtype=jnp.float64)
+    mu_ext_jax = jnp.asarray(mu_ext, dtype=jnp.float64)
 
     print(f"\nGrid: {n_V} × {n_mu}  (V ∈ [{_V_MIN}, {_V_MAX}] m/s,  μ ∈ [{_MU_MIN}, {_MU_MAX}] µm)")
     print(f"Aerosol: N = {a.N:.0f} cm⁻³, σ = {a.sigma}, κ = {a.kappa}\n")
@@ -169,33 +209,45 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     t0 = time.perf_counter()
     smax_arg = np.array(_grid2(_smax_arg)(V_jax, mu_jax))
     dsmax_dV_arg_ex = np.array(_dV_grid2(_smax_arg)(V_jax, mu_jax))
+    smax_arg_ext = np.array(_grid2(_smax_arg)(V_ext_jax, mu_ext_jax))
     print(f"{time.perf_counter() - t0:.1f}s")
 
     print("MBN2014 … ", end="", flush=True)
     t0 = time.perf_counter()
     smax_mbn = np.array(_grid2(_smax_mbn)(V_jax, mu_jax))
     dsmax_dV_mbn_ex = np.array(_dV_grid2(_smax_mbn)(V_jax, mu_jax))
+    smax_mbn_ext = np.array(_grid2(_smax_mbn)(V_ext_jax, mu_ext_jax))
     print(f"{time.perf_counter() - t0:.1f}s")
 
-    dsmax_dV_arg_num = np.gradient(smax_arg, V_grid, axis=0)
-    dsmax_dV_mbn_num = np.gradient(smax_mbn, V_grid, axis=0)
+    dsmax_dV_arg_num = _num_grad_log_interp(smax_arg_ext, V_ext, mu_ext, V_grid, mu_grid)
+    dsmax_dV_mbn_num = _num_grad_log_interp(smax_mbn_ext, V_ext, mu_ext, V_grid, mu_grid)
 
     # ── Parcel model ──────────────────────────────────────────────────────────
-    # Use generous t_end; the event-based solver stops at S_max automatically.
-    t_end = 5.0 * 300.0 / _V_MIN
-    ts_global = jnp.linspace(0.0, t_end, max(600, int(t_end)))
-
     # accom is a physical constant, same for every model build.
     from pyrcel import constants as _c
 
     _accom = _c.ac
 
-    # Explicit-arg JIT: shapes are fixed across all (V, μ) calls so the kernel
-    # is compiled once on the first call and reused for all 100 evaluations.
-    def _smax_parcel(V_val, y0, r_drys, Nis, kappas_arr):
-        return max_supersaturation(
-            y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts_global
-        )
+    # Scale t_end with V so the solver reaches ~1500 m altitude for every grid
+    # point without running on past S_max. A fixed global t_end (e.g. 15000 s)
+    # forces high-V runs to integrate for tens of kilometres of ascent, exhausting
+    # max_steps and producing NaN before the output grid is complete.
+    # N_TS is fixed so all ts arrays share the same shape → JIT compiles once.
+    #
+    # Note: t_end(V) ∝ 1/V, so ts varies with V. This does NOT bias the adjoint.
+    # By the envelope theorem, d(S_max)/d(t_end) = 0 whenever the supersaturation
+    # peak is strictly interior to [t0, t_end] — which _ts_for_V guarantees — so
+    # the ∂S_max/∂t_end · dt_end/dV coupling term vanishes identically.
+    _N_TS = 600
+
+    def _ts_for_V(V_val: float) -> jnp.ndarray:
+        t_end = max(200.0, min(1500.0 / float(V_val), 15000.0))
+        return jnp.linspace(0.0, t_end, _N_TS)
+
+    # ts is passed as an explicit arg so it can vary per grid point while the
+    # JIT-compiled kernel is reused (shape is always (_N_TS,)).
+    def _smax_parcel(V_val, y0, r_drys, Nis, kappas_arr, ts):
+        return max_supersaturation(y0, (r_drys, Nis, kappas_arr, _accom, ConstantV(V_val)), ts)
 
     _fwd = jax.jit(_smax_parcel)
     _grad = jax.jit(jax.grad(_smax_parcel, argnums=0))
@@ -222,6 +274,7 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
 
         for i_V, V_val in enumerate(V_grid):
             V_j = jnp.float64(V_val)
+            ts_j = _ts_for_V(V_val)
             cold = done == 0
 
             label = f"  [{done + 1:03d}/{total}] V={V_val:.2f} m/s  μ={mu_val:.4f} µm"
@@ -231,8 +284,8 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
             t0 = time.perf_counter()
 
             try:
-                s = float(jax.block_until_ready(_fwd(V_j, y0_j, rd_j, ni_j, ka_j)))
-                g = float(jax.block_until_ready(_grad(V_j, y0_j, rd_j, ni_j, ka_j)))
+                s = float(jax.block_until_ready(_fwd(V_j, y0_j, rd_j, ni_j, ka_j, ts_j)))
+                g = float(jax.block_until_ready(_grad(V_j, y0_j, rd_j, ni_j, ka_j, ts_j)))
             except Exception as exc:
                 print(f"  ✗ ({exc.__class__.__name__})")
                 s, g = np.nan, np.nan
@@ -243,7 +296,50 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
             dsmax_dV_parcel_ex[i_V, i_mu] = g
             done += 1
 
-    dsmax_dV_parcel_num = np.gradient(smax_parcel, V_grid, axis=0)
+    # ── Extended-grid forward pass for numerical FD ───────────────────────────
+    # The original n_V×n_mu nodes sit exactly at [1:-1, 1:-1] in the extended
+    # grid. We only need to evaluate the parcel model on the outer ring (44 pts)
+    # and reuse smax_parcel for the interior, giving central differences at all
+    # original nodes (no boundary one-sided differences).
+    smax_parcel_ext = np.full((n_V + 2, n_mu + 2), np.nan)
+    smax_parcel_ext[1:-1, 1:-1] = smax_parcel
+
+    # Build list of outer-ring (ext_i, ext_j, V_val, mu_val) to evaluate.
+    outer: list[tuple[int, int, float, float]] = []
+    for j, mu_val in enumerate(mu_ext):  # top + bottom rows
+        outer.append((0, j, float(V_ext[0]), float(mu_val)))
+        outer.append((n_V + 1, j, float(V_ext[-1]), float(mu_val)))
+    for i, V_val in enumerate(V_grid):  # left + right columns (no corners)
+        outer.append((i + 1, 0, float(V_val), float(mu_ext[0])))
+        outer.append((i + 1, n_mu + 1, float(V_val), float(mu_ext[-1])))
+
+    print(f"\nExtended grid: {len(outer)} additional forward evaluations (no adjoint)")
+    for k, (ext_i, ext_j, V_val, mu_val) in enumerate(outer):
+        aerosol = pm.AerosolSpecies(
+            "sulfate",
+            pm.Lognorm(mu=mu_val, sigma=a.sigma, N=a.N),
+            kappa=a.kappa,
+            bins=_BINS,
+        )
+        mdl = pm.ParcelModel([aerosol], V=1.0, T0=a.T0, S0=_S0, P0=a.P0)
+        y0_j = jnp.asarray(mdl.y0, dtype=jnp.float64)
+        rd_j = jnp.asarray(mdl.args[0], dtype=jnp.float64)
+        ni_j = jnp.asarray(mdl.args[1], dtype=jnp.float64)
+        ka_j = jnp.asarray(mdl.args[2], dtype=jnp.float64)
+        V_j = jnp.float64(V_val)
+        ts_j = _ts_for_V(V_val)
+        print(f"  ext [{k + 1:02d}/{len(outer)}] V={V_val:.3f}  μ={mu_val:.5f}", end="", flush=True)
+        t0 = time.perf_counter()
+        try:
+            s = float(jax.block_until_ready(_fwd(V_j, y0_j, rd_j, ni_j, ka_j, ts_j)))
+        except Exception as exc:
+            print(f"  ✗ ({exc.__class__.__name__})")
+            s = np.nan
+        else:
+            print(f"  {time.perf_counter() - t0:.1f}s")
+        smax_parcel_ext[ext_i, ext_j] = s
+
+    dsmax_dV_parcel_num = _num_grad_log_interp(smax_parcel_ext, V_ext, mu_ext, V_grid, mu_grid)
 
     return {
         "V_grid": V_grid,
