@@ -233,6 +233,11 @@ def _compute(V_grid: np.ndarray, mu_grid: np.ndarray, a) -> dict:
     # forces high-V runs to integrate for tens of kilometres of ascent, exhausting
     # max_steps and producing NaN before the output grid is complete.
     # N_TS is fixed so all ts arrays share the same shape → JIT compiles once.
+    #
+    # Note: t_end(V) ∝ 1/V, so ts varies with V. This does NOT bias the adjoint.
+    # By the envelope theorem, d(S_max)/d(t_end) = 0 whenever the supersaturation
+    # peak is strictly interior to [t0, t_end] — which _ts_for_V guarantees — so
+    # the ∂S_max/∂t_end · dt_end/dV coupling term vanishes identically.
     _N_TS = 600
 
     def _ts_for_V(V_val: float) -> jnp.ndarray:
