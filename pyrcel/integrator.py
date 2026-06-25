@@ -291,14 +291,14 @@ def nd_from_parcel(
 
     Integrates the parcel ODE to ``t_end`` and evaluates:
 
-    .. math::
+    $$
+    N_d^{\\text{soft}} = \\sum_i N_i \\cdot \\sigma\\!\\left(
+        \\frac{r_i(t_{\\text{end}}) - r_{\\text{crit},i}}{\\varepsilon}
+    \\right)
+    $$
 
-        N_d^{\\text{soft}} = \\sum_i N_i \\cdot \\sigma\\!\\left(
-            \\frac{r_i(t_{\\text{end}}) - r_{\\text{crit},i}}{\\varepsilon}
-        \\right)
-
-    where :math:`\\sigma` is the logistic sigmoid, :math:`r_{\\text{crit},i}` is
-    the approximate Köhler critical radius for bin *i*, and :math:`\\varepsilon`
+    where $\\sigma$ is the logistic sigmoid, $r_{\\text{crit},i}$ is
+    the approximate Köhler critical radius for bin *i*, and $\\varepsilon$
     controls the sharpness of the threshold.
 
     Unlike the hard-threshold [Nd][pyrcel.model_output.ModelOutput.Nd] diagnostic, this
@@ -315,7 +315,7 @@ def nd_from_parcel(
         ``(r_drys, Nis, kappas, accom, V)`` for `parcel_ode_sys`.
         ``Nis`` must be in m⁻³ (the unit stored on ``AerosolSpecies.Nis``).
     t_end : float
-        Integration time (s). Should extend past :math:`S_{\\text{max}}` so that
+        Integration time (s). Should extend past $S_{\\text{max}}$ so that
         kinetically limited droplets have time to grow past their critical radius.
     epsilon : float, optional
         Sigmoid half-width (m). Controls the accuracy/smoothness trade-off:

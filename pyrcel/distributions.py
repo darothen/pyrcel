@@ -117,8 +117,9 @@ class Lognorm(BaseDistribution):
     def cdf(self, x: FloatND) -> FloatND:
         """Cumulative density function
 
-        .. math::
-            \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}\\left(\\frac{\\ln(x/\\mu)}{\\sqrt{2}\\ln{\\sigma}}\\right) \\right)
+        $$
+        \\text{CDF} = \\frac{N}{2}\\left(1.0 + \\text{erf}\\left(\\frac{\\ln(x/\\mu)}{\\sqrt{2}\\ln{\\sigma}}\\right) \\right)
+        $$
 
         Parameters
         ----------
@@ -137,8 +138,9 @@ class Lognorm(BaseDistribution):
     def pdf(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dx (not logarithmic).
 
-        .. math::
-            \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln(\\sigma) x}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
+        \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln(\\sigma) x}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
 
         Parameters
         ----------
@@ -158,8 +160,9 @@ class Lognorm(BaseDistribution):
     def pdfloge(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dln(x) (natural logarithm).
 
-        .. math::
-            \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
+        \\text{pdf} = \\frac{N}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
 
         Parameters
         ----------
@@ -179,8 +182,9 @@ class Lognorm(BaseDistribution):
     def pdflog10(self, x: FloatND) -> FloatND:
         """Distribution density function dN/dlog(x) (base 10 logarithm).
 
-        .. math::
-            \\text{pdf} = \\frac{N\\ln 10}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
+        \\text{pdf} = \\frac{N\\ln 10}{\\sqrt{2\\pi}\\ln\\sigma}\\exp\\left( -\\frac{\\ln^2(x/\\mu)}{2\\ln^2\\sigma} \\right)
+        $$
 
         Parameters
         ----------
@@ -200,8 +204,9 @@ class Lognorm(BaseDistribution):
     def moment(self, k: int | float) -> float:
         """Compute the k-th moment of the lognormal distribution.
 
-        .. math::
-            F(k) = N\\mu^k\\exp\\left( \\frac{k^2}{2} \\ln^2 \\sigma \\right)
+        $$
+        F(k) = N\\mu^k\\exp\\left( \\frac{k^2}{2} \\ln^2 \\sigma \\right)
+        $$
 
         Parameters
         ----------
