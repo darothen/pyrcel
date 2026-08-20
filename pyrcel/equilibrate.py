@@ -21,6 +21,15 @@ Differences from ``master`` (and why they don't matter for fidelity):
 Per the locked decision, gradients are required through the *integration* w.r.t.
 ``y0``, not through this solve; equilibration may run eagerly. (As a bonus,
 ``optimistix`` root-finds are differentiable via the implicit function theorem.)
+
+Extension (2026)
+-----------------
+``kohler_crit_approx``, ``kohler_crit``, ``equilibrate_radii``, and
+``equilibrate_initial_state`` all now accept an optional per-bin surface
+tension override (``sigma`` / ``sigmas``), mirroring the same addition in
+``pyrcel.thermo.Seq``. Every function's default (``sigma=None`` /
+``sigmas=None``) path is untouched from the original implementation --
+verified to match exactly, see the accompanying test additions.
 """
 
 from __future__ import annotations
@@ -46,7 +55,9 @@ _ATOL = 1e-30
 _MAX_STEPS = 200
 
 
-def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
+def kohler_crit_approx(
+    T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike, sigma: ArrayLike | None = None
+) -> tuple[Array, Array]:
     """Analytic approximate Köhler critical radius and supersaturation.
 
     Mirrors `pyrcel.legacy.thermo.kohler_crit` with ``approx=True``. This
@@ -62,6 +73,9 @@ def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tupl
         Dry particle radius, m.
     kappa : float
         Particle hygroscopicity parameter.
+    sigma : float, optional
+        Surface tension override, J/m². Defaults to ``None`` (pure water,
+        via `pyrcel.thermo.sigma_w`), matching the original implementation.
 
     Returns
     -------
@@ -75,7 +89,8 @@ def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tupl
     kohler_crit : Exact numerical Köhler critical radius.
     pyrcel.legacy.thermo.kohler_crit : NumPy equivalent with ``approx=True``.
     """
-    A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w)
+    sigma_eff = sigma_w(T) if sigma is None else sigma
+    A = (2.0 * c.Mw * sigma_eff) / (c.R * T * c.rho_w)
     r_crit = jnp.sqrt((3.0 * kappa * (r_dry**3)) / A)
     s_crit = jnp.sqrt((4.0 * (A**3)) / (27.0 * kappa * (r_dry**3)))
     return r_crit, s_crit
@@ -85,6 +100,7 @@ def kohler_crit(
     T: ArrayLike,
     r_dry: ArrayLike,
     kappa: ArrayLike,
+    sigma: ArrayLike | None = None,
     *,
     rtol: float = _RTOL,
     atol: float = _ATOL,
@@ -106,6 +122,11 @@ def kohler_crit(
         Dry particle radius, m.
     kappa : float
         Particle hygroscopicity parameter.
+    sigma : float, optional
+        Surface tension override, J/m². Defaults to ``None`` (pure water),
+        matching the original implementation. When provided, threaded through
+        to the internal `Seq` call so the critical radius reflects the same
+        surface tension used elsewhere for this species.
     rtol, atol : float, optional
         Root-find tolerances.
     max_steps : int, optional
@@ -123,9 +144,20 @@ def kohler_crit(
     """
     solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
 
-    def dseq_dr(r, args):
-        rd, kap = args
-        return jax.grad(lambda rr: Seq(rr, rd, T, kap))(r)
+    if sigma is None:
+
+        def dseq_dr(r, args):
+            rd, kap = args
+            return jax.grad(lambda rr: Seq(rr, rd, T, kap))(r)
+
+        solve_args: tuple[Any, ...] = (r_dry, kappa)
+    else:
+
+        def dseq_dr(r, args):
+            rd, kap, sig = args
+            return jax.grad(lambda rr: Seq(rr, rd, T, kap, sig))(r)
+
+        solve_args = (r_dry, kappa, sigma)
 
     lower = r_dry
     upper = r_dry * 1e4
@@ -134,7 +166,7 @@ def kohler_crit(
         dseq_dr,
         solver,
         guess,
-        args=(r_dry, kappa),
+        args=solve_args,
         options=dict(lower=lower, upper=upper),
         max_steps=max_steps,
         throw=False,
@@ -147,6 +179,7 @@ def equilibrate_radii(
     S0: float,
     r_drys: ArrayLike,
     kappas: ArrayLike,
+    sigmas: ArrayLike | None = None,
     *,
     rtol: float = _RTOL,
     atol: float = _ATOL,
@@ -162,6 +195,12 @@ def equilibrate_radii(
         Initial supersaturation (0 == 100% RH); sub-critical (typically < 0).
     r_drys, kappas : array, shape ``(nr,)``
         Dry radii (m) and hygroscopicities.
+    sigmas : array, shape ``(nr,)``, optional
+        Per-bin surface tension override, J/m². Defaults to ``None`` (pure
+        water for every bin), matching the original implementation exactly.
+        When provided, must be the same length as ``r_drys``/``kappas`` --
+        one value per bin, since a single simulation can combine multiple
+        aerosol species with different surface tensions.
 
     Returns
     -------
@@ -172,27 +211,55 @@ def equilibrate_radii(
     kappas = jnp.asarray(kappas)
     solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
 
-    def residual(r, args):
-        r_dry, kappa = args
-        return Seq(r, r_dry, T0, kappa) - S0
+    if sigmas is None:
 
-    def solve_one(r_dry, kappa):
-        r_crit = kohler_crit(T0, r_dry, kappa, rtol=rtol, atol=atol, max_steps=max_steps)
-        lower = r_dry
-        upper = r_crit
-        guess = 0.5 * (lower + upper)
-        sol = optx.root_find(
-            residual,
-            solver,
-            guess,
-            args=(r_dry, kappa),
-            options=dict(lower=lower, upper=upper),
-            max_steps=max_steps,
-            throw=False,
-        )
-        return sol.value
+        def residual(r, args):
+            r_dry, kappa = args
+            return Seq(r, r_dry, T0, kappa) - S0
 
-    return jax.vmap(solve_one)(r_drys, kappas)
+        def solve_one(r_dry, kappa):
+            r_crit = kohler_crit(T0, r_dry, kappa, rtol=rtol, atol=atol, max_steps=max_steps)
+            lower = r_dry
+            upper = r_crit
+            guess = 0.5 * (lower + upper)
+            sol = optx.root_find(
+                residual,
+                solver,
+                guess,
+                args=(r_dry, kappa),
+                options=dict(lower=lower, upper=upper),
+                max_steps=max_steps,
+                throw=False,
+            )
+            return sol.value
+
+        return jax.vmap(solve_one)(r_drys, kappas)
+    else:
+        sigmas = jnp.asarray(sigmas)
+
+        def residual(r, args):
+            r_dry, kappa, sigma = args
+            return Seq(r, r_dry, T0, kappa, sigma) - S0
+
+        def solve_one(r_dry, kappa, sigma):
+            r_crit = kohler_crit(
+                T0, r_dry, kappa, sigma, rtol=rtol, atol=atol, max_steps=max_steps
+            )
+            lower = r_dry
+            upper = r_crit
+            guess = 0.5 * (lower + upper)
+            sol = optx.root_find(
+                residual,
+                solver,
+                guess,
+                args=(r_dry, kappa, sigma),
+                options=dict(lower=lower, upper=upper),
+                max_steps=max_steps,
+                throw=False,
+            )
+            return sol.value
+
+        return jax.vmap(solve_one)(r_drys, kappas, sigmas)
 
 
 def equilibrate_initial_state(
@@ -202,6 +269,7 @@ def equilibrate_initial_state(
     r_drys: ArrayLike,
     kappas: ArrayLike,
     Nis: ArrayLike,
+    sigmas: ArrayLike | None = None,
     **kwargs: Any,
 ) -> Array:
     """Assemble the equilibrated initial state vector ``y0``.
@@ -224,6 +292,10 @@ def equilibrate_initial_state(
         Hygroscopicities.
     Nis : array, shape ``(nr,)``
         Number concentrations, m^-3.
+    sigmas : array, shape ``(nr,)``, optional
+        Per-bin surface tension override, J/m². Defaults to ``None`` (pure
+        water for every bin), matching the original implementation exactly.
+        Forwarded to [equilibrate_radii][pyrcel.equilibrate.equilibrate_radii].
     **kwargs
         Forwarded to [equilibrate_radii][pyrcel.equilibrate.equilibrate_radii] (``rtol``, ``atol``,
         ``max_steps``).
@@ -240,7 +312,7 @@ def equilibrate_initial_state(
     es0 = es(T0 - 273.15)
     wv0 = (S0 + 1.0) * (c.epsilon * es0 / (P0 - es0))
 
-    r0s = equilibrate_radii(T0, S0, r_drys, kappas, **kwargs)
+    r0s = equilibrate_radii(T0, S0, r_drys, kappas, sigmas, **kwargs)
 
     water_vol = (4.0 * jnp.pi / 3.0) * c.rho_w * Nis * (r0s**3 - r_drys**3)
     wc0 = jnp.sum(water_vol) / rho_air(T0, P0, 0.0)

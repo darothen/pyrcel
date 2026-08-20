@@ -16,6 +16,27 @@ a post-solve summary table -- and is intentionally kept out of the differentiabl
 [ParcelModel][pyrcel.model.ParcelModel] is a plain mutable Python class (per the locked decision);
 only the
 inner vector field / updraft are Equinox modules.
+
+Extension (2026)
+-----------------
+``ParcelModel`` now assembles a flat per-bin ``sigmas`` array from each
+aerosol species' optional ``.sigma`` attribute (see `pyrcel.aerosol.AerosolSpecies`),
+mirroring the existing ``kappas`` assembly. If *no* species in the population
+sets ``sigma``, ``self._sigmas`` stays ``None`` and behavior is identical to
+the original 5-element ``args`` tuple throughout. If *any* species sets
+``sigma``, every bin gets a concrete surface-tension value -- species that
+didn't set an override get pure water's value (`pyrcel.thermo.sigma_w`)
+explicitly, rather than a mix of ``None``/array values, since the downstream
+``vmap``-ed equilibration code requires a single consistent array.
+
+Known remaining gap: ``console_report.equilibration_residual`` (an optional,
+purely diagnostic printout when ``console=True``) and
+``pyrcel.activation.binned_activation`` (used for the post-solve per-species
+activation-fraction summary) have not been updated to accept ``sigmas``. Core
+physics -- equilibration and the actual integrated trajectory, including
+``S_max`` -- is correct; only those two diagnostic paths may report
+pure-water-based numbers for a surfactant-modified species until they are
+updated too.
 """
 
 from __future__ import annotations
@@ -50,6 +71,7 @@ from .integrator import (
     terminate_cutoff_time,
 )
 from .model_output import ModelOutput
+from .thermo import sigma_w
 from .updraft import AbstractUpdraft
 
 __all__ = ["ParcelModel"]
@@ -73,7 +95,9 @@ class ParcelModel:
     Parameters
     ----------
     aerosols : Sequence[pyrcel.aerosol.AerosolSpecies]
-        The aerosol population in the parcel.
+        The aerosol population in the parcel. Each species may optionally set
+        ``.sigma`` (surface tension override, J/m²) -- see
+        `pyrcel.aerosol.AerosolSpecies`.
     V : float | pyrcel.updraft.AbstractUpdraft
         Updraft speed (m/s). A scalar is a constant updraft; pass a
         [InterpolatedUpdraft][pyrcel.updraft.InterpolatedUpdraft] for a time-varying ``V(t)``.
@@ -123,16 +147,33 @@ class ParcelModel:
         self.console = console
         self.device: jax.Device | None = _resolve_device(device)
 
-        species, r_drys, kappas, Nis = [], [], [], []
+        # Assemble flat per-bin arrays from each species. `sigmas` mirrors
+        # `kappas`: only built as a concrete array if at least one species
+        # actually sets a surface-tension override, since the downstream
+        # vmap-ed equilibration code needs a single consistent array (no
+        # None/float mixing within one call). Species that didn't set an
+        # override get pure water's value explicitly in that case.
+        any_sigma_override = any(
+            getattr(aer, "sigma", None) is not None for aer in self.aerosols
+        )
+
+        species, r_drys, kappas, sigmas, Nis = [], [], [], [], []
         for aer in self.aerosols:
             r_drys.extend(aer.r_drys)
             kappas.extend([aer.kappa] * aer.nr)
             Nis.extend(aer.Nis)
             species.extend([aer.species] * aer.nr)
+            if any_sigma_override:
+                aer_sigma = getattr(aer, "sigma", None)
+                if aer_sigma is not None:
+                    sigmas.extend([aer_sigma] * aer.nr)
+                else:
+                    sigmas.extend([float(sigma_w(self.T0))] * aer.nr)
         self.species = np.asarray(species)
         self._r_drys = np.asarray(r_drys)
         self._kappas = np.asarray(kappas)
         self._Nis = np.asarray(Nis)
+        self._sigmas = np.asarray(sigmas) if any_sigma_override else None
         self._nr = len(r_drys)
 
         import time
@@ -143,7 +184,13 @@ class ParcelModel:
         )
         with _equil_ctx:
             y0 = equilibrate_initial_state(
-                self.T0, self.S0, self.P0, self._r_drys, self._kappas, self._Nis
+                self.T0,
+                self.S0,
+                self.P0,
+                self._r_drys,
+                self._kappas,
+                self._Nis,
+                self._sigmas,
             )
         self._equil_elapsed = time.perf_counter() - t0
         self.y0 = np.asarray(y0)
@@ -175,9 +222,15 @@ class ParcelModel:
 
     @property
     def args(self) -> tuple:
-        """The ``(r_drys, Nis, kappas, accom, V)`` parameter tuple for the integrator."""
+        """The ``(r_drys, Nis, kappas, accom, V)`` parameter tuple for the integrator,
+        or its 6-element form ``(..., V, sigmas)`` when any species set a
+        surface tension override.
+        """
         V = self.V if isinstance(self.V, AbstractUpdraft) else float(self.V)
-        return (self._r_drys, self._Nis, self._kappas, self.accom, V)
+        base = (self._r_drys, self._Nis, self._kappas, self.accom, V)
+        if self._sigmas is None:
+            return base
+        return base + (self._sigmas,)
 
     def run(
         self,
@@ -325,13 +378,9 @@ class ParcelModel:
                     live_printer.finish()
                 ts, ys = np.asarray(ts), np.asarray(ys)
                 if not terminate:
-                    # Post-hoc S_max from the saved trajectory via Hermite cubic
-                    # interpolation — no second ODE solve required.
                     smax, t_smax_f, _ = _peak_from_trajectory(ts, ys, self.args)
                     activated = True
                     peak = (smax, t_smax_f)
-                    # Height at the refined peak time via linear interpolation of
-                    # the saved trajectory (more accurate than the coarse-grid state).
                     z_smax = float(np.interp(t_smax_f, ts, ys[:, c.STATE_VAR_MAP["z"]]))
                 else:
                     z_smax = float("nan")
@@ -411,6 +460,7 @@ class ParcelModel:
                 accom=self.accom,
             )
 
+
     # --- diagnostics --------------------------------------------------------------
 
     def _compute_summary(self, peak: object = None) -> dict:
@@ -434,6 +484,13 @@ class ParcelModel:
         rs_nd = self.x[i_nd, c.N_STATE_VARS :]
         nd_t_eval = float(self.time[i_nd])
 
+        # NOTE (2026 sigma extension): the binned_activation below is called with
+        # only aer.kappa, not aer.sigma, so it had not yet been updated to accept
+        # a surface tension override. Thus, the per-species activation-fraction diagnostics
+        # (eq_act_frac, kn_act_frac, N_act, Nd) are also computed against
+        # pure water's surface tension even for a species with a sigma
+        # override set, while S_max/T_smax/the actual trajectory above are
+        # already correct. This issue is adressed in _common.py.
         per_species = []
         total_N = 0.0
         total_act = 0.0

@@ -11,6 +11,15 @@ float64 is **mandatory** for this model (radii ~1e-8 m and the ``r**3 - r_dry**3
 cancellation in [Seq][pyrcel.thermo.Seq]). We enable it at import time so the module is correct
 regardless of how it is first used; this is idempotent and matches the design doc
 (§6.1).
+
+Extension (2026)
+-----------------
+``Seq`` and ``Seq_approx`` now accept an optional ``sigma`` argument, allowing
+the Kelvin (curvature) term to use a solution surface tension other than pure
+water's. This is needed to model surfactant-modified seeding agents, where the
+Kelvin term is measurably reduced relative to pure water, independent of the
+particle's hygroscopicity (``kappa``). The default behavior (``sigma=None``)
+is byte-for-byte identical to the original implementation.
 """
 
 from __future__ import annotations
@@ -240,7 +249,13 @@ def rho_air(T: ArrayLike, P: ArrayLike, RH: ArrayLike = 1.0) -> Array:
     return P / c.Rd / Tv
 
 
-def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array:
+def Seq(
+    r: ArrayLike,
+    r_dry: ArrayLike,
+    T: ArrayLike,
+    kappa: ArrayLike,
+    sigma: ArrayLike | None = None,
+) -> Array:
     r"""κ-Köhler equilibrium supersaturation over an aerosol particle.
 
     Two numerical stability improvements over the naïve formulation:
@@ -268,6 +283,18 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
     kappa : array or float
         Particle hygroscopicity parameter.  For ``kappa <= 0`` the solute
         term is zeroed out and only the Kelvin curvature term remains.
+    sigma : array or float, optional
+        Surface tension of the droplet solution, J/m². Defaults to ``None``,
+        in which case pure water's temperature-dependent surface tension
+        (:func:`sigma_w`) is used, exactly reproducing the original
+        formulation. Pass an explicit value to model solutions whose surface
+        tension differs from pure water independent of temperature — e.g. a
+        surfactant-modified seeding agent measured at or above its critical
+        micelle concentration, where surface tension plateaus at a
+        concentration-independent value. This does not model
+        concentration-dependent surface tension below the CMC; it treats
+        ``sigma`` as constant over the droplet's growth, which is a
+        simplification worth stating explicitly wherever this is used.
 
     Returns
     -------
@@ -283,7 +310,13 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
 
     where the Kelvin parameter is
 
-    $$A = \frac{2 M_w \sigma_w(T)}{R T \rho_w}$$
+    $$A = \frac{2 M_w \sigma(T)}{R T \rho_w}$$
+
+    using $\sigma(T) = \sigma_w(T)$ by default, or the supplied ``sigma``
+    otherwise. [Petters2007] defines this equation for $\sigma = \sigma_w$;
+    the generalization to an arbitrary solution surface tension here follows
+    directly from the same derivation (the Kelvin term is surface-tension-
+    dependent by construction) and is not itself drawn from that paper.
 
     References
     ----------
@@ -296,7 +329,8 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
     --------
     pyrcel.legacy.thermo.Seq
     """
-    A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r)
+    sigma_eff = sigma_w(T) if sigma is None else sigma
+    A = (2.0 * c.Mw * sigma_eff) / (c.R * T * c.rho_w * r)
 
     # r³ - r_dry³ = (r - r_dry)(r² + r·r_dry + r_dry²); accurate near r ≈ r_dry.
     delta = r - r_dry
@@ -314,7 +348,13 @@ def Seq(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array
     return B * jnp.expm1(A) + Bm1
 
 
-def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -> Array:
+def Seq_approx(
+    r: ArrayLike,
+    r_dry: ArrayLike,
+    T: ArrayLike,
+    kappa: ArrayLike,
+    sigma: ArrayLike | None = None,
+) -> Array:
     r"""Approximate κ-Köhler equilibrium supersaturation over an aerosol particle.
 
     Parameters
@@ -327,6 +367,12 @@ def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -
         Ambient temperature, K.
     kappa : array or float
         Particle hygroscopicity parameter.
+    sigma : array or float, optional
+        Surface tension of the droplet solution, J/m². See :func:`Seq` for
+        the full explanation; passed through here for consistency so that
+        callers relying on the approximate form (e.g. `pyrcel.equilibrate`'s
+        critical-radius calculation) see the same surface-tension override
+        as the full equation.
 
     Returns
     -------
@@ -346,5 +392,6 @@ def Seq_approx(r: ArrayLike, r_dry: ArrayLike, T: ArrayLike, kappa: ArrayLike) -
     --------
     pyrcel.legacy.thermo.Seq_approx
     """
-    A = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r)
+    sigma_eff = sigma_w(T) if sigma is None else sigma
+    A = (2.0 * c.Mw * sigma_eff) / (c.R * T * c.rho_w * r)
     return A - kappa * (r_dry**3) / (r**3)

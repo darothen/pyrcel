@@ -10,11 +10,25 @@ wrapped directly in ``diffrax.ODETerm``. ``args`` is the parameter pytree
 
     args = (r_drys, Nis, kappas, accom, V)
 
+or, when using the surface-tension extension (see below),
+
+    args = (r_drys, Nis, kappas, accom, V, sigmas)
+
 where ``V`` is the updraft speed: a scalar today, or (in a later phase) a callable /
 ``equinox.Module`` of time. See ``docs/design/jax-diffrax-migration.md`` §4.2.
 
 Equivalence with the numba derivative is verified against frozen fixtures in
 ``tests/test_rhs_equivalence.py``.
+
+Extension (2026)
+-----------------
+``parcel_ode_sys`` and ``ParcelVectorField`` now accept an optional trailing
+``sigmas`` array (one surface tension value per aerosol bin, appended *after*
+``V`` so existing positional access to the first five ``args`` elements --
+e.g. ``V = args[4]`` elsewhere in the codebase -- is unaffected). When
+``sigmas`` is omitted (a 5-element ``args`` tuple, or ``sigmas=None`` for
+``ParcelVectorField``), behavior is byte-for-byte identical to the original
+implementation.
 """
 
 from __future__ import annotations
@@ -51,14 +65,23 @@ def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
     y : array, shape ``(N_STATE_VARS + nr,)``
         State vector ``[z, P, T, wv, wc, wi, S, r_0 ... r_{nr-1}]``.
     args : tuple
-        ``(r_drys, Nis, kappas, accom, V)``.
+        ``(r_drys, Nis, kappas, accom, V)``, or ``(r_drys, Nis, kappas, accom,
+        V, sigmas)`` when using the per-bin surface tension override. In the
+        6-element form, ``sigmas`` is passed to `Seq` alongside ``kappas`` so
+        droplet growth reflects each bin's actual surface tension (e.g. for a
+        surfactant-based seeding agent) rather than assuming pure water for
+        every bin.
 
     Returns
     -------
     array, shape ``(N_STATE_VARS + nr,)``
         Time derivative ``dy/dt``.
     """
-    r_drys, Nis, kappas, accom, V = args
+    if len(args) == 6:
+        r_drys, Nis, kappas, accom, V, sigmas = args
+    else:
+        r_drys, Nis, kappas, accom, V = args
+        sigmas = None
     V_t = V(t) if callable(V) else V
 
     P = y[1]
@@ -79,7 +102,10 @@ def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
     G_a = (c.rho_w * c.R * T) / (pv_sat * dv_r * c.Mw)
     G_b = (c.L * c.rho_w * ((c.L * c.Mw / (c.R * T)) - 1.0)) / (ka_r * T)
     G = 1.0 / (G_a + G_b)
-    delta_S = S - Seq(rs, r_drys, T, kappas)
+    if sigmas is None:
+        delta_S = S - Seq(rs, r_drys, T, kappas)
+    else:
+        delta_S = S - Seq(rs, r_drys, T, kappas, sigmas)
     drs_dt = (G / rs) * delta_S
 
     # Liquid water tendency from droplet growth.
@@ -113,7 +139,7 @@ class ParcelVectorField(eqx.Module):
     * ``y`` -- the *state* that evolves (``[z, P, T, wv, wc, wi, S, r_0...]``). The
       *solver* owns it and threads it forward step by step.
     * ``theta`` -- the *parameters* that configure the dynamics but do not themselves
-      evolve: ``(r_drys, Nis, kappas, accom, V)``.
+      evolve: ``(r_drys, Nis, kappas, accom, V)``, optionally with ``sigmas``.
     * ``f`` -- the *rule* mapping the current ``(t, y)`` to the tendency ``dy/dt``.
 
     This class **is** ``f`` (the rule), so it holds ``theta`` as fields -- *not* ``y``.
@@ -130,16 +156,24 @@ class ParcelVectorField(eqx.Module):
     1. *Named fields* instead of a positional 5-tuple, removing the ``args``/``rhs_args``
        indexing footgun in the master code.
     2. *It is a JAX pytree*, so its array leaves (``r_drys``, ``Nis``, ``kappas``,
-       ``accom``, and ``V``'s parameters) are visible to ``jit``/``vmap``/``grad``. That
-       is what makes **parameter** sensitivities clean: ``eqx.filter_grad`` over a field
-       gives ``d S_max / d accom`` or ``d S_max / d V`` directly. (Gradients w.r.t. the
-       *state's initial value* ``y0`` need no Module -- just ``jax.grad`` over the plain
-       array.) ``accom`` is stored as an array, not a Python float, precisely so it is a
-       differentiable leaf rather than a compile-time constant.
+       ``accom``, ``V``'s parameters, and ``sigmas`` if set) are visible to
+       ``jit``/``vmap``/``grad``. That is what makes **parameter** sensitivities clean:
+       ``eqx.filter_grad`` over a field gives ``d S_max / d accom`` or ``d S_max / d V``
+       directly -- and, with the extension below, ``d S_max / d sigmas``. (Gradients
+       w.r.t. the *state's initial value* ``y0`` need no Module -- just ``jax.grad``
+       over the plain array.) ``accom`` is stored as an array, not a Python float,
+       precisely so it is a differentiable leaf rather than a compile-time constant.
 
     The instance is callable as ``field(t, y)`` (diffrax ``ODETerm`` convention, with an
     optional ignored ``args``) and exposes :pyattr:`args` to feed the tuple-based
     integrator helpers in `pyrcel.integrator`.
+
+    Extension (2026): ``sigmas``
+    -----------------------------
+    Optional field, ``None`` by default. When set, it is appended as a sixth
+    element to :pyattr:`args`, and `parcel_ode_sys` uses it as the per-bin
+    surface tension override (see that function's docstring). Leaving it
+    unset reproduces the original 5-field behavior exactly.
     """
 
     r_drys: jax.Array
@@ -147,24 +181,37 @@ class ParcelVectorField(eqx.Module):
     kappas: jax.Array
     accom: jax.Array
     V: AbstractUpdraft
+    sigmas: jax.Array | None
 
-    def __init__(self, r_drys, Nis, kappas, accom, V):
+    def __init__(self, r_drys, Nis, kappas, accom, V, sigmas=None):
         self.r_drys = jnp.asarray(r_drys, dtype=jnp.float64)
         self.Nis = jnp.asarray(Nis, dtype=jnp.float64)
         self.kappas = jnp.asarray(kappas, dtype=jnp.float64)
         self.accom = jnp.asarray(accom, dtype=jnp.float64)
         self.V = as_updraft(V)
+        self.sigmas = None if sigmas is None else jnp.asarray(sigmas, dtype=jnp.float64)
 
     @classmethod
     def from_args(cls, args) -> ParcelVectorField:
-        """Build from the positional ``(r_drys, Nis, kappas, accom, V)`` tuple."""
-        r_drys, Nis, kappas, accom, V = args
-        return cls(r_drys, Nis, kappas, accom, V)
+        """Build from the positional ``(r_drys, Nis, kappas, accom, V)`` tuple,
+        or its 6-element form ``(..., V, sigmas)``.
+        """
+        if len(args) == 6:
+            r_drys, Nis, kappas, accom, V, sigmas = args
+        else:
+            r_drys, Nis, kappas, accom, V = args
+            sigmas = None
+        return cls(r_drys, Nis, kappas, accom, V, sigmas)
 
     @property
     def args(self) -> tuple:
-        """The ``(r_drys, Nis, kappas, accom, V)`` tuple for the integrator helpers."""
-        return (self.r_drys, self.Nis, self.kappas, self.accom, self.V)
+        """The ``(r_drys, Nis, kappas, accom, V)`` tuple for the integrator helpers,
+        or its 6-element form ``(..., V, sigmas)`` when ``sigmas`` is set.
+        """
+        base = (self.r_drys, self.Nis, self.kappas, self.accom, self.V)
+        if self.sigmas is None:
+            return base
+        return base + (self.sigmas,)
 
     def __call__(self, t, y, args=None):
         return parcel_ode_sys(t, y, self.args)

@@ -1,4 +1,24 @@
-"""Shared utility functions for JAX-native activation parameterizations."""
+"""Shared utility functions for JAX-native activation parameterizations.
+
+Extension (2026)
+-----------------
+``_kohler_crit_approx``, ``lognormal_activation``, ``binned_activation``, and
+``multi_mode_activation`` now accept an optional surface-tension override.
+It is named ``surf_tension`` (not ``sigma``/``sigmas``) *deliberately* --
+``sigma``/``sigmas`` already means "geometric standard deviation of a
+lognormal mode" throughout this module (see ``lognormal_activation``'s
+``sigma`` parameter, and ``sigmas`` in ``_arg2000.py``/``_mbn2014.py``).
+Reusing that name for surface tension would silently collide with an
+unrelated, already-meaningful parameter. Default (``surf_tension=None``)
+reproduces the original pure-water behavior exactly.
+
+Note: ``_arg2000.py`` (ARG2000) and ``_mbn2014.py`` (MBN2014) have *not*
+been updated with the same override -- they are independent activation
+parameterizations not used by ``pyrcel.model.ParcelModel`` (which only
+calls ``binned_activation`` from this file), and updating them safely
+requires resolving the same naming collision there too. Flagged as a
+known remaining gap, not fixed here.
+"""
 
 from __future__ import annotations
 
@@ -55,10 +75,30 @@ def _lognormal_act(
     return N_act, N_act / N
 
 
-def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
+def _kohler_crit_approx(
+    T: ArrayLike,
+    r_dry: ArrayLike,
+    kappa: ArrayLike,
+    surf_tension: ArrayLike | None = None,
+) -> tuple[Array, Array]:
     r"""Approximate critical radius and supersaturation (JAX-traceable, kappa > 0).
 
     Vectorises over ``r_dry`` / ``kappa`` for scalar ``T``.
+
+    Parameters
+    ----------
+    T : float
+        Ambient temperature, K.
+    r_dry : array or float
+        Dry particle radius, m.
+    kappa : array or float
+        Hygroscopicity parameter.
+    surf_tension : float, optional
+        Surface tension override, J/m². Defaults to ``None`` (pure water,
+        via `pyrcel.thermo.sigma_w`), matching the original implementation.
+        Named ``surf_tension`` rather than ``sigma`` to avoid colliding with
+        this module's existing use of ``sigma``/``sigmas`` for geometric
+        standard deviation.
 
     Returns
     -------
@@ -75,9 +115,11 @@ def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tup
     $$r_\mathrm{crit} = \sqrt{\frac{3\kappa r_d^3}{A}}, \qquad
       s_\mathrm{crit} = \sqrt{\frac{4A^3}{27\kappa r_d^3}}$$
 
-    where $A = 2 M_w \sigma_w(T) / (\rho_w R T)$ is the Kelvin parameter.
+    where $A = 2 M_w \sigma(T) / (\rho_w R T)$ is the Kelvin parameter,
+    using $\sigma(T) = \sigma_w(T)$ by default or ``surf_tension`` otherwise.
     """
-    A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
+    sigma_eff = sigma_w(T) if surf_tension is None else surf_tension
+    A = (2.0 * c.Mw * sigma_eff) / (c.rho_w * c.R * T)
     r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
     s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kappa * r_dry**3))
     # When r_crit_approx < r_dry the approximate Köhler curve has no maximum
@@ -95,6 +137,7 @@ def lognormal_activation(
     kappa: ArrayLike,
     T: ArrayLike | None = None,
     sgi: ArrayLike | None = None,
+    surf_tension: ArrayLike | None = None,
 ) -> tuple[Array, Array]:
     r"""Activated number and fraction for one or more lognormal modes.
 
@@ -113,7 +156,8 @@ def lognormal_activation(
     mu : float or array-like
         Geometric mean dry radius of the mode(s), m.
     sigma : float or array-like
-        Geometric standard deviation(s).
+        Geometric standard deviation(s). (Not surface tension -- see
+        ``surf_tension`` below for that.)
     N : float or array-like
         Total number concentration(s) (cm⁻³ or any consistent unit).
     kappa : float or array-like
@@ -124,6 +168,9 @@ def lognormal_activation(
         Pre-computed modal critical supersaturation(s).  If given, ``T``
         and ``mu`` and ``kappa`` are not used for the critical-point
         calculation.
+    surf_tension : float, optional
+        Surface tension override, J/m², forwarded to `_kohler_crit_approx`
+        when ``sgi`` is not pre-supplied. Defaults to ``None`` (pure water).
 
     Returns
     -------
@@ -141,7 +188,7 @@ def lognormal_activation(
     if sgi is None:
         if T is None:
             raise ValueError("Either T or sgi must be provided.")
-        _, sgi = _kohler_crit_approx(T, mu, kappa)
+        _, sgi = _kohler_crit_approx(T, mu, kappa, surf_tension)
     return _lognormal_act(smax, sigma, N, sgi)
 
 
@@ -152,6 +199,7 @@ def binned_activation(
     r_drys: ArrayLike,
     Nis: ArrayLike,
     kappa: ArrayLike,
+    surf_tension: ArrayLike | None = None,
 ) -> tuple[Array, Array, Array, Array]:
     r"""Equilibrium and kinetic activation statistics for a binned aerosol mode.
 
@@ -175,6 +223,13 @@ def binned_activation(
         Number concentration per size bin (m⁻³).
     kappa : float
         Hygroscopicity parameter for this mode.
+    surf_tension : float, optional
+        Surface tension override for this mode, J/m². Defaults to ``None``
+        (pure water, via `pyrcel.thermo.sigma_w`), matching the original
+        implementation exactly. Set this to the same value used for this
+        species elsewhere (e.g. `pyrcel.aerosol.AerosolSpecies.sigma`) so
+        the activation diagnostics are consistent with the actual simulated
+        physics for a surfactant-modified species.
 
     Returns
     -------
@@ -209,7 +264,7 @@ def binned_activation(
     Nis = jnp.asarray(Nis, dtype=float)
 
     N_tot = jnp.sum(Nis)
-    r_crits, s_crits = _kohler_crit_approx(T, r_drys, kappa)
+    r_crits, s_crits = _kohler_crit_approx(T, r_drys, kappa, surf_tension)
 
     # Equilibrium activation: bins whose critical supersaturation is below Smax.
     N_eq = jnp.sum(jnp.where(Smax >= s_crits, Nis, 0.0))
@@ -241,6 +296,7 @@ def multi_mode_activation(
     r_dryss: Sequence[ArrayLike],
     Niss: Sequence[ArrayLike],
     kappas: ArrayLike,
+    surf_tensions: Sequence[ArrayLike | None] | None = None,
 ) -> tuple[list[Array], list[Array]]:
     r"""Activation statistics for a multi-mode binned aerosol population.
 
@@ -262,6 +318,10 @@ def multi_mode_activation(
         (m⁻³).
     kappas : array-like, shape (n_modes,)
         Hygroscopicity parameter for each mode.
+    surf_tensions : sequence, shape (n_modes,), optional
+        Per-mode surface tension override, J/m², or ``None`` entries (or the
+        whole argument as ``None``) for pure water. Defaults to ``None``
+        (every mode uses pure water), matching the original implementation.
 
     Returns
     -------
@@ -275,10 +335,13 @@ def multi_mode_activation(
     pyrcel.activation.binned_activation : Per-mode computation.
     """
     kappas = jnp.asarray(kappas, dtype=float)
+    n_modes = len(kappas)
+    if surf_tensions is None:
+        surf_tensions = [None] * n_modes
     eq_fracs: list[Array] = []
     kn_fracs: list[Array] = []
-    for rs, r_drys, Nis, kappa in zip(rss, r_dryss, Niss, kappas):
-        eq, kn, _, _ = binned_activation(Smax, T, rs, r_drys, Nis, kappa)
+    for rs, r_drys, Nis, kappa, st in zip(rss, r_dryss, Niss, kappas, surf_tensions):
+        eq, kn, _, _ = binned_activation(Smax, T, rs, r_drys, Nis, kappa, st)
         eq_fracs.append(eq)
         kn_fracs.append(kn)
     return eq_fracs, kn_fracs

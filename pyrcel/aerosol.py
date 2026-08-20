@@ -121,6 +121,15 @@ class AerosolSpecies:
         Density of the dry aerosol material (kg m⁻³).
     mw : float, optional
         Molecular weight of the dry aerosol material (kg mol⁻¹).
+    sigma : float, optional
+        Surface tension of this species' droplet solution, J/m². Defaults to
+        ``None``, meaning the model falls back to pure water's temperature-
+        dependent surface tension (``pyrcel.thermo.sigma_w``) for this
+        species, exactly matching the original behavior. Set this to model a
+        species (e.g. a surfactant-based seeding agent) whose surface
+        tension differs from water — typically the surface tension measured
+        at or above the surfactant's critical micelle concentration, treated
+        here as a constant rather than concentration-dependent.
     bins : int or array-like, optional
         Number of bins (int), or explicit bin-edge array in microns.
         Required when ``distribution`` is a [Lognorm][pyrcel.distributions.Lognorm] or
@@ -143,6 +152,9 @@ class AerosolSpecies:
         Number concentration of each bin (m⁻³).
     total_N : float
         Total number concentration (cm⁻³).
+    sigma : float or None
+        Surface tension override for this species, J/m², or ``None`` if
+        using the default (pure water).
 
     Raises
     ------
@@ -161,6 +173,11 @@ class AerosolSpecies:
 
     >>> aerosol2 = AerosolSpecies('NaCl', {'r_drys': [0.25], 'Nis': [1000.0]},
     ...                           kappa=0.2)
+
+    Surfactant seeding agent with a measured surface tension:
+
+    >>> aerosol3 = AerosolSpecies('CTAB', {'r_drys': [0.1], 'Nis': [500.0]},
+    ...                           kappa=0.3, sigma=0.036)
     """
 
     def __init__(
@@ -170,6 +187,7 @@ class AerosolSpecies:
         kappa: float,
         rho: float | None = None,
         mw: float | None = None,
+        sigma: float | None = None,
         bins: int | NDArray[np.floating[Any]] | None = None,
         r_min: float | None = None,
         r_max: float | None = None,
@@ -178,6 +196,7 @@ class AerosolSpecies:
         self.kappa = kappa
         self.rho = rho
         self.mw = mw
+        self.sigma = sigma
         self.distribution = distribution
 
         if isinstance(distribution, dict):
@@ -270,9 +289,13 @@ class AerosolSpecies:
 
     def __repr__(self) -> str:
         return (
-            f"AerosolSpecies({self.species!r}, kappa={self.kappa}, "
+            f"AerosolSpecies({self.species!r}, kappa={self.kappa}, sigma={self.sigma}, "
             f"distribution={self.distribution!r})"
         )
 
     def __str__(self) -> str:
-        return f"{self.species}: kappa={self.kappa:.3f}, N={self.total_N:.1f} cm⁻³, nr={self.nr}"
+        sigma_str = f"{self.sigma:.4f}" if self.sigma is not None else "water (default)"
+        return (
+            f"{self.species}: kappa={self.kappa:.3f}, sigma={sigma_str}, "
+            f"N={self.total_N:.1f} cm⁻³, nr={self.nr}"
+        )
