@@ -237,7 +237,7 @@ class Lognorm(BaseDistribution):
         stats_dict = dict()
         stats_dict["mean_radius"] = self.mu * np.exp(0.5 * (np.log(self.sigma)) ** 2)
 
-        stats_dict["total_diameter"] = self.N * stats_dict["mean_radius"]
+        stats_dict["total_diameter"] = 2.0 * self.moment(1.0)
         stats_dict["total_surface_area"] = 4.0 * np.pi * self.moment(2.0)
         stats_dict["total_volume"] = (4.0 * np.pi / 3.0) * self.moment(3.0)
 
@@ -245,7 +245,7 @@ class Lognorm(BaseDistribution):
         stats_dict["mean_volume"] = stats_dict["total_volume"] / self.N
 
         stats_dict["effective_radius"] = (
-            stats_dict["total_volume"] / stats_dict["total_surface_area"]
+            3.0 * stats_dict["total_volume"] / stats_dict["total_surface_area"]
         )
 
         return stats_dict
