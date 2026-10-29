@@ -186,7 +186,8 @@ def _peak_from_trajectory(
                + h(u^3-2u^2+u)\\dot{S}_0 + h(u^3-u^2)\\dot{S}_1
 
     The peak time is found analytically by solving ``dp/du = 0`` (a quadratic
-    in ``u``) over both sub-intervals and returning the larger interior maximum.
+    in ``u``) over both sub-intervals and comparing interior maxima against the
+    saved maximum. Fewer than three saved points use the saved maximum directly.
 
     Cost: 3 ODE RHS evaluations; no second ODE solve.
 
@@ -205,8 +206,9 @@ def _peak_from_trajectory(
         Refined peak supersaturation.
     t_smax : float
         Refined peak time (s).
-    y_argmax : ndarray, shape ``(7 + nr,)``
-        State at the coarse argmax index (used for ``z_smax`` / activation).
+    y_peak : ndarray, shape ``(7 + nr,)``
+        Interpolated state at the returned peak time, or the saved state at a
+        boundary. This post-hoc interpolation is limited by output cadence.
     """
     ts_a = np.asarray(ts)
     ys_a = np.asarray(ys)
@@ -280,18 +282,20 @@ def _peak_from_trajectory(
                 best = (S_pk, t0 + u * h)
         return best
 
-    r1 = _hermite_peak(_make_interp(si - 1, si, f_m, f_c), dS_m, dS_c)
-    r2 = _hermite_peak(_make_interp(si, si + 1, f_c, f_p), dS_c, dS_p)
-    candidates = [r for r in (r1, r2) if r is not None]
+    interp1 = _make_interp(si - 1, si, f_m, f_c)
+    interp2 = _make_interp(si, si + 1, f_c, f_p)
+    r1 = _hermite_peak(interp1, dS_m, dS_c)
+    r2 = _hermite_peak(interp2, dS_c, dS_p)
+    candidates = [
+        (r[0], r[1], interp) for r, interp in ((r1, interp1), (r2, interp2)) if r is not None
+    ]
     if candidates:
-        smax, t_smax = max(candidates, key=lambda x: x[0])
-    else:
-        # No interior peak found on either sub-interval (e.g. maximum lies exactly
-        # on a grid point or at a trajectory boundary).  Fall back to the raw grid
-        # maximum so boundary cases (si_raw != si) are handled correctly.
-        smax, t_smax = float(S[si_raw]), float(ts_a[si_raw])
+        smax, t_smax, interp = max(candidates, key=lambda x: x[0])
+        # An interior local maximum can still be lower than a saved endpoint.
+        if smax > float(S[si_raw]):
+            return float(smax), float(t_smax), np.asarray(interp.evaluate(t_smax))
 
-    return float(smax), float(t_smax), ys_a[si_raw]
+    return float(S[si_raw]), float(ts_a[si_raw]), ys_a[si_raw]
 
 
 def max_supersaturation(
@@ -319,7 +323,8 @@ def max_supersaturation(
        ``i``, ``i+1``) for exact endpoint derivatives ``dS/dt``.
     3. Analytic solution of ``dp/du = 0`` (a quadratic in the normalised parameter
        ``u``) over each sub-interval; the larger interior maximum wins.
-    4. Evaluate the Hermite polynomial at ``u*`` (stop-gradient'd).
+    4. Evaluate the Hermite polynomial at ``u*`` (stop-gradient'd), and retain
+       the saved maximum if it is larger.
 
     By the envelope theorem, ``d(S_max)/dV = ∂S/∂V|_{u*}`` — the dependence of the
     peak location on V drops out — so ``stop_gradient`` on ``u*`` is exact.  The
@@ -357,14 +362,15 @@ def max_supersaturation(
 
     # Coarse bracket: argmax of saved S values (no polynomial evaluations needed).
     # i_pk locates the ±1-cell window; stop-gradient'd so discrete index ops are safe.
-    S_coarse = sol.ys[:, _S_IDX]
+    ys = sol.ys
+    S_coarse = ys[:, _S_IDX]
     i_pk = jax.lax.stop_gradient(jnp.clip(jnp.argmax(S_coarse), 1, ts.shape[0] - 2))
 
     # Extract bracket states via dynamic indexing (i_pk is stop-gradient'd).
     t_m, t_c, t_p = ts[i_pk - 1], ts[i_pk], ts[i_pk + 1]
-    y_m = sol.ys[i_pk - 1]
-    y_c = sol.ys[i_pk]
-    y_p = sol.ys[i_pk + 1]
+    y_m = ys[i_pk - 1]
+    y_c = ys[i_pk]
+    y_p = ys[i_pk + 1]
 
     # ODE RHS at the three bracket points — exact dS/dt, no finite differences.
     # Gradient flows through both the ODE adjoint (via y_m/y_c/y_p) and the
@@ -440,7 +446,11 @@ def max_supersaturation(
 
     # Take the sub-interval with the larger S_max (condition is stop-gradient'd).
     use_lo = jax.lax.stop_gradient(jax.lax.stop_gradient(S_lo) >= jax.lax.stop_gradient(S_hi))
-    return jnp.where(use_lo, S_lo, S_hi)
+    S_refined = jnp.where(use_lo, S_lo, S_hi)
+    i_raw = jax.lax.stop_gradient(jnp.argmax(S_coarse))
+    S_raw = S_coarse[i_raw]
+    use_raw = jax.lax.stop_gradient(S_raw >= S_refined)
+    return jnp.where(use_raw, S_raw, S_refined)
 
 
 def nd_from_parcel(
@@ -755,6 +765,7 @@ def integrate_parcel_terminated(
     info = {
         "t_smax": t_smax_f,
         "smax": float(smax),
+        "y_smax": np.asarray(y_smax).tolist(),
         "t_cutoff": t_cutoff,
         "activated": activated,
         "success": bool(sol.result == dfx.RESULTS.successful),

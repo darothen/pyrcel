@@ -300,7 +300,7 @@ class ParcelModel:
                         t_smax, smax, y_smax, activated = _find()
                     t_smax_f = float(t_smax)
                     if activated:
-                        peak = (float(smax), t_smax_f)
+                        peak = (float(smax), t_smax_f, np.asarray(y_smax))
                         t_final = terminate_cutoff_time(
                             self.y0,
                             self.args,
@@ -327,9 +327,9 @@ class ParcelModel:
                 if not terminate:
                     # Post-hoc S_max from the saved trajectory via Hermite cubic
                     # interpolation — no second ODE solve required.
-                    smax, t_smax_f, _ = _peak_from_trajectory(ts, ys, self.args)
+                    smax, t_smax_f, y_smax = _peak_from_trajectory(ts, ys, self.args)
                     activated = True
-                    peak = (smax, t_smax_f)
+                    peak = (smax, t_smax_f, y_smax)
                     # Height at the refined peak time via linear interpolation of
                     # the saved trajectory (more accurate than the coarse-grid state).
                     z_smax = float(np.interp(t_smax_f, ts, ys[:, c.STATE_VAR_MAP["z"]]))
@@ -358,7 +358,7 @@ class ParcelModel:
                 ts, ys = np.asarray(ts), np.asarray(ys)
                 success = run_info["success"]
                 if run_info["activated"]:
-                    peak = (run_info["smax"], run_info["t_smax"])
+                    peak = (run_info["smax"], run_info["t_smax"], run_info["y_smax"])
             else:
                 ts_arr = np.append(np.arange(0.0, float(t_end), output_dt), float(t_end))
 
@@ -413,19 +413,24 @@ class ParcelModel:
 
     # --- diagnostics --------------------------------------------------------------
 
-    def _compute_summary(self, peak: object = None) -> dict:
+    def _compute_summary(self, peak: tuple | None = None) -> dict:
         assert self.x is not None
         assert self.time is not None
         if peak is not None:
             # Event-localized or caller-supplied precise S_max/t_smax.
             S_max, t_smax = float(peak[0]), float(peak[1])
-            si = int(np.argmin(np.abs(self.time - t_smax)))
+            if len(peak) >= 3:
+                y_peak = np.asarray(peak[2])
+            else:
+                # Backward-compatible support for callers supplying only S/t.
+                y_peak = np.array(
+                    [np.interp(t_smax, self.time, self.x[:, i]) for i in range(self.x.shape[1])]
+                )
         else:
             # Post-hoc Hermite cubic peak finder — no second solve.
-            S_max, t_smax, _ = _peak_from_trajectory(self.time, self.x, self.args)
-            si = int(np.argmin(np.abs(self.time - t_smax)))
-        T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
-        rs_smax = self.x[si, c.N_STATE_VARS :]
+            S_max, t_smax, y_peak = _peak_from_trajectory(self.time, self.x, self.args)
+        T_smax = float(y_peak[c.STATE_VAR_MAP["T"]])
+        rs_smax = y_peak[c.N_STATE_VARS :]
 
         # Nd snapshot: wet radii at the last trajectory step (terminate_depth m past
         # S_max when terminate=True), compared against per-bin critical radii.
@@ -469,7 +474,7 @@ class ParcelModel:
             "S_max": S_max,
             "t_smax": t_smax,
             "T_smax": T_smax,
-            "z_smax": float(self.x[si, c.STATE_VAR_MAP["z"]]),
+            "z_smax": float(y_peak[c.STATE_VAR_MAP["z"]]),
             "per_species": per_species,
             "total_act_frac": (total_act / total_N) if total_N > 0 else float("nan"),
             "total_Nd": total_Nd,
