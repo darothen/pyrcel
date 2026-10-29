@@ -32,7 +32,7 @@ from jax import Array  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
 from .activation._common import _kohler_crit_approx  # noqa: E402
-from .parcel_aux import N_STATE_VARS, parcel_ode_sys  # noqa: E402
+from .parcel_aux import N_STATE_VARS, dry_air_density, parcel_args, parcel_ode_sys  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
 
 #: CVode-equivalent tolerances (see pyrcel/integrator.py).
@@ -62,6 +62,7 @@ def atol_vector(nr: int) -> Array:
 
 @functools.partial(jax.jit, static_argnames=("max_steps", "progress_meter"))
 def _solve(y0, args, ts, rtol, atol, dtmax, max_steps, progress_meter=dfx.NoProgressMeter()):
+    args = parcel_args(y0, args)
     controller = dfx.PIDController(rtol=rtol, atol=atol, dtmax=dtmax)
     return dfx.diffeqsolve(
         _TERM,
@@ -210,6 +211,7 @@ def _peak_from_trajectory(
     """
     ts_a = np.asarray(ts)
     ys_a = np.asarray(ys)
+    args = parcel_args(ys_a[0], args)
     S = ys_a[:, _S_IDX]
     n = len(ts_a)
     if n < 3:
@@ -353,6 +355,7 @@ def max_supersaturation(
     if atol is None:
         atol = atol_vector(nr)
 
+    args = parcel_args(y0, args)
     sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
 
     # Coarse bracket: argmax of saved S values (no polynomial evaluations needed).
@@ -516,7 +519,9 @@ def nd_from_parcel(
     kappas = jnp.asarray(args[2])
 
     r_crits, _ = _kohler_crit_approx(T_final, r_drys, kappas)
-    return jnp.sum(Nis * jax.nn.sigmoid((rs_final - r_crits) / epsilon))
+    rho_d0 = parcel_args(y0, args)[5]
+    number_scale = dry_air_density(y_final) / rho_d0
+    return number_scale * jnp.sum(Nis * jax.nn.sigmoid((rs_final - r_crits) / epsilon))
 
 
 # --- Event-based S_max termination (design §4.5 option A) -------------------------
@@ -529,6 +534,7 @@ def _dS_dt(t, y, args, **kwargs):
 
 @functools.partial(jax.jit, static_argnames=("max_steps",))
 def _solve_to_smax(y0, args, t_end, rtol, atol, max_steps):
+    args = parcel_args(y0, args)
     # ``direction=False`` -> trigger only on a downward zero-crossing of dS/dt
     # (the supersaturation maximum), not the (numerically possible) initial rise.
     event = dfx.Event(_dS_dt, root_finder=optx.Newton(rtol=1e-8, atol=1e-12), direction=False)
@@ -551,6 +557,8 @@ def _solve_to_smax(y0, args, t_end, rtol, atol, max_steps):
 
 @functools.partial(jax.jit, static_argnames=("max_steps",))
 def _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps):
+    args = parcel_args(y0, args)
+
     # Stop when altitude z (= y[0]) first rises through z_target. Works for any updraft
     # (constant or V(t)); z is strictly increasing since dz/dt = V > 0.
     def cond_fn(t, y, args, **kwargs):
@@ -807,6 +815,7 @@ def integrate_parcel_chunked(
         atol = atol_vector(nr)
 
     y_curr = y0
+    args = parcel_args(y0, args)
     t_curr = 0.0
     ts_parts: list[np.ndarray] = []
     ys_parts: list[np.ndarray] = []

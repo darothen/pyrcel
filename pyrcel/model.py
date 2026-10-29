@@ -50,6 +50,7 @@ from .integrator import (
     terminate_cutoff_time,
 )
 from .model_output import ModelOutput
+from .parcel_aux import dry_air_density
 from .updraft import AbstractUpdraft
 
 __all__ = ["ParcelModel"]
@@ -147,6 +148,7 @@ class ParcelModel:
             )
         self._equil_elapsed = time.perf_counter() - t0
         self.y0 = np.asarray(y0)
+        self._rho_d0 = float(dry_air_density(self.y0))
         self._equil_residual = equilibration_residual(
             self.T0, self.S0, self._r_drys, self._kappas, self.y0[c.N_STATE_VARS :]
         )
@@ -175,9 +177,9 @@ class ParcelModel:
 
     @property
     def args(self) -> tuple:
-        """The ``(r_drys, Nis, kappas, accom, V)`` parameter tuple for the integrator."""
+        """Integrator parameters, including fixed initial dry-air density as entry six."""
         V = self.V if isinstance(self.V, AbstractUpdraft) else float(self.V)
-        return (self._r_drys, self._Nis, self._kappas, self.accom, V)
+        return (self._r_drys, self._Nis, self._kappas, self.accom, V, self._rho_d0)
 
     def run(
         self,
@@ -409,23 +411,29 @@ class ParcelModel:
                 S0=self.S0,
                 P0=self.P0,
                 accom=self.accom,
+                rho_d0=float(self.args[5]),
             )
 
     # --- diagnostics --------------------------------------------------------------
 
-    def _compute_summary(self, peak: object = None) -> dict:
+    def _compute_summary(self, peak: tuple | None = None) -> dict:
         assert self.x is not None
         assert self.time is not None
         if peak is not None:
             # Event-localized or caller-supplied precise S_max/t_smax.
             S_max, t_smax = float(peak[0]), float(peak[1])
-            si = int(np.argmin(np.abs(self.time - t_smax)))
+            if len(peak) >= 3:
+                y_peak = np.asarray(peak[2])
+            else:
+                # Backward-compatible support for callers supplying only S/t.
+                y_peak = np.array(
+                    [np.interp(t_smax, self.time, self.x[:, i]) for i in range(self.x.shape[1])]
+                )
         else:
             # Post-hoc Hermite cubic peak finder — no second solve.
-            S_max, t_smax, _ = _peak_from_trajectory(self.time, self.x, self.args)
-            si = int(np.argmin(np.abs(self.time - t_smax)))
-        T_smax = float(self.x[si, c.STATE_VAR_MAP["T"]])
-        rs_smax = self.x[si, c.N_STATE_VARS :]
+            S_max, t_smax, y_peak = _peak_from_trajectory(self.time, self.x, self.args)
+        T_smax = float(y_peak[c.STATE_VAR_MAP["T"]])
+        rs_smax = y_peak[c.N_STATE_VARS :]
 
         # Nd snapshot: wet radii at the last trajectory step (terminate_depth m past
         # S_max when terminate=True), compared against per-bin critical radii.
@@ -433,6 +441,8 @@ class ParcelModel:
         T_nd = float(self.x[i_nd, c.STATE_VAR_MAP["T"]])
         rs_nd = self.x[i_nd, c.N_STATE_VARS :]
         nd_t_eval = float(self.time[i_nd])
+        peak_scale = float(dry_air_density(y_peak)) / self._rho_d0
+        nd_scale = float(dry_air_density(self.x[i_nd])) / self._rho_d0
 
         per_species = []
         total_N = 0.0
@@ -448,7 +458,8 @@ class ParcelModel:
                 S_max, T_nd, rs_nd[offset : offset + nr], aer.r_drys, aer.Nis, aer.kappa
             )
             offset += nr
-            N = float(np.sum(aer.Nis))
+            N_initial = float(np.sum(aer.Nis))
+            N = N_initial * nd_scale
             Nd_mode = float(nd_frac) * N
             per_species.append(
                 {
@@ -456,24 +467,25 @@ class ParcelModel:
                     "eq_act_frac": float(eq),
                     "kn_act_frac": float(kn),
                     "N": N,
-                    "N_act": float(eq) * N,
+                    "N_initial": N_initial,
+                    "N_act": float(eq) * N_initial * peak_scale,
                     "nd_frac": float(nd_frac),
                     "Nd": Nd_mode,
                 }
             )
-            total_N += N
-            total_act += float(eq) * N
+            total_N += N_initial
+            total_act += float(eq) * N_initial
             total_Nd += Nd_mode
 
         return {
             "S_max": S_max,
             "t_smax": t_smax,
             "T_smax": T_smax,
-            "z_smax": float(self.x[si, c.STATE_VAR_MAP["z"]]),
+            "z_smax": float(y_peak[c.STATE_VAR_MAP["z"]]),
             "per_species": per_species,
             "total_act_frac": (total_act / total_N) if total_N > 0 else float("nan"),
             "total_Nd": total_Nd,
-            "total_nd_frac": (total_Nd / total_N) if total_N > 0 else float("nan"),
+            "total_nd_frac": (total_Nd / (total_N * nd_scale)) if total_N > 0 else float("nan"),
             "nd_t_eval": nd_t_eval,
         }
 
@@ -498,6 +510,7 @@ class ParcelModel:
             S0=self.S0,
             P0=self.P0,
             accom=self.accom,
+            rho_d0=float(self.args[5]),
         )
 
     def to_dataset(self) -> Any:

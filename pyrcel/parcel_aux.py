@@ -41,6 +41,30 @@ PI = math.pi
 N_STATE_VARS = c.N_STATE_VARS
 
 
+def dry_air_density(y: ArrayLike) -> Array:
+    """Dry-air density from pressure, temperature, and vapor per dry-air mass.
+
+    Use the vapor mixing ratio, not the independently integrated S, to obtain
+    the partial pressure: ``P_d = P / (1 + wv / epsilon)``.
+    """
+    y = jnp.asarray(y)
+    return y[..., 1] / (c.Rd * y[..., 2] * (1.0 + y[..., 3] / c.epsilon))
+
+
+def parcel_args(y0: ArrayLike, args: tuple) -> tuple:
+    """Attach fixed initial dry-air density to the historical five-argument API.
+
+    Nis remains initial number per volume (m^-3). Its ratio to this reference
+    density is conserved number per dry-air mass. Call once before any chunks.
+    A six-tuple supplied by the caller retains its original reference density.
+    """
+    if len(args) == 5:
+        return (*args, dry_air_density(y0))
+    if len(args) != 6:
+        raise ValueError("parcel args must have five entries plus optional rho_d0")
+    return args
+
+
 def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
     """Instantaneous tendency of the parcel-model state vector.
 
@@ -58,7 +82,7 @@ def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
     array, shape ``(N_STATE_VARS + nr,)``
         Time derivative ``dy/dt``.
     """
-    r_drys, Nis, kappas, accom, V = args
+    r_drys, Nis, kappas, accom, V = args[:5]
     V_t = V(t) if callable(V) else V
 
     P = y[1]
@@ -69,9 +93,10 @@ def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
 
     pv_sat = es(T - 273.15)  # saturation vapor pressure (T in Celsius)
     Tv = (1.0 + 0.61 * wv) * T  # virtual temperature
-    e = (1.0 + S) * pv_sat  # ambient vapor pressure
     rho_air = P / c.Rd / Tv
-    rho_air_dry = (P - e) / c.Rd / T
+    # A direct five-argument RHS call treats Nis as local to that state.
+    # Integrators always attach rho_d0 once, conserving Nis/rho_d0 in time.
+    rho_d0 = args[5] if len(args) == 6 else dry_air_density(y)
 
     # Per-bin condensational growth (vectorized over all aerosol bins).
     dv_r = dv(T, rs, P, accom)
@@ -83,7 +108,7 @@ def parcel_ode_sys(t: ArrayLike, y: Array, args: Any) -> Array:
     drs_dt = (G / rs) * delta_S
 
     # Liquid water tendency from droplet growth.
-    dwc_dt = (4.0 * PI * c.rho_w / rho_air_dry) * jnp.sum(Nis * rs * rs * drs_dt)
+    dwc_dt = (4.0 * PI * c.rho_w / rho_d0) * jnp.sum(Nis * rs * rs * drs_dt)
     dwi_dt = 0.0  # no ice/freezing yet
     dwv_dt = -1.0 * (dwc_dt + dwi_dt)  # mass balance
 
@@ -147,24 +172,26 @@ class ParcelVectorField(eqx.Module):
     kappas: jax.Array
     accom: jax.Array
     V: AbstractUpdraft
+    rho_d0: jax.Array | None
 
-    def __init__(self, r_drys, Nis, kappas, accom, V):
+    def __init__(self, r_drys, Nis, kappas, accom, V, rho_d0=None):
         self.r_drys = jnp.asarray(r_drys, dtype=jnp.float64)
         self.Nis = jnp.asarray(Nis, dtype=jnp.float64)
         self.kappas = jnp.asarray(kappas, dtype=jnp.float64)
         self.accom = jnp.asarray(accom, dtype=jnp.float64)
         self.V = as_updraft(V)
+        self.rho_d0 = None if rho_d0 is None else jnp.asarray(rho_d0, dtype=jnp.float64)
 
     @classmethod
     def from_args(cls, args) -> ParcelVectorField:
         """Build from the positional ``(r_drys, Nis, kappas, accom, V)`` tuple."""
-        r_drys, Nis, kappas, accom, V = args
-        return cls(r_drys, Nis, kappas, accom, V)
+        return cls(*args)
 
     @property
     def args(self) -> tuple:
-        """The ``(r_drys, Nis, kappas, accom, V)`` tuple for the integrator helpers."""
-        return (self.r_drys, self.Nis, self.kappas, self.accom, self.V)
+        """Integrator parameters, with a sixth entry when ``rho_d0`` is supplied."""
+        args = (self.r_drys, self.Nis, self.kappas, self.accom, self.V)
+        return args if self.rho_d0 is None else (*args, self.rho_d0)
 
     def __call__(self, t, y, args=None):
         return parcel_ode_sys(t, y, self.args)

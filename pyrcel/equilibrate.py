@@ -37,7 +37,7 @@ from jax import Array  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
 from . import constants as c  # noqa: E402
-from .thermo import Seq, es, rho_air, sigma_w  # noqa: E402
+from .thermo import Seq, es, sigma_w  # noqa: E402
 
 #: Default root-find tolerances. ``master`` uses ``bisect(xtol=1e-30)`` (machine
 #: precision); these reproduce ``r0`` to ~1e-13 relative, well inside §7.2b's 1e-10.
@@ -238,12 +238,14 @@ def equilibrate_initial_state(
     Nis = jnp.asarray(Nis)
 
     es0 = es(T0 - 273.15)
-    wv0 = (S0 + 1.0) * (c.epsilon * es0 / (P0 - es0))
+    e0 = (S0 + 1.0) * es0
+    wv0 = c.epsilon * e0 / (P0 - e0)
 
     r0s = equilibrate_radii(T0, S0, r_drys, kappas, **kwargs)
 
     water_vol = (4.0 * jnp.pi / 3.0) * c.rho_w * Nis * (r0s**3 - r_drys**3)
-    wc0 = jnp.sum(water_vol) / rho_air(T0, P0, 0.0)
+    rho_d0 = (P0 - e0) / (c.Rd * T0)
+    wc0 = jnp.sum(water_vol) / rho_d0
     wi0 = 0.0
 
     bulk = jnp.array([0.0, P0, T0, wv0, wc0, wi0, S0])

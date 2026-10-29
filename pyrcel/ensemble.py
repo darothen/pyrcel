@@ -29,6 +29,7 @@ from jax.typing import ArrayLike  # noqa: E402
 from . import constants as c  # noqa: E402
 from .equilibrate import equilibrate_initial_state, kohler_crit_approx  # noqa: E402
 from .integrator import STATE_RTOL, _solve_to_smax, atol_vector  # noqa: E402
+from .parcel_aux import dry_air_density  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
 
 __all__ = ["sample_gaussian_updrafts", "smax_nact_ensemble", "run_updraft_ensemble"]
@@ -101,7 +102,8 @@ def smax_nact_ensemble(
         T_peak = y_peak[2]
         t_peak = sol.ts[-1]
         _, s_crit = kohler_crit_approx(T_peak, r_drys, kappas)
-        n_act = jnp.sum(jnp.where(s_crit < s_max, Nis, 0.0))
+        number_scale = dry_air_density(y_peak) / dry_air_density(y0)
+        n_act = number_scale * jnp.sum(jnp.where(s_crit < s_max, Nis, 0.0))
         return s_max, n_act, T_peak, t_peak < t_end
 
     s_max, n_act, T_smax, activated = jax.jit(jax.vmap(_member))(V_samples)

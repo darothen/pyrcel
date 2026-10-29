@@ -26,7 +26,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import constants as c
-from .thermo import rho_air
+from .parcel_aux import dry_air_density
+from .thermo import es
 from .updraft import AbstractUpdraft, ConstantV
 
 if TYPE_CHECKING:
@@ -67,6 +68,12 @@ class ModelOutput:
     S0: float
     P0: float
     accom: float
+    rho_d0: float | None = None
+
+    def __post_init__(self):
+        if self.rho_d0 is None:
+            e0 = (1.0 + self.S0) * float(es(self.T0 - 273.15))
+            self.rho_d0 = (self.P0 - e0) / (c.Rd * self.T0)
 
     # ------------------------------------------------------------------
     # Convenience accessors for the bulk state variables
@@ -186,6 +193,7 @@ class ModelOutput:
         )
 
         offset = c.N_STATE_VARS
+        number_scale = np.asarray(dry_air_density(self.state)) / self.rho_d0
         for aer in self.aerosols:
             nr = aer.nr
             sp = aer.species
@@ -208,6 +216,11 @@ class ModelOutput:
             ds[f"{sp}_Nis"] = (
                 (bins,),
                 np.asarray(aer.Nis) * 1e-6,
+                {"units": "cm-3", "long_name": f"{sp} initial bin number concentration"},
+            )
+            ds[f"{sp}_number_concentration"] = (
+                ("time", bins),
+                number_scale[:, None] * np.asarray(aer.Nis)[None, :] * 1e-6,
                 {"units": "cm-3", "long_name": f"{sp} bin number concentration"},
             )
             ds[f"{sp}_size"] = (
@@ -217,7 +230,7 @@ class ModelOutput:
             )
             offset += nr
 
-        rho = rho_air(self.T, self.P, self.S + 1.0)
+        rho = np.asarray(dry_air_density(self.state)) * (1.0 + self.wv)
         profiles = {
             "S": (self.S * 100.0, {"units": "%", "long_name": "Supersaturation"}),
             "T": (self.T, {"units": "K", "long_name": "Temperature"}),

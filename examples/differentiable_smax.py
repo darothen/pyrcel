@@ -73,8 +73,8 @@ def differentiable_smax() -> int:
     ts = jnp.linspace(0.0, a.t_end, a.n_out)
 
     # Verify the base-state S_max
-    r_drys, Nis, kappas, accom, V_obj = model.args
-    base_args = (r_drys, Nis, kappas, accom, V_obj)
+    r_drys, Nis, kappas, accom, V_obj, rho_d0 = model.args
+    base_args = (r_drys, Nis, kappas, accom, V_obj, rho_d0)
 
     print(f"\nBase state: V={a.V} m/s, N={a.N} cm⁻³, μ={a.mu} µm, κ={a.kappa}")
 
@@ -98,7 +98,7 @@ def differentiable_smax() -> int:
     # ConstantV is an equinox Module, so jax.grad treats its field V as
     # a differentiable leaf.
     def smax_of_V(V_val: jax.Array) -> jax.Array:
-        args = (r_drys, Nis, kappas, accom, pm.ConstantV(V_val))
+        args = (r_drys, Nis, kappas, accom, pm.ConstantV(V_val), rho_d0)
         return max_supersaturation(y0, args, ts)
 
     V_base = jnp.float64(a.V)
@@ -116,7 +116,7 @@ def differentiable_smax() -> int:
     Nis_base = jnp.asarray(Nis)
 
     def smax_of_alpha(alpha: jax.Array) -> jax.Array:
-        args = (r_drys, alpha * Nis_base, kappas, accom, V_obj)
+        args = (r_drys, alpha * Nis_base, kappas, accom, V_obj, rho_d0)
         return max_supersaturation(y0, args, ts)
 
     print("Computing ∂S_max/∂N (via uniform scaling) via jax.grad...", end=" ", flush=True)
@@ -133,7 +133,7 @@ def differentiable_smax() -> int:
     kappas_base = jnp.asarray(kappas)
 
     def smax_of_kappa(kappa_val: jax.Array) -> jax.Array:
-        args = (r_drys, Nis_base, jnp.full_like(kappas_base, kappa_val), accom, V_obj)
+        args = (r_drys, Nis_base, jnp.full_like(kappas_base, kappa_val), accom, V_obj, rho_d0)
         return max_supersaturation(y0, args, ts)
 
     print("Computing ∂S_max/∂κ via jax.grad...", end=" ", flush=True)
