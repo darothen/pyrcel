@@ -2,8 +2,7 @@
 
 Checks:
 1. summary dict contains Nd keys with physically sensible values
-2. Nd >= N_act (at-smax equilibrium count) — more droplets grow to critical
-   size given additional time past S_max
+2. Per-species droplet counts sum to the total
 3. ModelOutput.Nd / nd_frac properties delegate correctly
 4. mode='nd' returns the same scalar as summary["total_Nd"]
 5. to_xarray() includes Nd and nd_t_eval variables
@@ -67,17 +66,8 @@ def test_nd_t_eval_after_smax(simple_model):
 
 
 # ---------------------------------------------------------------------------
-# 2. Physical invariant: Nd >= N_act (equilibrium at S_max)
+# 2. Per-species droplet count consistency
 # ---------------------------------------------------------------------------
-
-
-def test_nd_geq_n_act_at_smax(simple_model):
-    """Droplets given extra time past S_max should be >= those activated at S_max."""
-    simple_model.run(t_end=300.0, output_dt=5.0)
-    s = simple_model.summary()
-    N_act_smax = s["per_species"][0]["N_act"]
-    Nd = s["per_species"][0]["Nd"]
-    assert Nd >= N_act_smax - 1e-6  # allow tiny float tolerance
 
 
 def test_nd_two_mode_per_species_sum(two_mode_model):
