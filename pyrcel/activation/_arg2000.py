@@ -107,14 +107,13 @@ def arg2000(
         r_crit, Smi = _kohler_crit_approx(T, am, kap)
 
         # Scale G for non-unity accommodation (Ghan et al. 2011, eq. 40)
-        if accom == 1.0:
-            G = G_0
-        else:
-            G_a_ac = (c.rho_w * c.R * T) / (wv_sat * dv(T, r_crit, P, accom) * c.Mw)
-            G_ac = 1.0 / (G_a_ac + G_b)
-            G_a_ac1 = (c.rho_w * c.R * T) / (wv_sat * dv(T, r_crit, P, 1.0) * c.Mw)
-            G_ac1 = 1.0 / (G_a_ac1 + G_b)
-            G = G_0 * G_ac / G_ac1
+        # The ratio is exactly one at accom=1 and remains differentiable there.
+        # A Python branch (or a constant selected at unity) loses that gradient.
+        G_a_ac = (c.rho_w * c.R * T) / (wv_sat * dv(T, r_crit, P, accom) * c.Mw)
+        G_ac = 1.0 / (G_a_ac + G_b)
+        G_a_ac1 = (c.rho_w * c.R * T) / (wv_sat * dv(T, r_crit, P, 1.0) * c.Mw)
+        G_ac1 = 1.0 / (G_a_ac1 + G_b)
+        G = G_0 * (G_ac / G_ac1)
 
         fi = 0.5 * jnp.exp(2.5 * jnp.log(sig) ** 2)
         gi = 1.0 + 0.25 * jnp.log(sig)
