@@ -285,3 +285,9 @@ def test_seq_large_r_solute_vanishes():
     seq_pure = float(jnp.expm1(A))  # kappa=0 limit
     # Solute contribution ≈ kappa*(r_dry/r)³ = 0.6 * 1e-9 ≪ A ≈ 1e-3
     assert abs(seq_hygro - seq_pure) < 1e-8
+
+
+@pytest.mark.parametrize("mod", [tj, th], ids=["jax", "legacy"])
+def test_dv_cont_reference_at_one_atmosphere(mod):
+    """Pin the pressure conversion against the correlation at exactly one atm."""
+    _close(mod.dv_cont(np.asarray(T), np.full_like(T, 101325.0)), 0.211e-4 * (T / 273.0) ** 1.94)

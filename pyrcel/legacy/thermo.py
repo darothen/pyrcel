@@ -36,7 +36,7 @@ def dv_cont(T, P):
     dv : includes correction for non-continuum effects
 
     """
-    P_atm = P * 1.01325e-5  # Pa -> atm
+    P_atm = P / 101325.0  # Corrected Pa -> atm; historical fixtures used a biased factor.
     return 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
 
 

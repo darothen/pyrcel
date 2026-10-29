@@ -97,6 +97,10 @@ for the handful of breaking changes.
 - `configure_logging()` set `log.propagate = False`, silently breaking
   pytest `caplog` capture of pyrcel log records.
 
+- Correct the Pa-to-atm conversion in both water-vapor diffusivity implementations:
+  divide by exactly 101325 Pa. The previous conversion biased diffusivity low
+  by about 2.6%, changing droplet growth and parcel trajectories.
+
 ---
 
 ## [1.3.5] — 2022-10-17

@@ -82,7 +82,7 @@ def dv_cont(T: ArrayLike, P: ArrayLike) -> Array:
     --------
     pyrcel.legacy.thermo.dv_cont
     """
-    P_atm = P * 1.01325e-5  # Pa -> atm
+    P_atm = P / 101325.0  # 1 standard atmosphere = 101325 Pa exactly
     return 1e-4 * (0.211 / P_atm) * ((T / 273.0) ** 1.94)
 
 
