@@ -25,6 +25,7 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 import diffrax as dfx  # noqa: E402
+import equinox as eqx  # noqa: E402
 import jax.numpy as jnp  # noqa: E402
 import numpy as np  # noqa: E402
 import optimistix as optx  # noqa: E402
@@ -41,6 +42,11 @@ STATE_ATOL = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10, 1e-4, 1e-8]
 RADIUS_ATOL = 1e-12
 
 _TERM = dfx.ODETerm(parcel_ode_sys)
+
+
+def _checked_ys(sol):
+    """Keep scalar diagnostics from returning values after an ODE failure."""
+    return eqx.error_if(sol.ys, sol.result != dfx.RESULTS.successful, "parcel integration failed")
 
 
 def atol_vector(nr: int) -> Array:
@@ -357,14 +363,15 @@ def max_supersaturation(
 
     # Coarse bracket: argmax of saved S values (no polynomial evaluations needed).
     # i_pk locates the ±1-cell window; stop-gradient'd so discrete index ops are safe.
-    S_coarse = sol.ys[:, _S_IDX]
+    ys = _checked_ys(sol)
+    S_coarse = ys[:, _S_IDX]
     i_pk = jax.lax.stop_gradient(jnp.clip(jnp.argmax(S_coarse), 1, ts.shape[0] - 2))
 
     # Extract bracket states via dynamic indexing (i_pk is stop-gradient'd).
     t_m, t_c, t_p = ts[i_pk - 1], ts[i_pk], ts[i_pk + 1]
-    y_m = sol.ys[i_pk - 1]
-    y_c = sol.ys[i_pk]
-    y_p = sol.ys[i_pk + 1]
+    y_m = ys[i_pk - 1]
+    y_c = ys[i_pk]
+    y_p = ys[i_pk + 1]
 
     # ODE RHS at the three bracket points — exact dS/dt, no finite differences.
     # Gradient flows through both the ODE adjoint (via y_m/y_c/y_p) and the
@@ -507,7 +514,7 @@ def nd_from_parcel(
     ts = jnp.stack([jnp.zeros((), dtype=jnp.float64), jnp.asarray(t_end, dtype=jnp.float64)])
     sol = _solve(y0, args, ts, rtol, atol, None, max_steps)
 
-    y_final = sol.ys[-1]  # shape (7 + nr,); T is state index 2
+    y_final = _checked_ys(sol)[-1]  # shape (7 + nr,); T is state index 2
     T_final = y_final[2]
     rs_final = y_final[N_STATE_VARS:]  # wet radii (m), shape (nr,)
 
@@ -610,10 +617,16 @@ def find_smax(y0, args, t_end, *, rtol=STATE_RTOL, atol=None, max_steps=100_000)
     if atol is None:
         atol = atol_vector(nr)
     sol = _solve_to_smax(y0, args, t_end, rtol, atol, max_steps)
+    if not bool(
+        (sol.result == dfx.RESULTS.successful) | (sol.result == dfx.RESULTS.event_occurred)
+    ):
+        from .util import ParcelModelError
+
+        raise ParcelModelError(f"supersaturation event integration failed: {sol.result}")
     t_smax = sol.ts[-1]
     y_smax = sol.ys[-1]
     smax = y_smax[6]
-    activated = bool(t_smax < t_end)
+    activated = bool(sol.result == dfx.RESULTS.event_occurred)
     return t_smax, smax, y_smax, activated
 
 
@@ -671,6 +684,12 @@ def terminate_cutoff_time(
     if atol is None:
         atol = atol_vector(nr)
     sol_d = _solve_to_depth(y0, args, t_end, z_target, rtol, atol, max_steps)
+    if not bool(
+        (sol_d.result == dfx.RESULTS.successful) | (sol_d.result == dfx.RESULTS.event_occurred)
+    ):
+        from .util import ParcelModelError
+
+        raise ParcelModelError(f"depth event integration failed: {sol_d.result}")
     return min(float(sol_d.ts[-1]), float(t_end))
 
 

@@ -23,6 +23,7 @@ from numpy.typing import NDArray
 
 jax.config.update("jax_enable_x64", True)
 
+import diffrax as dfx  # noqa: E402
 import jax.numpy as jnp  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
@@ -83,6 +84,8 @@ def smax_nact_ensemble(
         -- the last flags members that reached a genuine interior maximum before
         ``t_end``. Activated number uses the equilibrium criterion (modal critical
         supersaturation below ``S_max``) evaluated at the peak temperature.
+        ``success`` distinguishes completed/event solves from failures; failures
+        have NaN diagnostics and ``activated=False``.
     """
     y0 = jnp.asarray(y0)
     r_drys = jnp.asarray(r_drys)
@@ -99,17 +102,25 @@ def smax_nact_ensemble(
         y_peak = sol.ys[-1]
         s_max = y_peak[6]
         T_peak = y_peak[2]
-        t_peak = sol.ts[-1]
+        event = sol.result == dfx.RESULTS.event_occurred
+        success = (sol.result == dfx.RESULTS.successful) | event
         _, s_crit = kohler_crit_approx(T_peak, r_drys, kappas)
         n_act = jnp.sum(jnp.where(s_crit < s_max, Nis, 0.0))
-        return s_max, n_act, T_peak, t_peak < t_end
+        return (
+            jnp.where(success, s_max, jnp.nan),
+            jnp.where(success, n_act, jnp.nan),
+            jnp.where(success, T_peak, jnp.nan),
+            event,
+            success,
+        )
 
-    s_max, n_act, T_smax, activated = jax.jit(jax.vmap(_member))(V_samples)
+    s_max, n_act, T_smax, activated, success = jax.jit(jax.vmap(_member))(V_samples)
     return {
         "S_max": np.asarray(s_max),
         "N_act": np.asarray(n_act),
         "T_smax": np.asarray(T_smax),
         "activated": np.asarray(activated),
+        "success": np.asarray(success),
         "V": np.asarray(V_samples),
     }
 
