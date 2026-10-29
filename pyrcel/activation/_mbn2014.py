@@ -26,6 +26,7 @@ doi:[10.5194/gmd-7-2345-2014](https://doi.org/10.5194/gmd-7-2345-2014)
 
 from __future__ import annotations
 
+import equinox as eqx
 import jax
 
 jax.config.update("jax_enable_x64", True)
@@ -292,9 +293,26 @@ def _mbn_residual(
 
 
 def _bisect(F, x_lo: Array, x_hi: Array) -> Array:
-    """Bisect F on [x_lo, x_hi] using jax.lax.while_loop."""
+    """Validate the bracket, lower its floor if necessary, and check the root.
+
+    The upper bound remains the configured 50% search cap. A root outside
+    that range is an explicit error, never a saturated endpoint result.
+    """
     y_lo = F(x_lo)
-    y_hi = F(x_hi)  # noqa: F841  # evaluated to establish bracket validity
+    y_hi = F(x_hi)
+
+    def expand_cond(carry):
+        _, yl, it = carry
+        return jnp.isfinite(yl) & (yl > 0) & (y_hi > 0) & (it < 64)
+
+    def expand_body(carry):
+        xl, _, it = carry
+        xl = xl * 0.5
+        return xl, F(xl), it + 1
+
+    x_lo, y_lo, _ = jax.lax.while_loop(expand_cond, expand_body, (x_lo, y_lo, 0))
+    valid = jnp.isfinite(y_lo) & jnp.isfinite(y_hi) & (y_lo * y_hi <= 0)
+    x_lo = eqx.error_if(x_lo, ~valid, "MBN2014 could not bracket a finite physical root")
 
     def cond(carry):
         x1, _, x2, _, it = carry
@@ -314,7 +332,13 @@ def _bisect(F, x_lo: Array, x_hi: Array) -> Array:
         )
 
     x1, _, x2, _, _ = jax.lax.while_loop(cond, body, (x_lo, y_lo, x_hi, y_hi, 0))
-    return 0.5 * (x1 + x2)
+    root = jnp.where(y_lo == 0, x_lo, jnp.where(y_hi == 0, x_hi, 0.5 * (x1 + x2)))
+    residual = F(root)
+    return eqx.error_if(
+        root,
+        ~jnp.isfinite(residual) | (jnp.abs(residual) > 10 * _TOL),
+        "MBN2014 bisection did not converge to a finite residual",
+    )
 
 
 # ---------------------------------------------------------------------------
