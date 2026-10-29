@@ -302,7 +302,7 @@ def test_lognormal_activation_precomputed_sgi():
 def test_binned_activation_vs_legacy(smax):
     """JAX eq-frac matches legacy (approx Köhler); kn-frac uses equilibrium gate."""
     eq_jax, kn_jax, alpha_jax, phi_jax = binned_activation(
-        smax, _T, _RS1, _AER1.r_drys, _AER1.Nis, _AER1.kappa
+        smax, _T, _RS1, _AER1.r_drys, _AER1.Nis, _AER1.kappa, approx=True
     )
     eq_leg, kn_leg, alpha_leg, phi_leg = binned_leg(smax, _T, _RS1, _AER1, approx=True)
 
@@ -344,6 +344,7 @@ def test_multi_mode_activation_vs_legacy():
         [_AER1.r_drys, _AER2.r_drys],
         [_AER1.Nis, _AER2.Nis],
         [_AER1.kappa, _AER2.kappa],
+        approx=True,
     )
     eq_leg, kn_leg = multi_mode_leg(
         _SMAX,

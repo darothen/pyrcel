@@ -14,7 +14,8 @@ from jax.scipy.special import erfc  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
 from .. import constants as c  # noqa: E402
-from ..thermo import sigma_w  # noqa: E402
+from ..equilibrate import kohler_crit  # noqa: E402
+from ..thermo import Seq, sigma_w  # noqa: E402
 
 
 def _lognormal_act(
@@ -76,15 +77,32 @@ def _kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tup
       s_\mathrm{crit} = \sqrt{\frac{4A^3}{27\kappa r_d^3}}$$
 
     where $A = 2 M_w \sigma_w(T) / (\rho_w R T)$ is the Kelvin parameter.
+
+    This helper always uses the dilute approximation. Its inverse power-law
+    dependence on dry radius is required by the analytic lognormal integral.
+    Use `_kohler_crit_exact` for parcel diagnostics and hard radius thresholds.
     """
+    T, r_dry, kappa = jnp.broadcast_arrays(T, r_dry, kappa)
+    # Avoid evaluating singular divisions in unselected zero-kappa branches.
+    kap = jnp.where(kappa > 0, kappa, 1.0)
     A = (2.0 * c.Mw * sigma_w(T)) / (c.rho_w * c.R * T)
-    r_crit = jnp.sqrt((3.0 * kappa * r_dry**3) / A)
-    s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kappa * r_dry**3))
-    # When r_crit_approx < r_dry the approximate Köhler curve has no maximum
-    # above the dry radius; the full curve also has no physical activation threshold.
-    # Return inf so kinetic activation comparisons (rs >= r_crits) are False.
-    r_crit = jnp.where(r_crit < r_dry, jnp.inf, r_crit)
-    return r_crit, s_crit
+    r_crit = jnp.sqrt((3.0 * kap * r_dry**3) / A)
+    s_crit = jnp.sqrt((4.0 * A**3) / (27.0 * kap * r_dry**3))
+    return jnp.where(kappa > 0, r_crit, jnp.inf), jnp.where(kappa > 0, s_crit, jnp.inf)
+
+
+@jax.jit
+def _kohler_crit_exact(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
+    """Full κ-Köhler maxima, broadcast over bins without an approximation switch.
+
+    Nonpositive κ has no finite interior maximum and is assigned infinite
+    thresholds; wet-equilibrium parcel initialization rejects those inputs.
+    """
+    T, r_dry, kappa = jnp.broadcast_arrays(T, r_dry, kappa)
+    kap = jnp.where(kappa > 0, kappa, 1.0)
+    radii = jax.vmap(kohler_crit)(T.ravel(), r_dry.ravel(), kap.ravel()).reshape(T.shape)
+    supersat = Seq(radii, r_dry, T, kap)
+    return jnp.where(kappa > 0, radii, jnp.inf), jnp.where(kappa > 0, supersat, jnp.inf)
 
 
 def lognormal_activation(
@@ -152,14 +170,16 @@ def binned_activation(
     r_drys: ArrayLike,
     Nis: ArrayLike,
     kappa: ArrayLike,
+    *,
+    approx: bool = False,
 ) -> tuple[Array, Array, Array, Array]:
     r"""Equilibrium and kinetic activation statistics for a binned aerosol mode.
 
     A JAX-native re-implementation of
     `pyrcel.legacy.activation.binned_activation` that operates on raw
     arrays (no `AerosolSpecies` object) and is `jax.jit`-compatible.
-    Critical radii and supersaturations are computed with the approximate
-    κ-Köhler formula (`_kohler_crit_approx`).
+    Critical points use the full κ-Köhler curve by default. ``approx=True``
+    explicitly selects the dilute approximation for legacy comparisons.
 
     Parameters
     ----------
@@ -175,14 +195,17 @@ def binned_activation(
         Number concentration per size bin (m⁻³).
     kappa : float
         Hygroscopicity parameter for this mode.
+    approx : bool, optional
+        Use the dilute approximation instead of full critical points. Treat
+        this option as static if supplied explicitly to ``jax.jit``.
 
     Returns
     -------
     eq_frac : float
         Equilibrium-activated fraction: bins with $S_\text{crit} \le S_\text{max}$.
     kn_frac : float
-        Kinetic-activated fraction: bins that have grown past their critical
-        wet radius.
+        Legacy kinetic-window fraction: the first qualifying bin and all
+        larger-index bins. Use a direct radius mask for hard-threshold Nd.
     alpha : float
         Ratio $N_\text{kn} / N_\text{eq}$ (kinetic limitation factor).
     phi : float
@@ -209,16 +232,15 @@ def binned_activation(
     Nis = jnp.asarray(Nis, dtype=float)
 
     N_tot = jnp.sum(Nis)
-    r_crits, s_crits = _kohler_crit_approx(T, r_drys, kappa)
+    critical = _kohler_crit_approx if approx else _kohler_crit_exact
+    r_crits, s_crits = critical(T, r_drys, kappa)
 
     # Equilibrium activation: bins whose critical supersaturation is below Smax.
     N_eq = jnp.sum(jnp.where(Smax >= s_crits, Nis, 0.0))
     eq_frac = N_eq / N_tot
 
-    # Kinetic activation: among equilibrium-activated bins only, find the
-    # smallest that has grown past its critical wet radius.  Gating on
-    # s_crits <= Smax prevents the approximate Köhler formula from triggering
-    # false positives for tiny particles near the r_crit ≈ r_dry transition.
+    # The legacy kinetic window starts at the first bin that is both eligible
+    # by peak supersaturation and already past its critical radius.
     is_r_large = (rs >= r_crits) & (s_crits <= Smax)
     any_large = jnp.any(is_r_large)
     first_large = jnp.argmax(is_r_large)  # 0 when all False (gated by any_large)
@@ -241,6 +263,8 @@ def multi_mode_activation(
     r_dryss: Sequence[ArrayLike],
     Niss: Sequence[ArrayLike],
     kappas: ArrayLike,
+    *,
+    approx: bool = False,
 ) -> tuple[list[Array], list[Array]]:
     r"""Activation statistics for a multi-mode binned aerosol population.
 
@@ -278,7 +302,7 @@ def multi_mode_activation(
     eq_fracs: list[Array] = []
     kn_fracs: list[Array] = []
     for rs, r_drys, Nis, kappa in zip(rss, r_dryss, Niss, kappas):
-        eq, kn, _, _ = binned_activation(Smax, T, rs, r_drys, Nis, kappa)
+        eq, kn, _, _ = binned_activation(Smax, T, rs, r_drys, Nis, kappa, approx=approx)
         eq_fracs.append(eq)
         kn_fracs.append(kn)
     return eq_fracs, kn_fracs

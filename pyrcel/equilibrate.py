@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import equinox as eqx
 import jax
 
 jax.config.update("jax_enable_x64", True)
@@ -44,6 +45,16 @@ from .thermo import Seq, es, rho_air, sigma_w  # noqa: E402
 _RTOL = 1e-13
 _ATOL = 1e-30
 _MAX_STEPS = 200
+
+
+def _positive_kappa(kappa):
+    """This wet-equilibrium model does not include a dry insoluble boundary."""
+    kappa = jnp.asarray(kappa)
+    invalid = ~jnp.isfinite(kappa) | (kappa <= 0)
+    message = "wet equilibration requires finite kappa > 0; insoluble dry cores are unsupported"
+    if not isinstance(kappa, jax.core.Tracer) and bool(jnp.any(invalid)):
+        raise ValueError(message)
+    return eqx.error_if(kappa, invalid, message)
 
 
 def kohler_crit_approx(T: ArrayLike, r_dry: ArrayLike, kappa: ArrayLike) -> tuple[Array, Array]:
@@ -94,7 +105,7 @@ def kohler_crit(
 
     The JAX analog of ``pyrcel.legacy.thermo.kohler_crit`` (which uses
     ``scipy.optimize.fminbound`` on ``-Seq``). ``Seq`` is unimodal for ``kappa > 0``,
-    so its derivative -- obtained analytically with ``jax.grad`` -- has a single
+    so its analytic derivative has a single
     zero (the peak) on ``[r_dry, r_dry * 1e4]``. Always returns ``r_crit > r_dry``,
     making it a valid upper bracket for the equilibrium solve at any particle size.
 
@@ -121,25 +132,41 @@ def kohler_crit(
     kohler_crit_approx : Analytic approximation.
     pyrcel.legacy.thermo.kohler_crit : NumPy equivalent using ``scipy.optimize.fminbound``.
     """
-    solver = optx.Bisection(rtol=rtol, atol=atol, expand_if_necessary=True)  # pyrefly: ignore[missing-argument]
+    kappa = _positive_kappa(kappa)
+    # Solve in x=r/r_dry: optimistix applies atol to both x and the residual.
+    # A dimensional derivative with atol=1e-30 cannot converge numerically.
+    tol = jnp.maximum(rtol, atol / r_dry)
+    solver = optx.Bisection(  # pyrefly: ignore[missing-argument]
+        rtol=rtol,
+        atol=tol,  # pyrefly: ignore[bad-argument-type]  # Bisection accepts JAX scalar tolerances.
+        expand_if_necessary=False,
+    )
+    a = (2.0 * c.Mw * sigma_w(T)) / (c.R * T * c.rho_w * r_dry)
 
-    def dseq_dr(r, args):
-        rd, kap = args
-        return jax.grad(lambda rr: Seq(rr, rd, T, kap))(r)
+    def dseq_dr(x, args):
+        kap, a = args
+        delta = (x - 1.0) * (x * x + x + 1.0)
+        solute = 3.0 * kap * x**4
+        curvature = a * delta * (delta + kap)
+        return (solute - curvature) / (solute + curvature)
 
-    lower = r_dry
-    upper = r_dry * 1e4
+    lower = 1.0
+    upper = 1e4
     guess = jnp.sqrt(lower * upper)
     sol = optx.root_find(
         dseq_dr,
         solver,
         guess,
-        args=(r_dry, kappa),
+        args=(kappa, a),
         options=dict(lower=lower, upper=upper),
         max_steps=max_steps,
         throw=False,
     )
-    return sol.value
+    return eqx.error_if(
+        r_dry * sol.value,
+        sol.result != optx.RESULTS.successful,
+        "Kohler critical-radius solve failed",
+    )
 
 
 def equilibrate_radii(

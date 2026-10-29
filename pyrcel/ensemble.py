@@ -27,7 +27,8 @@ import jax.numpy as jnp  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
 from . import constants as c  # noqa: E402
-from .equilibrate import equilibrate_initial_state, kohler_crit_approx  # noqa: E402
+from .activation._common import _kohler_crit_exact  # noqa: E402
+from .equilibrate import equilibrate_initial_state  # noqa: E402
 from .integrator import STATE_RTOL, _solve_to_smax, atol_vector  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
 
@@ -100,8 +101,9 @@ def smax_nact_ensemble(
         s_max = y_peak[6]
         T_peak = y_peak[2]
         t_peak = sol.ts[-1]
-        _, s_crit = kohler_crit_approx(T_peak, r_drys, kappas)
-        n_act = jnp.sum(jnp.where(s_crit < s_max, Nis, 0.0))
+        T_critical = jnp.where(jnp.isfinite(T_peak), T_peak, 283.15)
+        _, s_crit = _kohler_crit_exact(T_critical, r_drys, kappas)
+        n_act = jnp.sum(jnp.where(s_crit <= s_max, Nis, 0.0))
         return s_max, n_act, T_peak, t_peak < t_end
 
     s_max, n_act, T_smax, activated = jax.jit(jax.vmap(_member))(V_samples)

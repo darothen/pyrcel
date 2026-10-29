@@ -31,7 +31,7 @@ import optimistix as optx  # noqa: E402
 from jax import Array  # noqa: E402
 from jax.typing import ArrayLike  # noqa: E402
 
-from .activation._common import _kohler_crit_approx  # noqa: E402
+from .activation._common import _kohler_crit_exact  # noqa: E402
 from .parcel_aux import N_STATE_VARS, parcel_ode_sys  # noqa: E402
 from .updraft import ConstantV  # noqa: E402
 
@@ -515,7 +515,7 @@ def nd_from_parcel(
     Nis = jnp.asarray(args[1])
     kappas = jnp.asarray(args[2])
 
-    r_crits, _ = _kohler_crit_approx(T_final, r_drys, kappas)
+    r_crits, _ = _kohler_crit_exact(T_final, r_drys, kappas)
     return jnp.sum(Nis * jax.nn.sigmoid((rs_final - r_crits) / epsilon))
 
 
