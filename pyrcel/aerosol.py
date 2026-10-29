@@ -2,12 +2,34 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
 from .distributions import BaseDistribution, Lognorm, MultiModeLognorm
+
+
+def aerosol_mode_ids(aerosols) -> list[str]:
+    """Keep unique species labels; disambiguate repeated materials without collisions."""
+    names = [a.species for a in aerosols]
+    counts = Counter(names)
+    reserved = set(names)
+    used: set[str] = set()
+    next_index: Counter = Counter()
+    result = []
+    for name in names:
+        mode = name
+        if counts[name] > 1:
+            while True:
+                next_index[name] += 1
+                mode = f"{name}__mode{next_index[name]}"
+                if mode not in reserved and mode not in used:
+                    break
+        used.add(mode)
+        result.append(mode)
+    return result
 
 
 def dist_to_conc(

@@ -29,6 +29,7 @@ import numpy as np
 
 from . import constants as c
 from .activation import binned_activation
+from .aerosol import aerosol_mode_ids
 from .console_report import (
     LiveStepPrinter,
     PhaseTimer,
@@ -439,7 +440,7 @@ class ParcelModel:
         total_act = 0.0
         total_Nd = 0.0
         offset = 0
-        for aer in self.aerosols:
+        for mode_id, aer in zip(aerosol_mode_ids(self.aerosols), self.aerosols, strict=True):
             nr = aer.nr
             eq, kn, _, _ = binned_activation(
                 S_max, T_smax, rs_smax[offset : offset + nr], aer.r_drys, aer.Nis, aer.kappa
@@ -453,6 +454,7 @@ class ParcelModel:
             per_species.append(
                 {
                     "species": aer.species,
+                    "mode": mode_id,
                     "eq_act_frac": float(eq),
                     "kn_act_frac": float(kn),
                     "N": N,

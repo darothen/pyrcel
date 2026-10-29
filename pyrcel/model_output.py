@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import constants as c
+from .aerosol import aerosol_mode_ids
 from .thermo import rho_air
 from .updraft import AbstractUpdraft, ConstantV
 
@@ -67,6 +68,11 @@ class ModelOutput:
     S0: float
     P0: float
     accom: float
+
+    @property
+    def mode_ids(self) -> list[str]:
+        """Stable per-mode keys; material names remain available on aerosols."""
+        return aerosol_mode_ids(self.aerosols)
 
     # ------------------------------------------------------------------
     # Convenience accessors for the bulk state variables
@@ -137,9 +143,9 @@ class ModelOutput:
         )
         aerosol: dict[str, pd.DataFrame] = {}
         offset = c.N_STATE_VARS
-        for aer in self.aerosols:
+        for mode, aer in zip(self.mode_ids, self.aerosols, strict=True):
             cols = {f"r{j:03d}": self.state[:, offset + j] for j in range(aer.nr)}
-            aerosol[aer.species] = pd.DataFrame(cols, index=idx)
+            aerosol[mode] = pd.DataFrame(cols, index=idx)
             offset += aer.nr
         return parcel, aerosol
 
@@ -157,11 +163,11 @@ class ModelOutput:
         )
         aerosol: dict[str, pl.DataFrame] = {}
         offset = c.N_STATE_VARS
-        for aer in self.aerosols:
+        for mode, aer in zip(self.mode_ids, self.aerosols, strict=True):
             cols = {"time": self.time} | {
                 f"r{j:03d}": self.state[:, offset + j] for j in range(aer.nr)
             }
-            aerosol[aer.species] = pl.DataFrame(cols)
+            aerosol[mode] = pl.DataFrame(cols)
             offset += aer.nr
         return parcel, aerosol
 
@@ -186,9 +192,8 @@ class ModelOutput:
         )
 
         offset = c.N_STATE_VARS
-        for aer in self.aerosols:
+        for sp, aer in zip(self.mode_ids, self.aerosols, strict=True):
             nr = aer.nr
-            sp = aer.species
             bins = f"{sp}_bins"
             ds.coords[bins] = (
                 bins,
@@ -213,7 +218,7 @@ class ModelOutput:
             ds[f"{sp}_size"] = (
                 ("time", bins),
                 self.state[:, offset : offset + nr] * 1e6,
-                {"units": "micron", "long_name": f"{sp} bin wet radii"},
+                {"units": "micron", "long_name": f"{sp} bin wet radii", "species": aer.species},
             )
             offset += nr
 
@@ -246,13 +251,13 @@ class ModelOutput:
             s["t_smax"],
             {"units": "seconds", "long_name": "Time of maximum supersaturation"},
         )
-        for p in s["per_species"]:
-            ds[f"{p['species']}_eq_act_frac"] = (
+        for mode, p in zip(self.mode_ids, s["per_species"], strict=True):
+            ds[f"{mode}_eq_act_frac"] = (
                 (),
                 p["eq_act_frac"],
                 {"long_name": f"{p['species']} equilibrium activated fraction"},
             )
-            ds[f"{p['species']}_Nd"] = (
+            ds[f"{mode}_Nd"] = (
                 (),
                 p["Nd"],
                 {"units": "m-3", "long_name": f"{p['species']} activated droplet number"},
